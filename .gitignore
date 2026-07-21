@@ -1,0 +1,18 @@
+# python
+__pycache__/
+*.py[cod]
+.venv/
+.uv/
+# node
+node_modules/
+.next/
+dist/
+.turbo/
+# env
+.env
+.env.local
+*.local
+# db / celery
+celerybeat-schedule*
+# os
+.DS_Store
