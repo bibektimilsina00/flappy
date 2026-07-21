@@ -4,6 +4,7 @@ import { cn } from "@/lib/cn";
 import { NODE_CONFIG, type NodeConfig, type NodeKind } from "../constants";
 import { useNodeStatus } from "../execution-status";
 import { NodeHandles } from "./node-handles";
+import { NodeToolbar } from "./node-toolbar";
 import { PromptBar } from "./prompt-bar";
 
 interface NodeShellProps {
@@ -14,6 +15,9 @@ interface NodeShellProps {
   data?: Record<string, unknown>;
   showPromptBar?: boolean;
   bodyClassName?: string;
+  // Present only when the node has produced/holds content (media URL or text).
+  // Gates the floating action toolbar.
+  content?: string;
   children: ReactNode;
 }
 
@@ -26,6 +30,7 @@ export function NodeShell({
   data,
   showPromptBar = true,
   bodyClassName,
+  content,
   children,
 }: NodeShellProps) {
   const config: NodeConfig = NODE_CONFIG[kind];
@@ -36,6 +41,20 @@ export function NodeShell({
 
   return (
     <div className="group relative" style={{ width: config.width ?? 288 }}>
+      {/* Floating action toolbar — only when the node has content, on hover/select */}
+      {content && !upload ? (
+        <div
+          className={cn(
+            "absolute bottom-full left-1/2 z-[80] mb-3 -translate-x-1/2 transition-opacity",
+            selected
+              ? "opacity-100"
+              : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100",
+          )}
+        >
+          <NodeToolbar id={id} kind={kind} content={content} label={label} />
+        </div>
+      ) : null}
+
       <div className="mb-1.5 flex items-center gap-1.5 px-1 text-sm font-medium">
         <Icon className="size-4 shrink-0 text-muted-foreground" />
         <span className="truncate">{label ?? config.title}</span>

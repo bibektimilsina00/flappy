@@ -11,7 +11,7 @@ export function ImageNode({ id, data, selected }: NodeProps) {
   const output = useNodeOutput(id);
 
   return (
-    <NodeShell id={id} kind="image" selected={Boolean(selected)} locked={Boolean(locked)} data={data}>
+    <NodeShell id={id} kind="image" selected={Boolean(selected)} locked={Boolean(locked)} data={data} content={output ?? undefined}>
       {output ? (
         <AssetPreview kind="image" url={output} />
       ) : (

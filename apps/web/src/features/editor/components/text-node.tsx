@@ -25,6 +25,7 @@ export function TextNode({ id, data, selected }: NodeProps) {
       locked={Boolean(locked)}
       data={data}
       showPromptBar={!isTextMode}
+      content={isTextMode && hasText ? text : undefined}
     >
       {isTextMode ? (
         <div className="relative">

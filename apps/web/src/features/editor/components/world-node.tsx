@@ -11,7 +11,7 @@ export function WorldNode({ id, data, selected }: NodeProps) {
   const output = useNodeOutput(id);
 
   return (
-    <NodeShell id={id} kind="world" selected={Boolean(selected)} locked={Boolean(locked)} data={data}>
+    <NodeShell id={id} kind="world" selected={Boolean(selected)} locked={Boolean(locked)} data={data} content={output ?? undefined}>
       {output ? (
         <AssetPreview kind="world" url={output} />
       ) : (
