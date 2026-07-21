@@ -16,3 +16,7 @@ dist/
 celerybeat-schedule*
 # os
 .DS_Store
+
+# local secret backup — never commit
+env_backup
+*_backup
