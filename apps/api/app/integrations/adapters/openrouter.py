@@ -12,8 +12,10 @@ exercised end-to-end in dev.
 """
 
 import base64
+import io
 import time
 import uuid
+import wave
 
 import httpx
 
@@ -28,6 +30,19 @@ from apps.api.app.integrations.base.model_spec import ModelSpec
 BASE = "https://openrouter.ai/api/v1"
 POLL_INTERVAL = 5
 POLL_TIMEOUT = 10 * 60
+
+
+def _pcm_to_wav(pcm: bytes, rate: int = 24000) -> bytes:
+    """Wrap raw PCM in a WAV container so browsers can play it.
+    # ponytail: assumes 16-bit mono 24kHz (Gemini TTS output); parameterize the
+    # rate if another pcm-only model shows up at a different one."""
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(rate)
+        w.writeframes(pcm)
+    return buf.getvalue()
 
 
 def _check(res: httpx.Response) -> None:
@@ -164,9 +179,17 @@ class OpenRouterAdapter:
             body["voice"] = voice
         with httpx.Client(timeout=120) as client:
             res = client.post(f"{BASE}/audio/speech", headers=self._headers, json=body)
+            # Some models are pcm-only (e.g. Gemini TTS) and 400 on mp3 — the
+            # models API doesn't expose accepted formats, so retry on demand.
+            if res.status_code == 400 and "pcm" in res.text:
+                body["response_format"] = "pcm"
+                res = client.post(f"{BASE}/audio/speech", headers=self._headers, json=body)
             _check(res)
             data = res.content  # raw audio bytes
-        key = self._store(ctx, "audio", data, "mp3", "audio/mpeg")
+        if body["response_format"] == "pcm":
+            key = self._store(ctx, "audio", _pcm_to_wav(data), "wav", "audio/wav")
+        else:
+            key = self._store(ctx, "audio", data, "mp3", "audio/mpeg")
         return GenerationResult(kind="audio", cost=model.cost, key=key)
 
     def _audio_music(self, model, request, ctx) -> GenerationResult:
