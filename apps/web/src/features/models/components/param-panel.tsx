@@ -72,6 +72,26 @@ function ParamField({
     param.type === "select" ? (param.options ?? []) : rangeOf(param.min ?? 1, param.max ?? 8);
   const withIcons = ratioParam(param);
 
+  // Long option lists (e.g. 90 TTS voices) as pills are unusable — native select.
+  if (choices.length > 8) {
+    return (
+      <div>
+        <p className="mb-2 text-sm text-muted-foreground">{param.label}</p>
+        <select
+          value={String(value)}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full rounded-lg bg-[#2a2a2a] px-3 py-2 text-sm text-foreground outline-none"
+        >
+          {choices.map((choice) => (
+            <option key={choice} value={String(choice)}>
+              {choice}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
   return (
     <div>
       <p className="mb-2 text-sm text-muted-foreground">{param.label}</p>

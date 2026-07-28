@@ -153,7 +153,9 @@ export function PromptBar({ nodeId, kind, model, params, prompt }: PromptBarProp
           <ModelSelector
             models={list}
             value={selectedId}
-            onChange={(id) => setNodeData(nodeId, { model: id })}
+            // Params are model-specific (voices, ratios…) — reset on switch so a
+            // stale value from the old model is never shown or sent.
+            onChange={(id) => setNodeData(nodeId, { model: id, params: {} })}
           />
 
           {selected && (selected.params.length > 0 || mode) ? (
