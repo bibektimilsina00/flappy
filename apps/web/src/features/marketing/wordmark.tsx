@@ -1,6 +1,6 @@
 import { BRAND } from "./content";
 
-/** Onset logo mark — a teal squircle with a two-tone "flow" chevron (motion + flow). */
+/** Flappy logo mark — a teal squircle with a two-tone "flow" chevron (motion + flow). */
 export function Logo({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" className={className} aria-hidden="true" focusable="false">

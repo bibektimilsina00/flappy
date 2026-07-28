@@ -4,7 +4,7 @@ import { Providers } from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Onset",
+  title: "Flappy",
   description: "The all-in-one AI video studio",
 };
 
