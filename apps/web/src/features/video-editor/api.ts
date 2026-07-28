@@ -1,0 +1,72 @@
+import { api } from "@/lib/api";
+import { useSession } from "@/stores/session";
+import type { VideoEditorDoc, VideoEditorProject } from "./types";
+
+// Load (seeds on first open) the timeline editor project for a workflow.
+export function getEditorProject(workflowId: string): Promise<VideoEditorProject> {
+  return api<VideoEditorProject>(`/video-editor/projects/${workflowId}`);
+}
+
+// Autosave title / doc.
+export function saveEditorProject(
+  projectId: string,
+  patch: { title?: string; doc?: VideoEditorDoc },
+): Promise<{ id: string; title: string }> {
+  return api<{ id: string; title: string }>(`/video-editor/projects/${projectId}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+// Composite the timeline into an MP4 (ffmpeg, server-side) and return its URL.
+export function renderEditorProject(
+  projectId: string,
+): Promise<{ key: string; url: string; kind: string; duration: number }> {
+  return api(`/video-editor/projects/${projectId}/render`, { method: "POST" });
+}
+
+// Kick off an AI generation (text→image / text→video / image→video / extend). The
+// server appends a node to the shared workflow graph and runs it; poll the returned
+// execution id and refresh the project to surface the result asset. Throws on 402
+// (premium model / insufficient credits) with the server's detail message.
+export function generateInProject(
+  workflowId: string,
+  body: {
+    kind: "image" | "video";
+    prompt: string;
+    model?: string | null;
+    params?: Record<string, unknown>;
+    source_asset_id?: string | null;
+  },
+): Promise<{ execution_id: string; node_id: string }> {
+  return api(`/video-editor/projects/${workflowId}/generate`, { method: "POST", body: JSON.stringify(body) });
+}
+
+// Poll a generation's status.
+export function getExecution(id: string): Promise<{ id: string; status: string; error?: string | null }> {
+  return api(`/executions/${id}`);
+}
+
+// Upload media from the editor; the server adds it to the workflow graph so the
+// canvas shares it too. (Multipart, so it bypasses the JSON `api` helper.)
+export async function uploadToProject(
+  workflowId: string,
+  file: File,
+): Promise<{ id: string; kind: string; url: string; name: string }> {
+  const token = useSession.getState().token;
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`/api/v1/video-editor/projects/${workflowId}/upload`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: form,
+  });
+  if (!res.ok) {
+    const detail = await res
+      .json()
+      .then((j) => j.detail)
+      .catch(() => null);
+    throw new Error(detail ?? `Upload failed (${res.status})`);
+  }
+  return res.json();
+}

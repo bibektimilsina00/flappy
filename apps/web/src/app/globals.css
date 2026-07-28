@@ -26,14 +26,14 @@
 }
 
 .dark {
-  --background: #1b1b1b; /* dashboard content panel */
+  --background: #131313; /* dashboard content panel — kept darker */
   --foreground: #ededed;
   --card: #1e1e1e; /* sidebar / app surface */
   --card-foreground: #ededed;
   --popover: #1e1e1e;
   --popover-foreground: #ededed;
   --primary: #ededed;
-  --primary-foreground: #1b1b1b;
+  --primary-foreground: #131313;
   --secondary: #2a2a2a;
   --secondary-foreground: #ededed;
   --muted: #2a2a2a;
@@ -77,5 +77,91 @@
   body {
     background-color: var(--background);
     color: var(--foreground);
+  }
+}
+
+/* ── Marketing site palette (namespaced `mk-*`, always dark, app-theme-agnostic) ── */
+@theme {
+  --color-mk-bg: #0b0b0d;
+  --color-mk-surface: #141416;
+  --color-mk-surface2: #1c1c1f;
+  --color-mk-border: rgba(255, 255, 255, 0.09);
+  --color-mk-borders: rgba(255, 255, 255, 0.16);
+  --color-mk-fg: #fafafa;
+  --color-mk-muted: #a1a1a8;
+  --color-mk-faint: #6b6b72;
+  --color-mk-accent: #14b8a6;
+  --color-mk-accentfg: #04110f;
+}
+
+@layer utilities {
+  /* Faint node-canvas grid, used only inside the product mock. */
+  .mk-bg-grid {
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+
+  /* ── animations (transform/opacity only) ── */
+  @keyframes mk-fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes mk-marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+  @keyframes mk-float {
+    0%,
+    100% {
+      transform: translateY(0) rotate(var(--mk-r, 0deg));
+    }
+    50% {
+      transform: translateY(-10px) rotate(var(--mk-r, 0deg));
+    }
+  }
+  .mk-in {
+    animation: mk-fade-up 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  .mk-marquee {
+    animation: mk-marquee 34s linear infinite;
+  }
+  .mk-float {
+    transform: rotate(var(--mk-r, 0deg));
+    animation: mk-float 7s ease-in-out infinite;
+  }
+  /* scroll-reveal: hidden until .is-in is added by the Reveal observer */
+  .mk-reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+    will-change: opacity, transform;
+  }
+  .mk-reveal.is-in {
+    opacity: 1;
+    transform: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mk-in,
+    .mk-marquee,
+    .mk-float {
+      animation: none !important;
+    }
+    .mk-reveal {
+      opacity: 1 !important;
+      transform: none !important;
+      transition: none !important;
+    }
   }
 }

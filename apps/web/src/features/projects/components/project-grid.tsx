@@ -6,21 +6,14 @@ interface ProjectGridProps {
   workflows: Workflow[];
   onCreate: () => void;
   creating: boolean;
-  onRename: (workflow: Workflow) => void;
-  onDelete: (workflow: Workflow) => void;
 }
 
-export function ProjectGrid({ workflows, onCreate, creating, onRename, onDelete }: ProjectGridProps) {
+export function ProjectGrid({ workflows, onCreate, creating }: ProjectGridProps) {
   return (
     <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
       <NewProjectTile onClick={onCreate} pending={creating} />
       {workflows.map((workflow) => (
-        <ProjectTile
-          key={workflow.id}
-          workflow={workflow}
-          onRename={onRename}
-          onDelete={onDelete}
-        />
+        <ProjectTile key={workflow.id} workflow={workflow} />
       ))}
     </div>
   );

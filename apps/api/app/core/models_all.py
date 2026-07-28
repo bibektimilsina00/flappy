@@ -6,6 +6,9 @@ so this is imported at the Celery boundary to guarantee full registration.
 """
 
 from apps.api.app.features.assets.models import Asset  # noqa: F401
+from apps.api.app.features.assistant.models import AssistantThread  # noqa: F401
+from apps.api.app.features.collections.models import Collection  # noqa: F401
+from apps.api.app.features.video_editor.models import VideoEditorProject  # noqa: F401
 from apps.api.app.features.billing.models import Credit, UsageRecord  # noqa: F401
 from apps.api.app.features.executions.models import Execution  # noqa: F401
 from apps.api.app.features.users.models import User  # noqa: F401

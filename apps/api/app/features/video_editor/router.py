@@ -1,0 +1,355 @@
+"""Timeline editor project: load (seed on first open) + autosave.
+
+The editor doc is the declarative EditorDoc (VIDEO-EDITOR-PLAN.md §4). On first
+open for a workflow we seed a basic timeline from the workflow's assets.
+"""
+
+import os
+import subprocess
+import tempfile
+import uuid
+
+import imageio_ffmpeg
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import BaseModel
+
+from apps.api.app.api.deps import current_workspace_id, get_current_user, get_session
+from apps.api.app.features.assets import repository as assets_repo
+from apps.api.app.features.assets.models import Asset
+from apps.api.app.features.executions import service as executions_service
+from apps.api.app.features.video_editor import repository
+from apps.api.app.features.video_editor.models import VideoEditorProject
+from apps.api.app.features.video_editor.render import build_render_args
+from apps.api.app.features.users.models import User
+from apps.api.app.features.workflows import repository as workflows_repo
+from apps.api.app.storage.factory import get_storage
+from sqlmodel import Session
+
+router = APIRouter(prefix="/video-editor", tags=["video-editor"])
+
+DEFAULT_W, DEFAULT_H, DEFAULT_FPS = 1080, 1920, 30  # 9:16 default canvas (switchable)
+
+
+def _id() -> str:
+    return uuid.uuid4().hex
+
+
+def _clip(asset: Asset, kind: str, start: float, dur: float) -> dict:
+    return {
+        "id": _id(),
+        "assetId": str(asset.id),
+        "kind": kind,
+        "start": start,
+        "duration": dur,
+        "in": 0.0,
+        "out": dur,
+        "speed": 1.0,
+        "volume": 1.0,
+        "transform": {"x": 0, "y": 0, "scale": 1, "rotation": 0, "opacity": 1},
+        "keyframes": [],
+        "effects": [],
+    }
+
+
+def _track(kind: str, name: str, clips: list[dict]) -> dict:
+    return {"id": _id(), "kind": kind, "name": name, "locked": False, "hidden": False, "muted": False, "clips": clips}
+
+
+def _seed_doc(assets: list[Asset]) -> dict:
+    """Start minimal: only tracks that have content, plus one trailing empty track.
+    The client keeps a trailing empty track as media is added."""
+    video_clips: list[dict] = []
+    audio_clips: list[dict] = []
+    tv = ta = 0.0
+    for a in assets:
+        if a.kind in ("video", "image", "world"):
+            dur = 5.0 if a.kind == "video" else 3.0
+            video_clips.append(_clip(a, "image" if a.kind == "image" else "video", tv, dur))
+            tv += dur
+        elif a.kind == "audio":
+            audio_clips.append(_clip(a, "audio", ta, 10.0))
+            ta += 10.0
+    tracks: list[dict] = []
+    if video_clips:
+        tracks.append(_track("video", "V1", video_clips))
+    if audio_clips:
+        tracks.append(_track("audio", "A1", audio_clips))
+    tracks.append(_track("video", "Track", []))  # trailing empty add-slot
+    return {
+        "version": 1,
+        "fps": DEFAULT_FPS,
+        "width": DEFAULT_W,
+        "height": DEFAULT_H,
+        "duration": max(tv, ta),
+        "background": "#000000",
+        "tracks": tracks,
+        "markers": [],
+    }
+
+
+def _workflow_media(session: Session, workflow) -> list[dict]:
+    """The full media pool for a workflow — generated assets (asset table) plus uploaded
+    media (graph node `upload_key`). Each item: {id, kind, key}. `id` is the asset UUID
+    for generated, or the storage key for uploaded — the refs a clip's `assetId` uses."""
+    pool: list[dict] = []
+    seen: set[str] = set()
+    for a in assets_repo.all_for_workflow(session, workflow.id):
+        if a.key not in seen:
+            seen.add(a.key)
+            pool.append({"id": str(a.id), "kind": a.kind, "key": a.key})
+    for node in (workflow.graph or {}).get("nodes") or []:
+        key = (node.get("data") or {}).get("upload_key")
+        if not key or key in seen:
+            continue
+        kind = assets_repo.kind_from_key(key)
+        if not kind:
+            continue
+        seen.add(key)
+        pool.append({"id": key, "kind": kind, "key": key})
+    return pool
+
+
+@router.get("/projects/{workflow_id}")
+def get_project(
+    workflow_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    workflow = workflows_repo.get(session, workspace_id, workflow_id)
+    if workflow is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    assets = [a for a in assets_repo.latest_by_node_for_workflow(session, workflow_id).values() if a.key]
+
+    project = repository.get_by_workflow(session, workspace_id, workflow_id)
+    if project is None:
+        project = repository.add(
+            session,
+            VideoEditorProject(
+                workspace_id=workspace_id,
+                workflow_id=workflow_id,
+                title=workflow.name,
+                doc=_seed_doc(assets),
+            ),
+        )
+
+    storage = get_storage()
+    # Media panel = the whole project pool (generated + uploaded from the canvas),
+    # so anything created/uploaded in the canvas is available here and vice-versa.
+    pool = _workflow_media(session, workflow)
+    return {
+        "id": str(project.id),
+        "title": project.title,
+        "doc": project.doc,
+        "assets": [{"id": item["id"], "kind": item["kind"], "url": storage.url(item["key"])} for item in pool],
+    }
+
+
+@router.post("/projects/{workflow_id}/upload")
+async def upload_to_project(
+    workflow_id: uuid.UUID,
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Upload media from the editor. Stored + added to the workflow graph as an upload
+    node, so it lives in the shared project pool the canvas reads too."""
+    workflow = workflows_repo.get(session, workspace_id, workflow_id)
+    if workflow is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    ctype = file.content_type or "application/octet-stream"
+    kind = ctype.split("/", 1)[0]
+    if kind not in ("image", "video", "audio"):
+        raise HTTPException(status_code=415, detail=f"Unsupported file type: {ctype}")
+    data = await file.read()
+    if len(data) > 100 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large (max 100 MB).")
+
+    ext = file.filename.rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else "bin"
+    key = f"{workspace_id}/uploads/{uuid.uuid4()}.{ext}"
+    storage = get_storage()
+    storage.put(key, data, ctype)
+
+    name = file.filename or key.rsplit("/", 1)[-1]
+    graph = dict(workflow.graph or {})
+    nodes = list(graph.get("nodes") or [])
+    nodes.append(
+        {
+            "id": f"node-{uuid.uuid4()}",
+            "type": kind,
+            "position": {"x": 240 + (len(nodes) % 4) * 300, "y": 140 + len(nodes) * 40},
+            "data": {"kind": kind, "upload_key": key, "upload_name": name, "label": name},
+        }
+    )
+    graph["nodes"] = nodes
+    workflow.graph = graph
+    workflows_repo.save(session, workflow)
+
+    return {"id": key, "kind": kind, "url": storage.url(key), "name": name}
+
+
+class GenerateRequest(BaseModel):
+    kind: str  # "image" | "video"
+    prompt: str
+    model: str | None = None
+    params: dict = {}
+    source_asset_id: str | None = None  # a pool asset (image → image-to-video, video → extend)
+
+
+@router.post("/projects/{workflow_id}/generate")
+def generate_in_project(
+    workflow_id: uuid.UUID,
+    body: GenerateRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Generate media from the editor. Appends a generation node (and, for image→video /
+    extend, an upstream source node + edge) to the shared workflow graph, then runs just
+    that node through the normal execution engine. The result Asset joins the workflow via
+    its execution, so it lands in the shared media pool the editor and canvas both read.
+    """
+    if body.kind not in ("image", "video"):
+        raise HTTPException(status_code=422, detail="kind must be 'image' or 'video'")
+    if not (body.prompt or "").strip():
+        raise HTTPException(status_code=422, detail="A prompt is required")
+
+    workflow = workflows_repo.get(session, workspace_id, workflow_id)
+    if workflow is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    graph = dict(workflow.graph or {})
+    nodes = list(graph.get("nodes") or [])
+    edges = list(graph.get("edges") or [])
+    n = len(nodes)
+
+    gen_id = f"node-{uuid.uuid4()}"
+
+    # Optional source: a pass-through upload node wired into the generator (image→video / extend).
+    if body.source_asset_id:
+        refmap = {item["id"]: item for item in _workflow_media(session, workflow)}
+        src = refmap.get(body.source_asset_id)
+        if src is None:
+            raise HTTPException(status_code=404, detail="Source media not found")
+        source_kind = "video" if src["kind"] == "video" else "image"
+        src_id = f"node-{uuid.uuid4()}"
+        nodes.append(
+            {
+                "id": src_id,
+                "type": source_kind,
+                "position": {"x": 40, "y": 480 + n * 40},
+                "data": {"kind": source_kind, "upload_key": src["key"], "label": "source"},
+            }
+        )
+        edges.append(
+            {
+                "id": f"edge-{uuid.uuid4()}",
+                "source": src_id,
+                "target": gen_id,
+                "sourceHandle": "out",
+                "targetHandle": "video" if source_kind == "video" else "image",
+            }
+        )
+
+    nodes.append(
+        {
+            "id": gen_id,
+            "type": body.kind,
+            "position": {"x": 240 + (n % 4) * 320, "y": 480 + n * 40},
+            "data": {
+                "kind": body.kind,
+                "prompt": body.prompt,
+                "model": body.model,
+                "params": body.params or {},
+                "label": (body.prompt or body.kind)[:40],
+            },
+        }
+    )
+    graph["nodes"] = nodes
+    graph["edges"] = edges
+    workflow.graph = graph
+    workflows_repo.save(session, workflow)
+
+    # Reuses the execution engine's plan/credit guardrails (may raise 402).
+    execution = executions_service.create_execution(session, workspace_id, workflow_id, node_id=gen_id)
+    return {"execution_id": str(execution.id), "node_id": gen_id}
+
+
+class ProjectUpdate(BaseModel):
+    title: str | None = None
+    doc: dict | None = None
+
+
+@router.patch("/projects/{project_id}")
+def update_project(
+    project_id: uuid.UUID,
+    body: ProjectUpdate,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    project = repository.get(session, workspace_id, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+    if body.title is not None:
+        project.title = body.title
+    if body.doc is not None:
+        project.doc = body.doc
+    repository.save(session, project)
+    return {"id": str(project.id), "title": project.title}
+
+
+@router.post("/projects/{project_id}/render")
+def render_project(
+    project_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Composite the timeline into an MP4 via ffmpeg and store it (Phase 1b)."""
+    project = repository.get(session, workspace_id, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+
+    workflow = workflows_repo.get(session, workspace_id, project.workflow_id)
+    refmap = {item["id"]: item for item in (_workflow_media(session, workflow) if workflow else [])}
+    used = {
+        clip.get("assetId")
+        for track in (project.doc or {}).get("tracks", [])
+        for clip in track.get("clips", [])
+        if clip.get("assetId")
+    }
+    storage = get_storage()
+    exe = imageio_ffmpeg.get_ffmpeg_exe()
+
+    with tempfile.TemporaryDirectory() as d:
+        sources: dict[str, dict] = {}
+        for ref in used:
+            item = refmap.get(ref)
+            if not item:
+                continue
+            ext = os.path.splitext(item["key"])[1] or ".bin"
+            path = os.path.join(d, f"{ref.replace('/', '_')}{ext}")
+            with open(path, "wb") as f:
+                f.write(storage.get(item["key"]))
+            kind = "image" if item["kind"] == "image" else "audio" if item["kind"] == "audio" else "video"
+            sources[ref] = {"path": path, "kind": kind}
+
+        input_args, filter_complex, post, total = build_render_args(project.doc, sources)
+        out = os.path.join(d, "out.mp4")
+        cmd = [exe, "-y", *input_args, "-filter_complex", filter_complex, *post, out]
+        proc = subprocess.run(cmd, capture_output=True, timeout=900)
+        if proc.returncode != 0 or not os.path.exists(out) or os.path.getsize(out) == 0:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Render failed: {proc.stderr.decode(errors='ignore')[-400:]}",
+            )
+        with open(out, "rb") as f:
+            data = f.read()
+
+    key = f"{workspace_id}/renders/{uuid.uuid4()}.mp4"
+    storage.put(key, data, "video/mp4")
+    return {"key": key, "url": storage.url(key), "kind": "video", "duration": total}

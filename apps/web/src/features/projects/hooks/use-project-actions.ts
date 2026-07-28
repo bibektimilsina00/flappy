@@ -11,7 +11,7 @@ export function useProjectActions() {
     mutationFn: () => createWorkflow("Untitled project"),
     onSuccess: (workflow) => {
       invalidate();
-      router.push(`/editor?project=${workflow.id}`);
+      router.push(`/canvas?project=${workflow.id}`);
     },
   });
 

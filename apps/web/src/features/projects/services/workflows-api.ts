@@ -7,7 +7,7 @@ import type { Workflow, WorkflowGraph } from "../types";
 export function uploadAsset(
   file: File,
   onProgress?: (percent: number) => void,
-): Promise<{ key: string; url: string; kind: "image" | "video" | "audio" }> {
+): Promise<{ key: string; url: string; kind: "image" | "video" | "audio"; name: string }> {
   return new Promise((resolve, reject) => {
     const token = useSession.getState().token;
     const form = new FormData();
@@ -68,4 +68,87 @@ export function deleteWorkflow(id: string): Promise<void> {
 // node_id -> freshly presigned URL of each node's latest media output.
 export function getWorkflowOutputs(id: string): Promise<Record<string, string>> {
   return api<Record<string, string>>(`/workflows/${id}/outputs`);
+}
+
+type ImageEdit = { key: string; url: string; kind: "image" };
+
+// Server-side crop (avoids browser CORS on the presigned URL).
+export function cropAsset(
+  sourceUrl: string,
+  rect: { x: number; y: number; width: number; height: number },
+): Promise<ImageEdit> {
+  return api<ImageEdit>("/assets/crop", {
+    method: "POST",
+    body: JSON.stringify({ source_url: sourceUrl, ...rect }),
+  });
+}
+
+// Server-side composite of an annotation PNG over the source image.
+export function compositeAsset(sourceUrl: string, overlayPng: string): Promise<ImageEdit> {
+  return api<ImageEdit>("/assets/composite", {
+    method: "POST",
+    body: JSON.stringify({ source_url: sourceUrl, overlay_png: overlayPng }),
+  });
+}
+
+// AI image-to-image edit (Expand, Three-view, Change angle, storyboards, …).
+export function editAsset(
+  sourceUrl: string,
+  prompt: string,
+  opts?: { model?: string; size?: string },
+): Promise<ImageEdit> {
+  return api<ImageEdit>("/assets/edit", {
+    method: "POST",
+    body: JSON.stringify({ source_url: sourceUrl, prompt, ...opts }),
+  });
+}
+
+// Slice an image into an r×c grid of separate images.
+export function gridExtract(sourceUrl: string, rows: number, cols: number): Promise<ImageEdit[]> {
+  return api<ImageEdit[]>("/assets/grid-extract", {
+    method: "POST",
+    body: JSON.stringify({ source_url: sourceUrl, rows, cols }),
+  });
+}
+
+// Deterministic light tune (brightness / contrast / saturation / warmth).
+export function adjustAsset(
+  sourceUrl: string,
+  params: { brightness?: number; contrast?: number; saturation?: number; temperature?: number },
+): Promise<ImageEdit> {
+  return api<ImageEdit>("/assets/adjust", {
+    method: "POST",
+    body: JSON.stringify({ source_url: sourceUrl, ...params }),
+  });
+}
+
+// ── Video edits (ffmpeg, server-side) ────────────────────────────────────────
+type MediaResult = { key: string; url: string };
+
+export function extractFrame(sourceUrl: string, time: number): Promise<MediaResult> {
+  return api<MediaResult>("/assets/video/frame", {
+    method: "POST",
+    body: JSON.stringify({ source_url: sourceUrl, time }),
+  });
+}
+
+export function reframeVideo(sourceUrl: string, ratio: string): Promise<MediaResult> {
+  return api<MediaResult>("/assets/video/reframe", {
+    method: "POST",
+    body: JSON.stringify({ source_url: sourceUrl, ratio }),
+  });
+}
+
+export function trimVideo(sourceUrl: string, start: number, end: number): Promise<MediaResult> {
+  return api<MediaResult>("/assets/video/trim", {
+    method: "POST",
+    body: JSON.stringify({ source_url: sourceUrl, start, end }),
+  });
+}
+
+export function upscaleVideo(sourceUrl: string, scale: number): Promise<MediaResult> {
+  return api<MediaResult>("/assets/video/upscale", {
+    method: "POST",
+    body: JSON.stringify({ source_url: sourceUrl, scale }),
+  });
 }

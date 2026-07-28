@@ -37,5 +37,8 @@ class Settings(BaseSettings):
     # Spend guardrail (real provider USD). 0 disables the daily cap.
     daily_spend_cap_usd: float = 0.0
 
+    # Assistant model (empty -> openrouter/free, which works on the free tier).
+    assistant_model: str = ""
+
 
 settings = Settings()

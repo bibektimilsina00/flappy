@@ -1,7 +1,13 @@
 "use client";
 
+import { RectangleHorizontal, RectangleVertical, Sliders, Square } from "lucide-react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import type { Param } from "../types";
+
+const isRatio = (v: unknown): v is string => typeof v === "string" && /^\d+:\d+$/.test(v);
+const ratioParam = (p: Param) =>
+  p.type === "select" && (p.options?.length ?? 0) > 0 && (p.options ?? []).every(isRatio);
 
 export function paramSummary(params: Param[], values: Record<string, unknown>): string {
   return params
@@ -20,17 +26,26 @@ interface ParamPanelProps {
 }
 
 export function ParamPanel({ params, values, onChange }: ParamPanelProps) {
+  const val = (p: Param) => (values[p.key] ?? p.default) as string | number | boolean;
+  const summary = params
+    .filter((p) => p.type !== "boolean")
+    .map((p) => String(val(p)))
+    .slice(0, 3)
+    .join(" / ");
+
   return (
-    <div className="w-[520px] rounded-xl border border-border bg-popover p-4 shadow-2xl">
-      {params.map((param, index) => (
-        <div key={param.key} className={index > 0 ? "mt-4" : ""}>
-          <ParamField
-            param={param}
-            value={(values[param.key] ?? param.default) as string | number | boolean}
-            onChange={(value) => onChange(param.key, value)}
-          />
+    <div className="w-[420px] max-w-[80vw] rounded-xl border border-border bg-popover p-4 shadow-2xl">
+      <div className="max-h-[60vh] space-y-4 overflow-y-auto [scrollbar-width:thin]">
+        {params.map((param) => (
+          <ParamField key={param.key} param={param} value={val(param)} onChange={(v) => onChange(param.key, v)} />
+        ))}
+      </div>
+      {summary ? (
+        <div className="mt-3 flex items-center gap-2 border-t border-border pt-3 text-sm text-muted-foreground">
+          <Sliders className="size-4" />
+          <span className="text-foreground/90">{summary}</span>
         </div>
-      ))}
+      ) : null}
     </div>
   );
 }
@@ -54,20 +69,16 @@ function ParamField({
   }
 
   const choices: (string | number)[] =
-    param.type === "select"
-      ? (param.options ?? [])
-      : rangeOf(param.min ?? 1, param.max ?? 8);
+    param.type === "select" ? (param.options ?? []) : rangeOf(param.min ?? 1, param.max ?? 8);
+  const withIcons = ratioParam(param);
 
   return (
     <div>
       <p className="mb-2 text-sm text-muted-foreground">{param.label}</p>
       <div className="flex flex-wrap gap-2">
         {choices.map((choice) => (
-          <Pill
-            key={choice}
-            active={String(value) === String(choice)}
-            onClick={() => onChange(choice)}
-          >
+          <Pill key={choice} active={String(value) === String(choice)} onClick={() => onChange(choice)}>
+            {withIcons ? <RatioIcon ratio={String(choice)} /> : null}
             {choice}
           </Pill>
         ))}
@@ -76,24 +87,21 @@ function ParamField({
   );
 }
 
-function Pill({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
+function RatioIcon({ ratio }: { ratio: string }) {
+  const [w, h] = ratio.split(":").map(Number);
+  const cls = "size-3.5 shrink-0";
+  if (!w || !h || w === h) return <Square className={cls} />;
+  return w > h ? <RectangleHorizontal className={cls} /> : <RectangleVertical className={cls} />;
+}
+
+function Pill({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "min-w-9 rounded-lg px-3 py-2 text-sm transition-colors",
-        active
-          ? "bg-[#4a4a4a] text-white"
-          : "bg-[#2a2a2a] text-muted-foreground hover:bg-[#333]",
+        "flex min-w-9 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm transition-colors",
+        active ? "bg-[#4a4a4a] text-white" : "bg-[#2a2a2a] text-muted-foreground hover:bg-[#333]",
       )}
     >
       {children}

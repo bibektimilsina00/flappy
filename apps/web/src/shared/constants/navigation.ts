@@ -2,6 +2,7 @@ import {
   CircleHelp,
   Clapperboard,
   Compass,
+  Component,
   Home,
   Images,
   LayoutTemplate,
@@ -18,6 +19,7 @@ export interface NavItemDef {
 
 export const PRIMARY_NAV: NavItemDef[] = [
   { label: "Home", icon: Home, href: "/dashboard" },
+  { label: "Canvas", icon: Component, href: "/canvas" },
   { label: "Explore", icon: Compass, href: "/explore" },
   { label: "Search", icon: Search, href: "/search" },
 ];

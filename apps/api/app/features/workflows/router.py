@@ -11,6 +11,37 @@ from apps.api.app.storage.factory import get_storage
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
 
+_IMAGE_EXT = ("png", "jpg", "jpeg", "webp", "gif", "avif")
+_VIDEO_EXT = ("mp4", "webm", "mov", "m4v", "mkv")
+
+
+def _thumbnail_key(workflow, generated: list) -> str | None:
+    """Pick the project thumbnail, most-representative first:
+    newest generated image → newest generated video → uploaded image → uploaded video.
+    (`generated` is newest-first; uploaded media lives on graph nodes as `upload_key`.)"""
+    gen_images = [a.key for a in generated if a.kind == "image"]
+    gen_videos = [a.key for a in generated if a.kind == "video"]
+    up_images: list[str] = []
+    up_videos: list[str] = []
+    for node in (workflow.graph or {}).get("nodes") or []:
+        key = (node.get("data") or {}).get("upload_key")
+        if not key:
+            continue
+        ext = key.rsplit(".", 1)[-1].lower() if "." in key else ""
+        if ext in _IMAGE_EXT:
+            up_images.append(key)
+        elif ext in _VIDEO_EXT:
+            up_videos.append(key)
+    for bucket in (gen_images, gen_videos, up_images, up_videos):
+        if bucket:
+            return bucket[0]
+    return None
+
+
+def _with_thumbnail(workflow, generated: list, storage) -> WorkflowRead:
+    key = _thumbnail_key(workflow, generated)
+    return WorkflowRead(**workflow.model_dump(), thumbnail=storage.url(key) if key else None)
+
 
 @router.get("/{workflow_id}/outputs")
 def workflow_outputs(
@@ -36,7 +67,10 @@ def list_workflows(
     session: Session = Depends(get_session),
     workspace_id: uuid.UUID = Depends(current_workspace_id),
 ):
-    return service.list_workflows(session, workspace_id)
+    workflows = service.list_workflows(session, workspace_id)
+    media = assets_repo.media_assets_for_workspace(session, workspace_id)
+    storage = get_storage()
+    return [_with_thumbnail(wf, media.get(wf.id, []), storage) for wf in workflows]
 
 
 @router.post("", response_model=WorkflowRead, status_code=status.HTTP_201_CREATED)
@@ -54,7 +88,9 @@ def get_workflow(
     session: Session = Depends(get_session),
     workspace_id: uuid.UUID = Depends(current_workspace_id),
 ):
-    return service.get_workflow(session, workspace_id, workflow_id)
+    wf = service.get_workflow(session, workspace_id, workflow_id)
+    media = assets_repo.media_assets_for_workspace(session, workspace_id, workflow_id)
+    return _with_thumbnail(wf, media.get(wf.id, []), get_storage())
 
 
 @router.patch("/{workflow_id}", response_model=WorkflowRead)

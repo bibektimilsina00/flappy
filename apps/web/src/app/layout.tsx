@@ -4,8 +4,8 @@ import { Providers } from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Video Platform",
-  description: "Node-based AI video generation",
+  title: "Kino",
+  description: "The all-in-one AI video studio",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

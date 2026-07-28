@@ -74,6 +74,18 @@ class OpenRouterAdapter:
         body = {"model": model.config["model"], "prompt": compose_prompt(request)}
         body.update({k: v for k, v in (request.params or {}).items() if v not in (None, "")})
         with httpx.Client(timeout=180) as client:
+            # Connected image(s) → reference-image-to-image (base64 so storage
+            # reachability from OpenRouter never matters).
+            refs = []
+            for url in (request.inputs.get("image_urls") or [])[:4]:
+                try:
+                    raw = client.get(url).content
+                    data_url = "data:image/png;base64," + base64.b64encode(raw).decode()
+                    refs.append({"type": "image_url", "image_url": {"url": data_url}})
+                except Exception:
+                    continue
+            if refs:
+                body["input_references"] = refs
             res = client.post(f"{BASE}/images", headers=self._headers, json=body)
             res.raise_for_status()
             item = res.json()["data"][0]

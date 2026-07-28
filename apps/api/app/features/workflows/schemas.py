@@ -23,3 +23,4 @@ class WorkflowRead(SQLModel):
     graph: dict
     created_at: datetime
     updated_at: datetime
+    thumbnail: str | None = None  # first image (else first video) asset, presigned
