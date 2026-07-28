@@ -1,9 +1,9 @@
 // ── Single source of truth for all marketing copy. Rename the brand here. ──
 export const BRAND = {
-  name: "Kino",
+  name: "Onset",
   tagline: "Prompt to finished video, on one canvas.",
   appUrl: "/login", // "Start free" / "Sign in" → the app's auth entry
-  email: "hello@kino.studio",
+  email: "hello@onset.studio",
   social: { x: "#", youtube: "#", discord: "#" },
 };
 
@@ -36,7 +36,7 @@ export const HERO = {
   eyebrow: "AI video studio",
   title: "The all-in-one AI video studio",
   accent: "AI video", // highlighted in accent colour within the title
-  subtitle: "Kino has everything you need to generate, edit, and ship trending video — on one canvas.",
+  subtitle: "Onset has everything you need to generate, edit, and ship trending video — on one canvas.",
   primary: { label: "Try online for free", href: "/login" },
   secondary: { label: "Watch the demo", href: "#showcase" },
   note: "No credit card required",
@@ -144,13 +144,13 @@ export const COMPARE = {
     points: ["Generate in one app, export, re-import to edit", "Juggle a dozen model subscriptions", "Manual timelines that leave gaps", "Wait on a render farm", "Watermarks on anything free"],
   },
   now: {
-    title: "With Kino",
+    title: "With Onset",
     points: ["Generate and edit on one canvas", "Every model behind a single login", "A magnetic timeline that's always clean", "Cloud renders that stream back to you", "Clean exports at your resolution"],
   },
 };
 
 export const BLOG = [
-  { title: "Introducing Kino: one canvas for AI video", excerpt: "Why we fused a node-based generator and a real editor into a single workspace.", category: "Product", date: "Jul 2026", tone: "violet" },
+  { title: "Introducing Onset: one canvas for AI video", excerpt: "Why we fused a node-based generator and a real editor into a single workspace.", category: "Product", date: "Jul 2026", tone: "violet" },
   { title: "How the magnetic timeline works", excerpt: "A look under the hood at frame-perfect, gap-free editing — and why it matters.", category: "Engineering", date: "Jul 2026", tone: "teal" },
   { title: "Image-to-video: from a still to a shot", excerpt: "A step-by-step walkthrough of animating a single frame into moving footage.", category: "Tutorial", date: "Jun 2026", tone: "indigo" },
   { title: "Picking the right model for the job", excerpt: "Free vs premium, speed vs quality — a practical guide to the model menu.", category: "Guide", date: "Jun 2026", tone: "amber" },
@@ -207,7 +207,7 @@ export const PRICING = [
 ];
 
 export const FAQ = [
-  { q: "What is Kino, exactly?", a: "A single workspace for AI video: a node canvas where you generate footage by chaining models, and a magnetic timeline where you cut it together. Both share one media pool." },
+  { q: "What is Onset, exactly?", a: "A single workspace for AI video: a node canvas where you generate footage by chaining models, and a magnetic timeline where you cut it together. Both share one media pool." },
   { q: "Which AI models can I use?", a: "Text-to-image, text-to-video, image-to-video, and video-extend models from leading providers — all selectable from one menu. Free-tier models are included; premium models unlock on Pro." },
   { q: "Do I need any editing experience?", a: "No. The assistant can pick the model and generate for you, and the timeline is magnetic — it keeps everything gap-free automatically. Power users still get frame-level control." },
   { q: "How do credits work?", a: "Each generation costs credits based on the model. Free plans get a monthly allowance; Pro adds premium models and a bigger balance. You only spend credits when you generate." },

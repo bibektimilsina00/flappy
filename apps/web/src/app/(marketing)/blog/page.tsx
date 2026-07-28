@@ -8,7 +8,7 @@ import { Container, Section, SectionHeading } from "@/features/marketing/ui";
 
 export const metadata: Metadata = {
   title: "Blog",
-  description: "Tutorials, product news, and guides from the Kino team.",
+  description: "Tutorials, product news, and guides from the Onset team.",
 };
 
 export default function BlogPage() {
@@ -17,7 +17,7 @@ export default function BlogPage() {
     <>
       <Section className="pb-8 pt-16 sm:pt-20">
         <Container>
-          <SectionHeading eyebrow="Blog" title="Tutorials, news, and guides." sub="How to get the most out of Kino — plus what we're building next." />
+          <SectionHeading eyebrow="Blog" title="Tutorials, news, and guides." sub="How to get the most out of Onset — plus what we're building next." />
         </Container>
       </Section>
 

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 
 from apps.api.app.api.v1.router import api_router
 
-app = FastAPI(title="Kino API")
+app = FastAPI(title="Onset API")
 
 app.include_router(api_router, prefix="/api/v1")
 
