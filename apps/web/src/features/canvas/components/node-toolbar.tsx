@@ -19,6 +19,7 @@ import {
   Pencil,
   Pilcrow,
   Upload,
+  X,
   Zap,
 } from "lucide-react";
 import { createPortal } from "react-dom";
@@ -292,10 +293,18 @@ function ExpandOverlay({ kind, content, onClose }: { kind: NodeKind; content: st
       onClick={onClose}
     >
       <div
-        className="h-[90vh] w-[90vw] overflow-hidden rounded-xl bg-[#1e1e1e]"
+        className="relative h-[90vh] w-[90vw] overflow-hidden rounded-xl bg-[#1e1e1e]"
         onClick={(e) => e.stopPropagation()}
       >
         {body}
+        <button
+          type="button"
+          aria-label="Close"
+          onClick={onClose}
+          className="absolute right-3 top-3 grid size-9 place-items-center rounded-full bg-black/50 text-white/80 transition-colors hover:bg-black/70 hover:text-white"
+        >
+          <X className="size-5" />
+        </button>
       </div>
     </div>,
     document.body,
