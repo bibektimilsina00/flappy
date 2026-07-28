@@ -30,6 +30,7 @@ import { popupRegistry } from "../popup-registry";
 import type { NodeKind } from "../constants";
 import type { FormatOp } from "../lib/format-markdown";
 import { useTextFormat } from "../lib/text-format-context";
+import { AudioPlayer } from "./audio-player";
 import { ImageActionModal, type ImageAction } from "./image-action-modal";
 import { ImageCropModal } from "./image-crop-modal";
 import { Markdown } from "./markdown";
@@ -193,7 +194,7 @@ export function NodeToolbar({
 
       {actions ? <Divider /> : null}
 
-      {kind !== "audio" ? <Btn icon={Maximize2} label="Expand" onClick={() => setExpanded(true)} /> : null}
+      <Btn icon={Maximize2} label="Expand" onClick={() => setExpanded(true)} />
       {kind !== "text" ? (
         <>
           <Btn icon={Download} label="Download" onClick={download} />
@@ -270,6 +271,11 @@ function ExpandOverlay({ kind, content, onClose }: { kind: NodeKind; content: st
   let body: ReactNode;
   if (kind === "image" || kind === "world") body = <img src={content} alt="" className="max-h-full max-w-full rounded-lg" />;
   else if (kind === "video") body = <video controls autoPlay src={content} className="max-h-full max-w-full rounded-lg" />;
+  else if (kind === "audio") body = (
+    <div className="w-[560px] max-w-full rounded-lg bg-[#1e1e1e] p-6">
+      <AudioPlayer url={content} />
+    </div>
+  );
   else body = (
     <div className="max-h-full w-[720px] max-w-full overflow-y-auto rounded-lg bg-[#1e1e1e] p-6">
       <Markdown>{content}</Markdown>
