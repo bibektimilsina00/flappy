@@ -6,6 +6,7 @@ success, persist the asset). Failures isolate; downstream is skipped.
 """
 
 import asyncio
+import logging
 
 from apps.api.app.execution_engine.engine import graph as graph_mod
 from apps.api.app.execution_engine.engine.event_emitter import EventEmitter
@@ -13,6 +14,8 @@ from apps.api.app.execution_engine.engine.run_context import RunContext
 from apps.api.app.integrations.base.adapter import GenerationRequest
 from apps.api.app.integrations.base.model_spec import ModelSpec
 from apps.api.app.integrations.registry import get_adapter, provider_usd, resolve_model
+
+log = logging.getLogger(__name__)
 
 
 def _resolve_params(model: ModelSpec, overrides: dict) -> dict:
@@ -69,6 +72,7 @@ async def run_workflow(
         return "failed", str(exc)
 
     failed: set[str] = set()
+    errors: list[str] = []
     results: dict[str, dict] = {}
 
     for node_id in order:
@@ -125,8 +129,12 @@ async def run_workflow(
             emitter.emit("node.succeeded", node_id=node_id, data=output)
         except Exception as exc:  # noqa: BLE001 — isolate per node
             failed.add(node_id)
+            errors.append(str(exc))
+            log.warning("node %s (%s) failed: %s", node_id, node.type, exc)
             emitter.emit("node.failed", node_id=node_id, message=str(exc))
 
     status = "failed" if failed else "completed"
     emitter.emit(f"execution.{status}")
-    return status, None
+    # Persist the first node error on the execution row — the websocket event is
+    # gone after the run; this keeps the reason queryable.
+    return status, (errors[0] if errors else None)
