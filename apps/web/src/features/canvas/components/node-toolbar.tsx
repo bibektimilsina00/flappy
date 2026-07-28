@@ -292,7 +292,7 @@ function ExpandOverlay({ kind, content, onClose }: { kind: NodeKind; content: st
       onClick={onClose}
     >
       <div
-        className="h-[75vh] w-[75vw] overflow-hidden rounded-xl bg-[#1e1e1e]"
+        className="h-[90vh] w-[90vw] overflow-hidden rounded-xl bg-[#1e1e1e]"
         onClick={(e) => e.stopPropagation()}
       >
         {body}
