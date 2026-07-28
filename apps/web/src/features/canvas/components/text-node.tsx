@@ -111,7 +111,9 @@ export function TextNode({ id, data, selected }: NodeProps) {
             ) : (
               <div
                 ref={viewRef}
-                className="nodrag nowheel min-h-44 max-h-[320px] overflow-y-auto pr-7 [scrollbar-width:thin]"
+                // nodrag only when selected: first click drags/selects the node,
+                // a selected node frees the body for text selection.
+                className={`${selected ? "nodrag " : ""}nowheel min-h-44 max-h-[320px] overflow-y-auto pr-7 [scrollbar-width:thin]`}
               >
                 <Markdown>{text ?? ""}</Markdown>
               </div>

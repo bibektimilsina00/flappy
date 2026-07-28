@@ -269,22 +269,24 @@ function Divider() {
 // Fullscreen preview — portalled to body to escape React Flow's transform.
 function ExpandOverlay({ kind, content, onClose }: { kind: NodeKind; content: string; onClose: () => void }) {
   let body: ReactNode;
-  if (kind === "image" || kind === "world") body = <img src={content} alt="" className="max-h-full max-w-full rounded-lg" />;
-  else if (kind === "video") body = <video controls autoPlay src={content} className="max-h-full max-w-full rounded-lg" />;
+  if (kind === "image" || kind === "world") body = <img src={content} alt="" className="max-h-[85vh] max-w-full rounded-lg" />;
+  else if (kind === "video") body = <video controls autoPlay src={content} className="max-h-[85vh] max-w-full rounded-lg" />;
   else if (kind === "audio") body = (
     <div className="w-[560px] max-w-full rounded-lg bg-[#1e1e1e] p-6">
       <AudioPlayer url={content} />
     </div>
   );
   else body = (
-    <div className="max-h-full w-[720px] max-w-full overflow-y-auto rounded-lg bg-[#1e1e1e] p-6">
+    <div className="max-h-[85vh] w-[720px] max-w-full overflow-y-auto rounded-lg bg-[#1e1e1e] p-6 [scrollbar-width:thin]">
       <Markdown>{content}</Markdown>
     </div>
   );
 
   return createPortal(
+    // `dark` re-enters the app's dark theme scope — the portal lands on
+    // document.body, outside the .dark wrapper, so themed text would go black.
     <div
-      className="fixed inset-0 z-[200] grid place-items-center bg-black/80 p-10"
+      className="dark fixed inset-0 z-[200] grid place-items-center bg-black/80 p-10"
       onClick={onClose}
     >
       <div className="max-h-full max-w-5xl" onClick={(e) => e.stopPropagation()}>
