@@ -30,6 +30,13 @@ POLL_INTERVAL = 5
 POLL_TIMEOUT = 10 * 60
 
 
+def _check(res: httpx.Response) -> None:
+    """raise_for_status, but keep OpenRouter's error body — it names the actual
+    problem (missing voice, bad param), which the bare status line never does."""
+    if res.status_code >= 400:
+        raise RuntimeError(f"OpenRouter {res.status_code}: {res.text[:300]}")
+
+
 class OpenRouterAdapter:
     def estimate_cost(self, model: ModelSpec, request: GenerationRequest) -> float:
         return model.cost
@@ -65,7 +72,7 @@ class OpenRouterAdapter:
                     "messages": [{"role": "user", "content": compose_prompt(request)}],
                 },
             )
-            res.raise_for_status()
+            _check(res)
             content = res.json()["choices"][0]["message"]["content"]
         return GenerationResult(kind="text", cost=model.cost, text=content)
 
@@ -87,7 +94,7 @@ class OpenRouterAdapter:
             if refs:
                 body["input_references"] = refs
             res = client.post(f"{BASE}/images", headers=self._headers, json=body)
-            res.raise_for_status()
+            _check(res)
             item = res.json()["data"][0]
             b64 = item.get("b64_json")
             data = base64.b64decode(b64) if b64 else client.get(item["url"]).content
@@ -111,7 +118,7 @@ class OpenRouterAdapter:
                 ]
         with httpx.Client(timeout=120) as client:
             res = client.post(f"{BASE}/videos", headers=self._headers, json=body)
-            res.raise_for_status()
+            _check(res)
             job = res.json()
             polling_url = job.get("polling_url") or f"{BASE}/videos/{job['id']}"
             url = self._poll_video(client, polling_url)
@@ -123,7 +130,7 @@ class OpenRouterAdapter:
         deadline = time.monotonic() + POLL_TIMEOUT
         while time.monotonic() < deadline:
             r = client.get(polling_url, headers=self._headers)
-            r.raise_for_status()
+            _check(r)
             status = r.json()
             state = status.get("status")
             if state == "completed":
@@ -148,12 +155,16 @@ class OpenRouterAdapter:
             "input": compose_prompt(request),
             "response_format": "mp3",
         }
-        voice = (request.params or {}).get("voice")
+        # /audio/speech rejects voiceless requests (400) — fall back to the
+        # model's first supported voice from the catalog when the UI sent none.
+        voice = (request.params or {}).get("voice") or next(
+            (p.default for p in model.params if p.key == "voice"), None
+        )
         if voice:
-            body["voice"] = voice  # model-specific; omitted -> provider default
+            body["voice"] = voice
         with httpx.Client(timeout=120) as client:
             res = client.post(f"{BASE}/audio/speech", headers=self._headers, json=body)
-            res.raise_for_status()
+            _check(res)
             data = res.content  # raw audio bytes
         key = self._store(ctx, "audio", data, "mp3", "audio/mpeg")
         return GenerationResult(kind="audio", cost=model.cost, key=key)
@@ -173,7 +184,7 @@ class OpenRouterAdapter:
                     "messages": [{"role": "user", "content": compose_prompt(request)}],
                 },
             )
-            res.raise_for_status()
+            _check(res)
             msg = res.json()["choices"][0]["message"]
             b64 = (msg.get("audio") or {}).get("data")
             if not b64:
