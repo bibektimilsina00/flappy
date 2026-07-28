@@ -189,7 +189,7 @@ export function PrecisionEdit({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[200] flex flex-col bg-[#0a0a0a]">
+    <div className="dark fixed inset-0 z-[200] flex flex-col bg-[#0a0a0a]">
       {/* top bar */}
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-3">

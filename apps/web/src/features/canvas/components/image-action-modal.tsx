@@ -108,7 +108,7 @@ export function ImageActionModal({
   })();
 
   return createPortal(
-    <div className="fixed inset-0 z-[200] flex flex-col bg-[#0a0a0a]">{body}</div>,
+    <div className="dark fixed inset-0 z-[200] flex flex-col bg-[#0a0a0a]">{body}</div>,
     document.body,
   );
 }

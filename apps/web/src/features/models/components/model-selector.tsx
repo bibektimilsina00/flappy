@@ -133,7 +133,7 @@ export function ModelSelector({ models, value, onChange }: ModelSelectorProps) {
               ref={popupRef}
               data-popup
               style={{ position: "fixed", left: pos.left, top: pos.top, bottom: pos.bottom, width: pos.width }}
-              className="z-[200] flex flex-col overflow-hidden rounded-xl border border-white/10 bg-[#1e1e1e] shadow-2xl"
+              className="dark z-[200] flex flex-col overflow-hidden rounded-xl border border-white/10 bg-[#1e1e1e] shadow-2xl"
             >
               <div className="max-h-[min(55vh,380px)] overflow-y-auto p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {free.length === 0 && premium.length === 0 ? (

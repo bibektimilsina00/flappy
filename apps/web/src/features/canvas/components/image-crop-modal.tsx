@@ -63,7 +63,7 @@ export function ImageCropModal({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[200] flex flex-col bg-black/95">
+    <div className="dark fixed inset-0 z-[200] flex flex-col bg-black/95">
       <div className="flex justify-center py-4">
         <div className="flex items-center gap-3 rounded-full bg-[#1e1e1e] px-4 py-2">
           <span className="text-sm font-medium">Crop image</span>
