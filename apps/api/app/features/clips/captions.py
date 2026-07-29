@@ -165,7 +165,11 @@ def build_ass(
             text = str(w["w"]).strip().replace("{", "").replace("}", "").replace("\n", " ")
             if p.get("upper"):
                 text = text.upper()
-            parts.append(f"{{\\k{dur_cs}}}{text}")
+            if w.get("hl"):
+                # keyword highlight: force the accent colour in both karaoke states
+                parts.append(f"{{\\1c{p['primary']}&\\2c{p['primary']}&}}{{\\k{dur_cs}}}{text}{{\\r}}")
+            else:
+                parts.append(f"{{\\k{dur_cs}}}{text}")
         # \fad: quick fade-in/out per line — subtle motion that reads as "animated".
         events.append(f"Dialogue: 0,{_ass_time(s)},{_ass_time(e)},Cap,,0,0,0,,{{\\fad(120,60)}}{' '.join(parts)}")
     return header + "\n".join(events) + "\n"

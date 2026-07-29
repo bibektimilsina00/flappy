@@ -42,6 +42,9 @@ const DEFAULTS: ClipsParams = {
   captions: true,
   caption_style: "clean",
   framing: true,
+  add_emojis: true,
+  highlight_keywords: true,
+  censor: false,
 };
 
 const PHASE_LABEL: Record<string, string> = {
@@ -582,6 +585,27 @@ function ConfigPanel({
           custom={params.caption_custom ?? null}
           onChange={(patch) => setParams((p) => ({ ...p, ...patch }))}
         />
+      </div>
+
+      {/* caption extras */}
+      <div className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 sm:grid-cols-3">
+        {(
+          [
+            ["add_emojis", "Add emojis", "AI drops a fitting emoji into key lines"],
+            ["highlight_keywords", "Highlight keywords", "AI colors the 1–2 words that matter"],
+            ["censor", "Auto-censor", "Masks profanity in captions"],
+          ] as const
+        ).map(([key, label, hint]) => (
+          <label key={key} className="flex cursor-pointer items-start gap-2.5" title={hint}>
+            <input
+              type="checkbox"
+              checked={Boolean(params[key])}
+              onChange={(e) => setParams((p) => ({ ...p, [key]: e.target.checked }))}
+              className="mt-0.5 size-4 shrink-0 accent-teal-400"
+            />
+            <span className="text-sm">{label}</span>
+          </label>
+        ))}
       </div>
 
       {/* focus */}

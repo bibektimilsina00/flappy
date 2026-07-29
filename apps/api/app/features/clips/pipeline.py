@@ -72,7 +72,10 @@ def run_pipeline(session: Session, job: ClipsJob, charge) -> None:
 
         segments = _select(job, transcript, duration)
         charge(settings.clips_credits_select, "clips-select")
-        _set(session, job, phase="render", progress=0.0)
+        # Optional caption decoration (emojis / keyword highlights / censor) —
+        # applied to the transcript words so overlay, burn, and SRT all agree.
+        _decorate(job, transcript, segments)
+        _set(session, job, transcript=transcript, phase="render", progress=0.0)
 
         clips = []
         for i, seg in enumerate(segments):
@@ -452,3 +455,88 @@ def schedule_posts(session: Session, job: ClipsJob) -> None:
     except Exception:  # noqa: BLE001
         log.exception("auto-schedule failed for job %s", job.id)
         session.rollback()
+
+
+# ── caption decoration: emojis, keyword highlights, censoring ────────────────
+CENSOR_WORDS = {
+    "fuck", "fucking", "fucked", "shit", "bitch", "asshole", "dick", "pussy",
+    "cunt", "bastard", "motherfucker", "cock", "whore", "slut",
+}
+
+
+def _censor_word(word: str) -> str:
+    core = re.sub(r"\W", "", word).lower()
+    if core in CENSOR_WORDS and len(core) > 2:
+        return word.replace(core[1:-1], "*" * (len(core) - 2)) if core in word.lower() else word[0] + "*" * (len(word) - 2) + word[-1]
+    return word
+
+
+def _decorate(job: ClipsJob, transcript: list[dict], clips: list[dict]) -> None:
+    """Mutates transcript words in place: censor locally; emojis/keywords via one
+    LLM call over the selected clip windows. Failures skip decoration silently."""
+    params = job.params or {}
+    censor = bool(params.get("censor"))
+    emojis = bool(params.get("add_emojis"))
+    keywords = bool(params.get("highlight_keywords"))
+    if censor:
+        for seg in transcript:
+            for w in seg.get("words") or []:
+                w["w"] = _censor_word(w["w"])
+            seg["text"] = " ".join(w["w"] for w in (seg.get("words") or [])) or seg["text"]
+    if not (emojis or keywords):
+        return
+
+    idxs = [
+        i for i, s in enumerate(transcript)
+        if (s.get("words")) and any(s["end"] > c["start"] and s["start"] < c["end"] for c in clips)
+    ]
+    if not idxs:
+        return
+    lines = "\n".join(
+        f"{i}: " + " ".join(f"[{j}]{w['w']}" for j, w in enumerate(transcript[i]["words"]))
+        for i in idxs
+    )
+    tasks = []
+    if emojis:
+        tasks.append('add at most ONE fitting emoji per line, placed after an impactful word ("em": [[word_index, "emoji"]])')
+    if keywords:
+        tasks.append('pick 1-2 keyword word-indexes per line to highlight ("kw": [word_index, ...])')
+    prompt = (
+        "You decorate short-video captions. Lines below are numbered, each word "
+        "prefixed with its [index]. " + "; ".join(tasks) + ". Only include lines you "
+        "change. Respond with ONLY a JSON array of {\"i\": <line>, "
+        + ('"em": [[idx, emoji]], ' if emojis else "")
+        + ('"kw": [idx, ...]' if keywords else "")
+        + "}.\n\n" + lines
+    )
+    try:
+        model = resolve_model("text", settings.clips_select_model or None)
+        if model is None:
+            return
+        raw = get_adapter(model.adapter).generate(model, GenerationRequest(kind="text", prompt=prompt), None).text or ""
+        decoder = json.JSONDecoder()
+        items, idx = None, raw.find("[")
+        while idx != -1 and items is None:
+            try:
+                cand, _ = decoder.raw_decode(raw, idx)
+                if isinstance(cand, list):
+                    items = cand
+            except json.JSONDecodeError:
+                pass
+            idx = raw.find("[", idx + 1)
+        for item in items or []:
+            if not isinstance(item, dict):
+                continue
+            seg = transcript[int(item["i"])] if 0 <= int(item.get("i", -1)) < len(transcript) else None
+            words = (seg or {}).get("words") or []
+            if not words:
+                continue
+            for wi in item.get("kw") or []:
+                if isinstance(wi, int) and 0 <= wi < len(words):
+                    words[wi]["hl"] = True
+            for pair in item.get("em") or []:
+                if isinstance(pair, list) and len(pair) == 2 and isinstance(pair[0], int) and 0 <= pair[0] < len(words):
+                    words[pair[0]]["w"] = f"{words[pair[0]]['w']} {str(pair[1])[:4]}"
+            seg["text"] = " ".join(w["w"] for w in words)
+    except Exception as exc:  # noqa: BLE001 — decoration is optional polish
+        log.warning("caption decoration skipped: %s", exc)

@@ -4,7 +4,7 @@ import { Captions, Check, Maximize, Pause, Play, Volume2, VolumeX } from "lucide
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import type { ClipItem, CustomCaptionStyle, TranscriptSegment } from "./api";
-import { CaptionSample, captionCss, PRESET_META } from "./caption-templates";
+import { captionCss, PRESET_META } from "./caption-templates";
 
 export interface CcState {
   on: boolean;
@@ -15,6 +15,7 @@ interface Word {
   w: string;
   s: number;
   e: number;
+  hl?: boolean;
 }
 interface Line {
   s: number; // clip-relative seconds
@@ -237,7 +238,7 @@ function CaptionOverlay({
   custom?: CustomCaptionStyle | null;
 }) {
   const css = captionCss(style, custom, 1.15);
-  const active = line.words.find((w) => t >= w.s && t <= w.e);
+  const accent = { ...css.active };
   return (
     <div
       className={cn(
@@ -245,11 +246,16 @@ function CaptionOverlay({
         css.middle ? "top-1/2 -translate-y-1/2" : "bottom-[18%]",
       )}
     >
-      <CaptionSample
-        css={css}
-        text={line.words.map((w) => w.w).join(" ")}
-        activeIndex={active ? line.words.indexOf(active) : -1}
-      />
+      <span
+        className={cn("max-w-full text-center leading-snug", css.boxed && "rounded bg-black/60 px-1.5 py-0.5")}
+        style={css.base}
+      >
+        {line.words.map((w, i) => (
+          <span key={`${w.s}-${i}`} style={w.hl || (t >= w.s && t <= w.e) ? accent : undefined}>
+            {w.w}{" "}
+          </span>
+        ))}
+      </span>
     </div>
   );
 }

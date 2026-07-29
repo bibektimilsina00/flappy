@@ -21,7 +21,7 @@ export interface TranscriptSegment {
   text: string;
   start: number;
   end: number;
-  words?: { w: string; s: number; e: number }[];
+  words?: { w: string; s: number; e: number; hl?: boolean }[];
 }
 
 export interface ClipsJob {
@@ -86,6 +86,9 @@ export interface ClipsParams {
   caption_style: string; // preset id or "custom"
   caption_custom?: CustomCaptionStyle | null;
   framing: boolean;
+  add_emojis: boolean;
+  highlight_keywords: boolean;
+  censor: boolean;
   schedule?: ScheduleConfig;
 }
 

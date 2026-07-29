@@ -1,7 +1,7 @@
 "use client";
 
-import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Check, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import type { CustomCaptionStyle } from "./api";
 
@@ -160,6 +160,7 @@ export function CaptionStylePicker({
   const [tab, setTab] = useState<"featured" | "mine">("featured");
   const [templates, setTemplates] = useState<UserTemplate[]>([]);
   const [editing, setEditing] = useState<UserTemplate | "new" | null>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setTemplates(loadTemplates());
@@ -219,8 +220,8 @@ export function CaptionStylePicker({
 
   return (
     <div>
-      {/* folder-style tabs: the active tab connects to the panel below */}
-      <div className="flex items-end gap-1">
+      {/* segmented tabs */}
+      <div className="mb-3 inline-flex rounded-xl border border-white/10 bg-black/30 p-1">
         {(
           [
             { id: "featured", label: "Featured" },
@@ -232,10 +233,10 @@ export function CaptionStylePicker({
             type="button"
             onClick={() => setTab(t.id)}
             className={cn(
-              "-mb-px rounded-t-2xl border px-5 py-3 text-sm transition-all",
+              "rounded-lg px-4 py-1.5 text-sm transition-colors",
               tab === t.id
-                ? "relative z-10 border-white/15 border-b-transparent bg-[#161616] font-semibold text-foreground"
-                : "translate-y-[3px] border-white/[0.07] bg-white/[0.015] pb-2 text-muted-foreground/70 hover:bg-white/[0.05] hover:text-foreground",
+                ? "bg-teal-400/15 font-medium text-teal-300"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             {t.label}
@@ -243,7 +244,24 @@ export function CaptionStylePicker({
         ))}
       </div>
 
-      <div className="flex snap-x gap-3 overflow-x-auto rounded-xl rounded-tl-none border border-white/15 bg-[#161616] p-4 [scrollbar-width:thin]">
+      <div className="relative">
+        <button
+          type="button"
+          aria-label="Scroll left"
+          onClick={() => rowRef.current?.scrollBy({ left: -320, behavior: "smooth" })}
+          className="absolute -left-3 top-1/2 z-10 grid size-8 -translate-y-1/2 place-items-center rounded-full border border-white/15 bg-[#222] text-foreground/80 shadow-xl transition-colors hover:bg-[#2e2e2e] hover:text-foreground"
+        >
+          <ChevronLeft className="size-4" />
+        </button>
+        <button
+          type="button"
+          aria-label="Scroll right"
+          onClick={() => rowRef.current?.scrollBy({ left: 320, behavior: "smooth" })}
+          className="absolute -right-3 top-1/2 z-10 grid size-8 -translate-y-1/2 place-items-center rounded-full border border-white/15 bg-[#222] text-foreground/80 shadow-xl transition-colors hover:bg-[#2e2e2e] hover:text-foreground"
+        >
+          <ChevronRight className="size-4" />
+        </button>
+        <div ref={rowRef} className="flex snap-x gap-3 overflow-x-auto rounded-2xl border border-white/10 bg-[#161616] p-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {tab === "featured" ? (
           <>
             {PRESET_META.map((p) =>
@@ -294,6 +312,7 @@ export function CaptionStylePicker({
             </button>
           </>
         )}
+        </div>
       </div>
 
       {editing ? (
