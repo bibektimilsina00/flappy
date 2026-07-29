@@ -59,4 +59,5 @@ export interface VideoEditorProject {
   title: string;
   doc: VideoEditorDoc;
   assets: VideoEditorAsset[];
+  share?: { review: string | null; presentation: string | null };
 }

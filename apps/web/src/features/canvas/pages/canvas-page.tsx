@@ -412,10 +412,12 @@ function CanvasWorkspace({ projectId, initialNodes, initialEdges }: CanvasWorksp
     [addNodeAt, setNodeData, removeNode, execution.seedOutputs],
   );
 
-  // Credits change during a run — refresh the balance when it settles.
+  // Credits and assets change during a run — refresh both when it settles,
+  // so the generations panel shows new outputs without a page reload.
   useEffect(() => {
     if (execution.status === "completed" || execution.status === "failed") {
       queryClient.invalidateQueries({ queryKey: ["balance"] });
+      queryClient.invalidateQueries({ queryKey: ["assets"] });
     }
   }, [execution.status, queryClient]);
 

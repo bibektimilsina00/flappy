@@ -20,17 +20,25 @@ export function useExecution() {
   const [nodeTexts, setNodeTexts] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<RunStatus>("idle");
   const [error, setError] = useState<string | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
+  // One socket per in-flight execution — concurrent generations each keep
+  // their own event stream (a single shared socket made every new run kill
+  // the previous run's stream, leaving its node stuck on "running").
+  const socketsRef = useRef<Map<string, WebSocket>>(new Map());
+
+  const closeAll = useCallback(() => {
+    for (const ws of socketsRef.current.values()) ws.close();
+    socketsRef.current.clear();
+  }, []);
 
   const run = useCallback(
     async (workflowId: string, nodeId?: string) => {
-      wsRef.current?.close();
-      setLogs([]);
       // Preserve prior outputs across runs — only reset the node about to run.
-      // A full-graph run (no nodeId) starts clean.
+      // A full-graph run (no nodeId) starts clean and supersedes everything.
       if (nodeId) {
         setNodeStatuses((prev) => ({ ...prev, [nodeId]: "running" }));
       } else {
+        closeAll();
+        setLogs([]);
         setNodeStatuses({});
         setNodeOutputs({});
         setNodeTexts({});
@@ -44,15 +52,22 @@ export function useExecution() {
       } catch (err) {
         // Guardrail refusals (402 insufficient credits) land here.
         setError(err instanceof Error ? err.message : "Run failed");
-        setStatus("failed");
         if (nodeId) setNodeStatuses((prev) => ({ ...prev, [nodeId]: "failed" }));
+        if (socketsRef.current.size === 0) setStatus("failed");
         return;
       }
 
       const ws = new WebSocket(
         `${WS_BASE}/api/v1/executions/${execution.id}/ws?token=${token}`,
       );
-      wsRef.current = ws;
+      socketsRef.current.set(execution.id, ws);
+
+      const finish = (finalStatus: RunStatus) => {
+        socketsRef.current.delete(execution.id);
+        ws.close();
+        // Overall status settles only once every in-flight run has finished.
+        if (socketsRef.current.size === 0) setStatus(finalStatus);
+      };
 
       ws.onmessage = (message) => {
         const event = JSON.parse(message.data) as ExecutionEvent;
@@ -73,16 +88,14 @@ export function useExecution() {
           }
         }
         if (event.event === "execution.completed") {
-          setStatus("completed");
-          ws.close();
+          finish("completed");
         } else if (event.event === "execution.failed") {
-          setStatus("failed");
-          ws.close();
+          finish("failed");
         }
       };
-      ws.onerror = () => setStatus("failed");
+      ws.onerror = () => finish("failed");
     },
-    [token],
+    [token, closeAll],
   );
 
   // Rehydrate previously-generated outputs (on load / cross-device open).
@@ -91,14 +104,14 @@ export function useExecution() {
   }, []);
 
   const reset = useCallback(() => {
-    wsRef.current?.close();
+    closeAll();
     setLogs([]);
     setNodeStatuses({});
     setNodeOutputs({});
     setNodeTexts({});
     setStatus("idle");
     setError(null);
-  }, []);
+  }, [closeAll]);
 
   return {
     logs,

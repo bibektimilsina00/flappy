@@ -18,7 +18,7 @@ from apps.api.app.features.assets import repository as assets_repo
 from apps.api.app.features.assets.models import Asset
 from apps.api.app.features.executions import service as executions_service
 from apps.api.app.features.video_editor import repository
-from apps.api.app.features.video_editor.models import VideoEditorProject
+from apps.api.app.features.video_editor.models import VideoEditorComment, VideoEditorProject
 from apps.api.app.features.video_editor.render import build_render_args
 from apps.api.app.features.users.models import User
 from apps.api.app.features.workflows import repository as workflows_repo
@@ -143,6 +143,7 @@ def get_project(
         "title": project.title,
         "doc": project.doc,
         "assets": [{"id": item["id"], "kind": item["kind"], "url": storage.url(item["key"])} for item in pool],
+        "share": {"review": project.share_review_token, "presentation": project.share_present_token},
     }
 
 
@@ -305,11 +306,14 @@ def update_project(
 @router.post("/projects/{project_id}/render")
 def render_project(
     project_id: uuid.UUID,
+    format: str = "mp4",
     session: Session = Depends(get_session),
     workspace_id: uuid.UUID = Depends(current_workspace_id),
     _user: User = Depends(get_current_user),
 ) -> dict:
-    """Composite the timeline into an MP4 via ffmpeg and store it (Phase 1b)."""
+    """Composite the timeline via ffmpeg and store it. format=mp4 (default) or gif."""
+    if format not in ("mp4", "gif"):
+        raise HTTPException(status_code=422, detail="format must be 'mp4' or 'gif'")
     project = repository.get(session, workspace_id, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Editor project not found")
@@ -347,9 +351,116 @@ def render_project(
                 status_code=422,
                 detail=f"Render failed: {proc.stderr.decode(errors='ignore')[-400:]}",
             )
+
+        if format == "gif":
+            # Two-pass palette for a decent GIF; capped size/fps to keep it shareable.
+            gif = os.path.join(d, "out.gif")
+            vf = "fps=12,scale=480:-2:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse"
+            proc = subprocess.run([exe, "-y", "-i", out, "-filter_complex", vf, gif], capture_output=True, timeout=300)
+            if proc.returncode != 0 or not os.path.exists(gif) or os.path.getsize(gif) == 0:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"GIF conversion failed: {proc.stderr.decode(errors='ignore')[-400:]}",
+                )
+            with open(gif, "rb") as f:
+                data = f.read()
+            key = f"{workspace_id}/renders/{uuid.uuid4()}.gif"
+            storage.put(key, data, "image/gif")
+            return {"key": key, "url": storage.url(key), "kind": "gif", "duration": total}
+
         with open(out, "rb") as f:
             data = f.read()
 
     key = f"{workspace_id}/renders/{uuid.uuid4()}.mp4"
     storage.put(key, data, "video/mp4")
+    # Shared watch pages play the latest render.
+    project.last_render_key = key
+    repository.save(session, project)
     return {"key": key, "url": storage.url(key), "kind": "video", "duration": total}
+
+
+# ── share links + public watch/review endpoints ─────────────────────────────
+
+
+class ShareRequest(BaseModel):
+    mode: str  # "review" | "presentation"
+    revoke: bool = False
+
+
+@router.post("/projects/{project_id}/share")
+def share_project(
+    project_id: uuid.UUID,
+    body: ShareRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Create (or revoke) a public share link. Requires a render to exist so the
+    shared page has a video to play."""
+    if body.mode not in ("review", "presentation"):
+        raise HTTPException(status_code=422, detail="mode must be 'review' or 'presentation'")
+    project = repository.get(session, workspace_id, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+
+    field = "share_review_token" if body.mode == "review" else "share_present_token"
+    if body.revoke:
+        setattr(project, field, None)
+        repository.save(session, project)
+        return {"mode": body.mode, "token": None}
+
+    if not project.last_render_key:
+        raise HTTPException(status_code=409, detail="Export the video first — the share page plays the latest render.")
+    token = getattr(project, field) or uuid.uuid4().hex
+    setattr(project, field, token)
+    repository.save(session, project)
+    return {"mode": body.mode, "token": token}
+
+
+@router.get("/shared/{token}")
+def get_shared(token: str, session: Session = Depends(get_session)) -> dict:
+    """Public: everything a share page needs. No auth — the token is the secret."""
+    hit = repository.get_by_token(session, token)
+    if hit is None:
+        raise HTTPException(status_code=404, detail="This link is invalid or was revoked.")
+    project, mode = hit
+    if not project.last_render_key:
+        raise HTTPException(status_code=404, detail="Nothing rendered for this link yet.")
+    storage = get_storage()
+    out = {
+        "title": project.title,
+        "mode": mode,
+        "video_url": storage.url(project.last_render_key),
+    }
+    if mode == "review":
+        out["comments"] = [
+            {"id": str(c.id), "author": c.author, "text": c.text, "at": c.at, "created_at": c.created_at.isoformat()}
+            for c in repository.comments_for(session, project.id)
+        ]
+    return out
+
+
+class CommentRequest(BaseModel):
+    author: str
+    text: str
+    at: float = 0.0
+
+
+@router.post("/shared/{token}/comments")
+def add_shared_comment(token: str, body: CommentRequest, session: Session = Depends(get_session)) -> dict:
+    """Public: leave a review comment. Only review links accept comments."""
+    hit = repository.get_by_token(session, token)
+    if hit is None:
+        raise HTTPException(status_code=404, detail="This link is invalid or was revoked.")
+    project, mode = hit
+    if mode != "review":
+        raise HTTPException(status_code=403, detail="This link is view-only.")
+    author = (body.author or "").strip()[:60] or "Anonymous"
+    text = (body.text or "").strip()
+    if not text:
+        raise HTTPException(status_code=422, detail="Comment text is required")
+    comment = repository.add_comment(
+        session,
+        VideoEditorComment(project_id=project.id, author=author, text=text[:2000], at=max(0.0, float(body.at))),
+    )
+    return {"id": str(comment.id), "author": comment.author, "text": comment.text, "at": comment.at, "created_at": comment.created_at.isoformat()}

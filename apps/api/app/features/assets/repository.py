@@ -67,12 +67,14 @@ def kind_from_key(key: str) -> str | None:
 
 
 def all_for_workflow(session: Session, workflow_id: uuid.UUID) -> list[Asset]:
-    """Every media asset a workflow ever generated (via its executions), newest first."""
+    """Every media asset a workflow ever generated (via its executions), in
+    generation order. `id` breaks ties — batch generations share a created_at,
+    which otherwise makes the editor's media pool order non-deterministic."""
     rows = session.exec(
         select(Asset)
         .join(Execution, Asset.execution_id == Execution.id)
         .where(Execution.workflow_id == workflow_id, Asset.kind.in_(("image", "video", "audio")))
-        .order_by(Asset.created_at.desc())
+        .order_by(Asset.created_at.asc(), Asset.id.asc())
     )
     return [a for a in rows if a.key]
 

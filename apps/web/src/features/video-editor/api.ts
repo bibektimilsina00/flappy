@@ -18,11 +18,42 @@ export function saveEditorProject(
   });
 }
 
-// Composite the timeline into an MP4 (ffmpeg, server-side) and return its URL.
+// Composite the timeline (ffmpeg, server-side) and return its URL. format: mp4 | gif.
 export function renderEditorProject(
   projectId: string,
+  format: "mp4" | "gif" = "mp4",
 ): Promise<{ key: string; url: string; kind: string; duration: number }> {
-  return api(`/video-editor/projects/${projectId}/render`, { method: "POST" });
+  return api(`/video-editor/projects/${projectId}/render?format=${format}`, { method: "POST" });
+}
+
+// Create (or revoke) a public share link for the project's latest render.
+export function shareEditorProject(
+  projectId: string,
+  mode: "review" | "presentation",
+  revoke = false,
+): Promise<{ mode: string; token: string | null }> {
+  return api(`/video-editor/projects/${projectId}/share`, {
+    method: "POST",
+    body: JSON.stringify({ mode, revoke }),
+  });
+}
+
+// Public share page payload (no auth — token is the secret).
+export function getSharedProject(token: string): Promise<{
+  title: string;
+  mode: "review" | "presentation";
+  video_url: string;
+  comments?: { id: string; author: string; text: string; at: number; created_at: string }[];
+}> {
+  return api(`/video-editor/shared/${token}`);
+}
+
+// Public: leave a review comment on a shared project.
+export function addSharedComment(
+  token: string,
+  body: { author: string; text: string; at: number },
+): Promise<{ id: string; author: string; text: string; at: number; created_at: string }> {
+  return api(`/video-editor/shared/${token}/comments`, { method: "POST", body: JSON.stringify(body) });
 }
 
 // Kick off an AI generation (text→image / text→video / image→video / extend). The

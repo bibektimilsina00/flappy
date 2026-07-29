@@ -47,7 +47,8 @@ import { useBalance } from "@/features/billing";
 import { ModelSelector, useModels } from "@/features/models";
 import type { Model } from "@/features/models";
 import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
-import { renderEditorProject, saveEditorProject, uploadToProject } from "./api";
+import { saveEditorProject, uploadToProject } from "./api";
+import { ExportPanel } from "./export-panel";
 import { type GenBody, useGeneration } from "./use-generation";
 import {
   addClip,
@@ -130,7 +131,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
   const [guide, setGuide] = useState<number | null>(null); // snap guide-line time while dragging
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null); // floating clip position
   const [ghost, setGhost] = useState<{ trackId: string; start: number; duration: number } | null>(null); // landing outline
-  const [exportState, setExportState] = useState<"idle" | "rendering" | { url: string } | { error: string }>("idle");
+  const [exportOpen, setExportOpen] = useState(false);
   const laneRef = useRef<HTMLButtonElement>(null);
   const roRef = useRef<ResizeObserver | null>(null);
   const [viewportW, setViewportW] = useState(0);
@@ -374,16 +375,9 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
 
   const setAspect = useCallback((w: number, h: number) => doc && commit({ ...doc, width: w, height: h }), [doc, commit]);
 
-  const doExport = useCallback(async () => {
+  const saveForExport = useCallback(async () => {
     if (!project || !doc) return;
-    setExportState("rendering");
-    try {
-      await saveEditorProject(project.id, { doc });
-      const res = await renderEditorProject(project.id);
-      setExportState({ url: res.url });
-    } catch (e) {
-      setExportState({ error: e instanceof Error ? e.message : "Render failed" });
-    }
+    await saveEditorProject(project.id, { doc });
   }, [project, doc]);
 
   // ── keyboard ──
@@ -444,32 +438,29 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
               <Cloud className="size-3.5" />
               {saveState === "saving" ? "Saving…" : "All changes saved"}
             </span>
-            {typeof exportState === "object" && "url" in exportState ? (
-              <a href={exportState.url} download className="flex items-center gap-1.5 text-xs font-medium" style={{ color: ACCENT }}>
-                <Download className="size-3.5" /> Download MP4
-              </a>
-            ) : null}
-            {typeof exportState === "object" && "error" in exportState ? (
-              <span className="max-w-40 truncate text-xs text-red-400" title={exportState.error}>
-                {exportState.error}
-              </span>
-            ) : null}
             <button type="button" className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground">
               <PanelRight className="size-4" />
             </button>
-            <button type="button" className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-accent">
-              <Share2 className="size-4" /> Share
-            </button>
-            <button
-              type="button"
-              onClick={doExport}
-              disabled={exportState === "rendering"}
-              className="flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-sm font-medium text-white disabled:opacity-60"
-              style={{ backgroundColor: ACCENT }}
-            >
-              {exportState === "rendering" ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-              {exportState === "rendering" ? "Rendering…" : "Export"}
-            </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setExportOpen((v) => !v)}
+                className="flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-sm font-medium text-white"
+                style={{ backgroundColor: ACCENT }}
+              >
+                <Share2 className="size-4" /> Export
+              </button>
+              {exportOpen ? (
+                <ExportPanel
+                  projectId={project.id}
+                  title={project.title}
+                  doc={doc}
+                  share={project.share ?? { review: null, presentation: null }}
+                  saveFirst={saveForExport}
+                  onClose={() => setExportOpen(false)}
+                />
+              ) : null}
+            </div>
           </div>
         </header>
 
@@ -947,6 +938,71 @@ function ClipContextMenu({
 }
 
 // ── media panel ─────────────────────────────────────────────
+// Tile media with a centered play/pause control. Pause icon while playing,
+// back to play on pause or when playback ends.
+function MediaTileThumb({ asset }: { asset: VideoEditorAsset }) {
+  const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+
+  const toggle = () => {
+    const media = mediaRef.current;
+    if (!media) return;
+    if (media.paused) void media.play();
+    else media.pause();
+  };
+
+  const mediaEvents = {
+    onPlay: () => setPlaying(true),
+    onPause: () => setPlaying(false),
+    onEnded: () => setPlaying(false),
+  };
+
+  if (asset.kind === "image") {
+    // biome-ignore lint/a11y/useAltText: thumbnail
+    return <img src={asset.url} className="pointer-events-none aspect-video w-full object-cover" />;
+  }
+  return (
+    <>
+      {asset.kind === "video" ? (
+        // biome-ignore lint/a11y/useMediaCaption: preview asset
+        <video
+          ref={(el) => {
+            mediaRef.current = el;
+          }}
+          src={asset.url}
+          className="pointer-events-none aspect-video w-full object-cover"
+          playsInline
+          {...mediaEvents}
+        />
+      ) : (
+        <div className="grid aspect-video w-full place-items-center bg-secondary text-muted-foreground">
+          <Music className="size-5" />
+          {/* biome-ignore lint/a11y/useMediaCaption: preview asset */}
+          <audio
+            ref={(el) => {
+              mediaRef.current = el;
+            }}
+            src={asset.url}
+            className="hidden"
+            {...mediaEvents}
+          />
+        </div>
+      )}
+      <div className="absolute inset-0 grid place-items-center">
+        <button
+          type="button"
+          onClick={toggle}
+          onMouseDown={(e) => e.stopPropagation()}
+          className="grid size-9 place-items-center rounded-full bg-black/60 text-white transition hover:bg-black/80"
+          title={playing ? "Pause" : "Play"}
+        >
+          {playing ? <Pause className="size-4" /> : <Play className="size-4 pl-0.5" />}
+        </button>
+      </div>
+    </>
+  );
+}
+
 function MediaPanel({ assets, onImport, importing }: { assets: VideoEditorAsset[]; onImport: () => void; importing: boolean }) {
   return (
     <div className="space-y-3">
@@ -979,17 +1035,7 @@ function MediaPanel({ assets, onImport, importing }: { assets: VideoEditorAsset[
               className="relative cursor-grab overflow-hidden rounded-lg border border-border active:cursor-grabbing"
               title="Drag onto the timeline"
             >
-              {a.kind === "video" ? (
-                // biome-ignore lint/a11y/useMediaCaption: thumbnail
-                <video src={a.url} className="pointer-events-none aspect-video w-full object-cover" muted />
-              ) : a.kind === "audio" ? (
-                <div className="grid aspect-video w-full place-items-center bg-secondary text-muted-foreground">
-                  <Music className="size-5" />
-                </div>
-              ) : (
-                // biome-ignore lint/a11y/useAltText: thumbnail
-                <img src={a.url} className="pointer-events-none aspect-video w-full object-cover" />
-              )}
+              <MediaTileThumb asset={a} />
               <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1 text-[10px] tabular-nums text-white">{a.kind}</span>
             </div>
             <p className="mt-1 truncate text-[11px] text-muted-foreground">Media {i + 1}</p>
