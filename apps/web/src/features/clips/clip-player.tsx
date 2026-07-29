@@ -142,7 +142,7 @@ export function ClipPlayer({
             : headline?.enabled
               ? headline
               : null;
-        const text = (h && "text" in h ? h.text?.trim() : "") || clip.title;
+        const text = ((h as { text?: string } | null)?.text ?? "").trim() || clip.title;
         return cc.on && h && text ? (
           <div className="pointer-events-none absolute inset-x-3 top-[5%] flex justify-center">
             <span
