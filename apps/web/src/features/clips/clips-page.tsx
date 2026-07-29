@@ -18,6 +18,7 @@ import {
   Trash2,
   Upload,
   XCircle,
+  Zap,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -733,13 +734,14 @@ function ConfigPanel({
         type="button"
         disabled={busy !== null || tooLong || insufficient}
         onClick={onStart}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-teal-400 py-3.5 text-sm font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-60"
+        className="group relative flex w-full items-center justify-center gap-2 rounded-xl bg-teal-400 py-3.5 text-sm font-semibold text-black shadow-[0_8px_30px_-10px_rgba(45,212,191,0.55)] transition-all hover:bg-teal-300 hover:shadow-[0_10px_36px_-10px_rgba(45,212,191,0.7)] disabled:opacity-60 disabled:shadow-none"
       >
         {busy ? <Loader2 className="size-4 animate-spin" /> : <Scissors className="size-4" />}
         {busy ? "Starting…" : params.schedule?.enabled ? "Get AI clips & Schedule" : "Get AI clips"}
         {!busy && cost !== null ? (
-          <span className="rounded-full bg-black/15 px-2 py-0.5 text-xs font-bold">
-            ~{Math.round(cost)} credits
+          <span className="absolute inset-y-0 right-4 flex items-center gap-1.5 border-l border-black/15 pl-4 text-[13px] font-semibold text-black/70">
+            <Zap className="size-3.5 fill-black/70" />
+            {Math.round(cost)} credits
           </span>
         ) : null}
       </button>
