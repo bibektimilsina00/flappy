@@ -1,12 +1,20 @@
 "use client";
 
 import {
+  ArrowDown,
   ArrowRight,
+  Captions,
   ChevronDown,
+  Clapperboard,
   Film,
+  Flame,
+  FolderArchive,
   Link2,
   Loader2,
+  Play,
+  ScanFace,
   Scissors,
+  Sparkles,
   Trash2,
   Upload,
   XCircle,
@@ -96,11 +104,26 @@ export function ClipsPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-6 py-10">
-      <div className="mb-8 text-center">
-        <h1 className="text-2xl font-bold">Turn one video into many clips</h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">
-          Paste a link or drop a file — Flappy finds the best moments and cuts them into short-form clips.
+    <div className="relative mx-auto w-full max-w-4xl px-6 py-12">
+      {/* ambient glow */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 -z-10 overflow-hidden">
+        <div className="absolute left-1/2 top-[-120px] h-[340px] w-[640px] -translate-x-1/2 rounded-full bg-teal-500/15 blur-[110px]" />
+        <div className="absolute left-[12%] top-[60px] h-[220px] w-[320px] rounded-full bg-violet-500/10 blur-[100px]" />
+      </div>
+
+      <div className="mb-10 text-center">
+        <p className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-teal-400/20 bg-teal-400/10 px-3 py-1 text-xs font-medium text-teal-300">
+          <Sparkles className="size-3.5" /> AI clipping studio
+        </p>
+        <h1 className="text-4xl font-bold tracking-tight">
+          One long video.{" "}
+          <span className="bg-gradient-to-r from-teal-300 via-emerald-300 to-violet-300 bg-clip-text text-transparent">
+            Ten viral clips.
+          </span>
+        </h1>
+        <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
+          Paste a link or drop a file. Flappy listens to every word, finds the strongest moments, and
+          hands you captioned, face-framed clips ready to post.
         </p>
       </div>
 
@@ -117,11 +140,14 @@ export function ClipsPage() {
           void onFile(e.dataTransfer.files?.[0]);
         }}
         className={cn(
-          "rounded-2xl border-2 border-dashed bg-card p-6 transition-colors",
-          dragging ? "border-teal-400 bg-teal-400/5" : "border-border",
+          "rounded-2xl bg-gradient-to-r p-[1.5px] transition-all",
+          dragging
+            ? "from-teal-300 via-emerald-300 to-violet-400 shadow-[0_0_50px_-8px_rgba(45,212,191,0.45)]"
+            : "from-teal-500/50 via-white/10 to-violet-500/40 shadow-[0_0_40px_-12px_rgba(45,212,191,0.25)]",
         )}
       >
-        <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-4 py-1.5 focus-within:border-white/30">
+        <div className="rounded-[15px] bg-[#141414] p-6">
+        <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 px-4 py-2 transition-colors focus-within:border-teal-400/50">
           <Link2 className="size-4 shrink-0 text-muted-foreground" />
           <input
             value={value}
@@ -225,15 +251,96 @@ export function ClipsPage() {
           type="button"
           disabled={busy !== null}
           onClick={submit}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-teal-500 py-3 text-sm font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-60"
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-teal-400 to-emerald-400 py-3 text-sm font-semibold text-black shadow-lg shadow-teal-500/25 transition-all hover:shadow-teal-400/40 hover:brightness-105 disabled:opacity-60"
         >
           {busy ? <Loader2 className="size-4 animate-spin" /> : <Scissors className="size-4" />}
           {busy ?? (value.trim() ? "Get clips" : "Get clips — paste a link or pick a file")}
         </button>
         {error ? <p className="mt-2 text-center text-xs text-red-400">{error}</p> : null}
-        <p className="mt-3 text-center text-[11px] text-muted-foreground/70">
-          Only import content you have the rights to use. Sources up to 30 minutes.
-        </p>
+          <p className="mt-3 text-center text-[11px] text-muted-foreground/70">
+            Only import content you have the rights to use. Sources up to 30 minutes.
+          </p>
+        </div>
+      </div>
+
+      {/* How it works — the transformation, illustrated */}
+      <div className="mt-14 grid items-center gap-6 md:grid-cols-[1fr_auto_1fr]">
+        {/* source */}
+        <div className="mx-auto w-full max-w-[300px]">
+          <div className="relative aspect-video overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-slate-800 to-slate-900">
+            <div className="absolute inset-0 grid place-items-center">
+              <span className="grid size-10 place-items-center rounded-full bg-white/10 backdrop-blur">
+                <Play className="ml-0.5 size-4 fill-white text-white" />
+              </span>
+            </div>
+            <div className="absolute inset-x-3 bottom-2.5">
+              <div className="h-1 rounded-full bg-white/20">
+                <div className="h-full w-1/3 rounded-full bg-teal-400" />
+              </div>
+            </div>
+          </div>
+          <p className="mt-2 text-center text-xs text-muted-foreground">Your 20-minute video</p>
+        </div>
+
+        {/* arrow */}
+        <div className="flex flex-col items-center gap-1 text-teal-300">
+          <Sparkles className="size-5" />
+          <ArrowRight className="hidden size-5 md:block" />
+          <ArrowDown className="size-5 md:hidden" />
+          <p className="w-24 text-center text-[11px] leading-tight text-muted-foreground">
+            AI finds the moments
+          </p>
+        </div>
+
+        {/* clips fan */}
+        <div className="mx-auto flex items-end justify-center gap-3">
+          {[
+            { hue: "from-fuchsia-500/70 to-violet-600/70", score: 92, caption: "the wild part is…", tilt: "-6deg", lift: "" },
+            { hue: "from-teal-400/70 to-emerald-600/70", score: 88, caption: "nobody talks about", tilt: "0deg", lift: "-translate-y-3" },
+            { hue: "from-amber-400/70 to-orange-600/70", score: 81, caption: "here's the secret", tilt: "6deg", lift: "" },
+          ].map((c, i) => (
+            <div
+              key={c.score}
+              style={{ "--tilt": c.tilt, animationDelay: `${i * 0.6}s` } as React.CSSProperties}
+              className={cn(
+                "relative h-40 w-24 overflow-hidden rounded-xl border border-white/15 bg-gradient-to-br shadow-xl animate-[clip-float_5s_ease-in-out_infinite]",
+                c.hue,
+                c.lift,
+              )}
+            >
+              <span className="absolute left-1.5 top-1.5 flex items-center gap-0.5 rounded-full bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                <Flame className="size-2.5 text-orange-400" />
+                {c.score}
+              </span>
+              <span className="absolute inset-x-1.5 bottom-2 rounded-md bg-black/60 px-1.5 py-1 text-center text-[9px] font-semibold leading-tight text-white">
+                {c.caption.split(" ").map((w, j) => (
+                  <span key={w} className={j === 1 ? "text-teal-300" : ""}>
+                    {w}{" "}
+                  </span>
+                ))}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* feature chips */}
+      <div className="mt-12 flex flex-wrap items-center justify-center gap-2.5">
+        {[
+          { icon: Captions, label: "Word-by-word captions" },
+          { icon: ScanFace, label: "Face-aware framing" },
+          { icon: Flame, label: "Virality scores" },
+          { icon: FolderArchive, label: "SRT + zip export" },
+          { icon: Clapperboard, label: "Opens in the editor" },
+        ].map(({ icon: Icon, label }) => (
+          <span
+            key={label}
+            className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-foreground/80"
+          >
+            <Icon className="size-3.5 text-teal-300" />
+            {label}
+          </span>
+        ))}
       </div>
 
       {/* Recents */}

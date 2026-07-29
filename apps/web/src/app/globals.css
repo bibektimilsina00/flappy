@@ -165,3 +165,9 @@
     }
   }
 }
+
+/* Clips landing */
+@keyframes clip-float {
+  0%, 100% { transform: translateY(0) rotate(var(--tilt, 0deg)); }
+  50% { transform: translateY(-8px) rotate(var(--tilt, 0deg)); }
+}
