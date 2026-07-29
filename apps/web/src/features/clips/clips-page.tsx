@@ -9,6 +9,7 @@ import {
   Clapperboard,
   Film,
   Flame,
+  FolderOpen,
   FolderArchive,
   Link2,
   Loader2,
@@ -49,6 +50,62 @@ const PHASE_LABEL: Record<string, string> = {
   render: "Rendering clips",
 };
 
+// Mini brand glyphs for the "supported links" hint (white, 14px — fidelity over detail).
+type GlyphProps = { className?: string };
+const Glyph = (d: string) =>
+  function BrandGlyph({ className }: GlyphProps) {
+    return (
+      <svg viewBox="0 0 24 24" className={className} fill="currentColor" fillRule="evenodd" aria-hidden="true">
+        <path d={d} />
+      </svg>
+    );
+  };
+
+const PLATFORMS: { name: string; icon: React.ComponentType<GlyphProps> }[] = [
+  {
+    name: "YouTube",
+    icon: Glyph(
+      "M21.58 7.19a2.5 2.5 0 0 0-1.76-1.77C18.25 5 12 5 12 5s-6.25 0-7.82.42A2.5 2.5 0 0 0 2.42 7.19 26 26 0 0 0 2 12a26 26 0 0 0 .42 4.81 2.5 2.5 0 0 0 1.76 1.77C5.75 19 12 19 12 19s6.25 0 7.82-.42a2.5 2.5 0 0 0 1.76-1.77A26 26 0 0 0 22 12a26 26 0 0 0-.42-4.81zM10 15V9l5.2 3z",
+    ),
+  },
+  {
+    name: "TikTok",
+    icon: Glyph(
+      "M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.3 0 .6.05.88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1.04-.1z",
+    ),
+  },
+  {
+    name: "Vimeo",
+    icon: Glyph(
+      "M22 8.1c-.1 2-1.5 4.8-4.2 8.2-2.8 3.6-5.1 5.4-7 5.4-1.2 0-2.2-1.1-3-3.3L6.2 12c-.6-2.2-1.2-3.3-2-3.3-.2 0-.7.3-1.7 1L1.5 8.4c1.1-.9 2.1-1.9 3.1-2.8 1.4-1.2 2.4-1.8 3.1-1.9 1.6-.2 2.6.9 3 3.3.4 2.5.7 4.1.9 4.7.5 2.2 1 3.3 1.6 3.3.4 0 1.1-.7 2-2.1.9-1.4 1.3-2.4 1.4-3.1.1-1.2-.3-1.8-1.4-1.8-.5 0-1 .1-1.6.3 1-3.4 3-5 5.9-4.9 2.1.1 3.1 1.5 2.5 4.7z",
+    ),
+  },
+  {
+    name: "Twitch",
+    icon: Glyph(
+      "M6 0 1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714zM11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714z",
+    ),
+  },
+  {
+    name: "X",
+    icon: Glyph(
+      "M18.9 1.15h3.68l-8.04 9.19L24 22.85h-7.41l-5.8-7.58-6.64 7.58H.46l8.6-9.83L0 1.15h7.59l5.24 6.93zm-1.29 19.5h2.04L6.49 3.24H4.3z",
+    ),
+  },
+  {
+    name: "Facebook",
+    icon: Glyph(
+      "M13.4 21v-8.1h2.72l.4-3.16H13.4V7.72c0-.91.25-1.53 1.56-1.53h1.67V3.36c-.29-.04-1.28-.13-2.43-.13-2.4 0-4.05 1.47-4.05 4.16v2.32H7.43v3.16h2.72V21h3.25z",
+    ),
+  },
+  {
+    name: "Google Drive",
+    icon: Glyph(
+      "M8.29 3.03h7.42l6.57 11.38h-7.42zM7.14 4.03l3.71 6.43-6.56 11.37L.58 15.4zM9.44 16.5h13.14l-3.43 5.94H6.01z",
+    ),
+  },
+];
+
 export function ClipsPage() {
   const router = useRouter();
   const [value, setValue] = useState("");
@@ -57,6 +114,7 @@ export function ClipsPage() {
   const [busy, setBusy] = useState<string | null>(null); // "upload: name" | "start"
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [hint, setHint] = useState(false);
   const [jobs, setJobs] = useState<ClipsJob[] | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -142,8 +200,10 @@ export function ClipsPage() {
         className="relative"
       >
         <div
+          onMouseEnter={() => setHint(true)}
+          onMouseLeave={() => setHint(false)}
           className={cn(
-            "flex h-16 items-center gap-3 rounded-2xl border bg-[#161616] pl-5 pr-2 shadow-[0_8px_40px_-16px_rgba(0,0,0,0.8)] transition-colors",
+            "relative flex h-16 items-center gap-3 rounded-2xl border bg-[#161616] pl-5 pr-2 shadow-[0_8px_40px_-16px_rgba(0,0,0,0.8)] transition-colors",
             "focus-within:border-teal-400/60",
             dragging ? "border-teal-400" : "border-white/12",
           )}
@@ -152,19 +212,12 @@ export function ClipsPage() {
           <input
             value={value}
             onChange={(e) => setValue(e.target.value)}
+            onFocus={() => setHint(true)}
+            onBlur={() => setHint(false)}
             onKeyDown={(e) => e.key === "Enter" && submit()}
-            placeholder="Paste a YouTube, TikTok, or Vimeo link…"
+            placeholder="Drop a video link…"
             className="min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground/70"
           />
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            className="hidden shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground sm:flex"
-          >
-            <Upload className="size-4" />
-            Upload
-          </button>
-          <span className="h-7 w-px shrink-0 bg-white/10" />
           <button
             type="button"
             disabled={busy !== null}
@@ -174,7 +227,44 @@ export function ClipsPage() {
             {busy ? <Loader2 className="size-4 animate-spin" /> : <Scissors className="size-4" />}
             {busy ? "Working…" : "Get clips"}
           </button>
+
+          {/* supported-platforms hint — shows on hover/focus of the link bar */}
+          {hint && !dragging ? (
+            <div className="pointer-events-none absolute left-0 top-full z-20 mt-2 rounded-xl bg-[#3a4150] px-4 py-3 text-sm text-white/90 shadow-2xl animate-in fade-in-0 slide-in-from-top-1 duration-150">
+              <span className="mr-1">Drop a video link from</span>
+              {PLATFORMS.map((p, i) => (
+                <span key={p.name} className="inline-flex items-center gap-1 whitespace-nowrap">
+                  <p.icon className="size-3.5" />
+                  {p.name}
+                  {i < PLATFORMS.length - 1 ? <span className="mr-1">,</span> : null}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
+
+        {/* big browse / drop zone */}
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          className={cn(
+            "mt-4 grid w-full place-items-center rounded-2xl border-2 border-dashed py-16 transition-colors",
+            dragging ? "border-teal-400 bg-teal-400/5" : "border-white/10 hover:border-white/20 hover:bg-white/[0.02]",
+          )}
+        >
+          <span className="relative mb-4 grid size-16 place-items-center">
+            <span className="absolute inset-0 rounded-2xl bg-teal-400/10" />
+            <FolderOpen className="relative size-8 text-teal-300" strokeWidth={1.5} />
+          </span>
+          <span className="text-[15px]">
+            <span className="font-semibold text-teal-300">Click to browse</span>{" "}
+            <span className="text-foreground/90">or drag &amp; drop</span>
+          </span>
+          <span className="mt-1 text-xs text-muted-foreground">
+            Supported file type: video · up to 500 MB
+          </span>
+        </button>
+
         <input
           ref={fileRef}
           type="file"
@@ -188,7 +278,7 @@ export function ClipsPage() {
 
         {/* drop overlay */}
         {dragging ? (
-          <div className="pointer-events-none absolute inset-x-0 -top-3 bottom-[-88px] z-10 grid place-items-center rounded-3xl border-2 border-dashed border-teal-400 bg-[#0f0f0f]/90">
+          <div className="pointer-events-none absolute inset-x-0 -top-3 bottom-[-8px] z-10 grid place-items-center rounded-3xl border-2 border-dashed border-teal-400 bg-[#0f0f0f]/90">
             <p className="flex items-center gap-2 text-sm font-medium text-teal-300">
               <Upload className="size-4" /> Drop your video to start
             </p>
