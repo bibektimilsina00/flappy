@@ -94,6 +94,9 @@ def _ingest(session: Session, job: ClipsJob, storage, workdir: str) -> str:
         "noplaylist": True,
         "quiet": True,
         "no_warnings": True,
+        # yt-dlp needs ffmpeg to merge video+audio; ours is the bundled
+        # imageio-ffmpeg binary, not on PATH.
+        "ffmpeg_location": imageio_ffmpeg.get_ffmpeg_exe(),
     }
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
