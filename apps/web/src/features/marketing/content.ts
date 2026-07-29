@@ -206,7 +206,7 @@ export const PRICING = [
     blurb: "Everything you need to try the full pipeline.",
     cta: "Start free",
     highlight: false,
-    features: ["Monthly free credits", "Canvas + timeline editor", "AI Clips — 5 jobs a day", "Free-tier models", "720p exports", "Community support"],
+    features: ["Monthly free credits", "Canvas + timeline editor", "AI Clips — pay with credits", "Free-tier models", "720p exports", "Community support"],
   },
   {
     name: "Pro",
@@ -215,7 +215,7 @@ export const PRICING = [
     blurb: "For creators shipping video every week.",
     cta: "Go Pro",
     highlight: true,
-    features: ["Everything in Free", "Premium models (Veo, Kling & more)", "Unlimited AI Clips + auto-schedule", "4K exports, no watermark", "Priority generation queue", "Connected clips & advanced timeline", "Email support"],
+    features: ["Everything in Free", "Premium models (Veo, Kling & more)", "AI Clips + auto-schedule, no watermark", "4K exports, no watermark", "Priority generation queue", "Connected clips & advanced timeline", "Email support"],
   },
   {
     name: "Studio",

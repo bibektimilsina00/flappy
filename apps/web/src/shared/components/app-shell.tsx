@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AppSidebar } from "./app-sidebar/app-sidebar";
+import { CreditsBadge } from "./credits-badge";
 
 /**
  * Persistent app shell: the sidebar is rendered once here and stays mounted across
@@ -17,6 +18,7 @@ export function AppShell({ children, recentSlot }: { children: React.ReactNode; 
         <AppSidebar collapsed={collapsed} onToggleCollapse={() => setCollapsed((v) => !v)} recentSlot={recentSlot} />
       </div>
       <main className="m-2 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-background">{children}</main>
+      <CreditsBadge />
     </div>
   );
 }

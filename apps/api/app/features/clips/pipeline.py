@@ -36,6 +36,24 @@ DURATION_BANDS = {
 }
 RATIO_SIZES = {"9:16": (1080, 1920), "1:1": (1080, 1080), "16:9": (1920, 1080)}
 
+
+def watermark_filter() -> str:
+    """Platform watermark for free-plan renders (Pro exports stay clean)."""
+    from apps.api.app.features.clips.captions import FONTS_DIR
+
+    font = os.path.join(FONTS_DIR, "Poppins.ttf")
+    return (
+        f",drawtext=fontfile={font}:text='Flappy':fontcolor=white:alpha=0.55"
+        ":fontsize=h/34:x=w*0.035:y=h*0.03:shadowcolor=black@0.6:shadowx=2:shadowy=2"
+    )
+
+
+def is_free_plan(session: Session, workspace_id) -> bool:
+    from apps.api.app.features.workspaces import repository as workspaces_repo
+
+    ws = workspaces_repo.get(session, workspace_id)
+    return (ws.plan if ws else "free") == "free"
+
 _whisper_model = None  # loaded once per worker process
 
 
@@ -82,9 +100,10 @@ def run_pipeline(session: Session, job: ClipsJob, charge) -> None:
         _decorate(job, transcript, segments)
         _set(session, job, transcript=transcript, phase="render", progress=0.0)
 
+        watermark = is_free_plan(session, job.workspace_id)
         clips = []
         for i, seg in enumerate(segments):
-            key = _render_clip(job, source, seg, i, workdir, storage)
+            key = _render_clip(job, source, seg, i, workdir, storage, watermark)
             clips.append({**seg, "id": uuid.uuid4().hex, "key": key, "clean": True})
             _set(session, job, progress=(i + 1) / len(segments), clips=clips)
         charge(settings.clips_credits_per_clip * len(clips), "clips-render")
@@ -370,14 +389,15 @@ def fallback_selection(transcript: list[dict], duration: float, band: tuple[int,
 
 
 # ── phase 4: render (cut + cover-crop + optional caption burn) ──────────────
-def _render_clip(job: ClipsJob, source: str, seg: dict, index: int, workdir: str, storage) -> str:
+def _render_clip(job: ClipsJob, source: str, seg: dict, index: int, workdir: str, storage, watermark: bool = False) -> str:
     return render_clip_file(
         job, source, seg, workdir, storage,
         key=f"{job.workspace_id}/clips/{job.id}/clip-{index}.mp4",
+        watermark=watermark,
     )
 
 
-def render_clip_file(job: ClipsJob, source: str, seg: dict, workdir: str, storage, key: str) -> str:
+def render_clip_file(job: ClipsJob, source: str, seg: dict, workdir: str, storage, key: str, watermark: bool = False) -> str:
     """Cut [start,end] from source and crop to the target aspect — a CLEAN
     master (no burned captions). Captions live as a layer: overlaid in the web
     player, burned on demand at download (burn_clip_captions), and handed to
@@ -394,6 +414,8 @@ def render_clip_file(job: ClipsJob, source: str, seg: dict, workdir: str, storag
     if layout == "fit":
         bgc = str(custom.get("bg") or "#000000").lstrip("#")[:6] or "000000"
         vf = f"scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=0x{bgc},fps=30"
+        if watermark:
+            vf += watermark_filter()
     else:
         x_expr = "(in_w-out_w)/2"
         if layout == "auto" and params.get("framing", True):
@@ -403,6 +425,8 @@ def render_clip_file(job: ClipsJob, source: str, seg: dict, workdir: str, storag
             if center is not None:
                 x_expr = f"min(max(in_w*{center:.4f}-out_w/2\\,0)\\,in_w-out_w)"
         vf = f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h}:x='{x_expr}':y='(in_h-out_h)/2',fps=30"
+    if watermark:
+        vf += watermark_filter()
 
     cmd = [
         exe, "-y", "-ss", f"{seg['start']:.2f}", "-to", f"{seg['end']:.2f}", "-i", source,
