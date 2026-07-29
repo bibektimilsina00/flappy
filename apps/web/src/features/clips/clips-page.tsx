@@ -20,10 +20,12 @@ import {
   XCircle,
   Zap,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { Checkbox } from "@/components/ui/checkbox";
+import { createWorkflow } from "@/features/projects/services/workflows-api";
+import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
 import { useBalance } from "@/features/billing";
 import { CaptionStylePicker } from "./caption-templates";
 import { defaultSchedule, ScheduleModal } from "./schedule-modal";
@@ -32,6 +34,7 @@ import {
   type ClipsParams,
   createClipsJob,
   deleteClipsJob,
+  jobByWorkflow,
   listClipsJobs,
   estimateClipsCost,
   probeClipsSource,
@@ -136,23 +139,74 @@ export function ClipsPage() {
   const [meta, setMeta] = useState<SourceMeta | null>(null);
   const [title, setTitle] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  // The linked project. Arrives via ?project= (a project's Clips tab) or is
+  // created eagerly on paste/upload so the job is in recents before it starts.
+  const search = useSearchParams();
+  const [projectId, setProjectId] = useState<string | null>(search.get("project"));
 
   useEffect(() => {
     listClipsJobs().then(setJobs).catch(() => setJobs([]));
   }, []);
+
+  // Coming back to a project's Clips tab: a started job wins (progress page);
+  // otherwise restore the saved draft and land on the config step.
+  useEffect(() => {
+    if (!projectId) return;
+    jobByWorkflow(projectId)
+      .then(({ job_id }) => router.replace(`/clips/${job_id}`))
+      .catch(() => {
+        try {
+          const d = JSON.parse(localStorage.getItem(`flappy-clips-draft-${projectId}`) ?? "");
+          setSource(d.source);
+          setMeta(d.meta);
+          setTitle(d.title ?? "");
+          setParams(d.params ?? DEFAULTS);
+          setStep("config");
+        } catch {
+          /* no draft yet */
+        }
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keep the draft saved while configuring; cleared on start / back.
+  useEffect(() => {
+    if (step !== "config" || !source || !projectId) return;
+    localStorage.setItem(`flappy-clips-draft-${projectId}`, JSON.stringify({ source, meta, title, params }));
+  }, [step, source, meta, title, params, projectId]);
+
+  const ensureProject = useCallback(
+    async (name: string) => {
+      if (projectId) return;
+      try {
+        const wf = await createWorkflow((name || "Clips project").slice(0, 80));
+        setProjectId(wf.id);
+        router.replace(`/clips?project=${wf.id}`);
+      } catch {
+        /* ponytail: draft just won't survive navigation; the job still links on start */
+      }
+    },
+    [projectId, router],
+  );
 
   const start = useCallback(async () => {
     if (!source) return;
     setBusy("start");
     setError(null);
     try {
-      const job = await createClipsJob({ ...source, source_title: title.trim() || undefined, params });
+      const job = await createClipsJob({
+        ...source,
+        workflow_id: projectId ?? undefined,
+        source_title: title.trim() || undefined,
+        params,
+      });
+      if (projectId) localStorage.removeItem(`flappy-clips-draft-${projectId}`);
       router.push(`/clips/${job.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not start the job");
       setBusy(null);
     }
-  }, [source, title, params, router]);
+  }, [source, title, params, projectId, router]);
 
   const onFile = useCallback(async (file: File | undefined) => {
     if (!file) return;
@@ -164,12 +218,13 @@ export function ClipsPage() {
       setMeta({ title: file.name.replace(/\.[^.]+$/, ""), duration: null, thumbnail: null, height: null });
       setTitle(file.name.replace(/\.[^.]+$/, ""));
       setStep("config");
+      void ensureProject(file.name.replace(/\.[^.]+$/, ""));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed");
     } finally {
       setBusy(null);
     }
-  }, []);
+  }, [ensureProject]);
 
   const submit = async (explicit?: string) => {
     const url = (explicit ?? value).trim();
@@ -185,6 +240,7 @@ export function ClipsPage() {
       setMeta(m);
       setTitle(m.title ?? "");
       setStep("config");
+      void ensureProject(m.title ?? "Clips project");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not read that link");
     } finally {
@@ -193,6 +249,7 @@ export function ClipsPage() {
   };
 
   const backToInput = () => {
+    if (projectId) localStorage.removeItem(`flappy-clips-draft-${projectId}`);
     setStep("input");
     setSource(null);
     setMeta(null);
@@ -200,7 +257,9 @@ export function ClipsPage() {
   };
 
   return (
-    <div className="relative mx-auto w-full max-w-4xl px-6 py-12">
+    <div className="flex h-full w-full flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="relative mx-auto w-full max-w-4xl px-6 py-12">
       {/* ambient glow */}
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 -z-10 overflow-hidden">
         <div className="absolute left-1/2 top-[-120px] h-[340px] w-[640px] -translate-x-1/2 rounded-full bg-teal-500/10 blur-[110px]" />
@@ -370,6 +429,9 @@ export function ClipsPage() {
       ) : null}
         </>
       )}
+        </div>
+      </div>
+      {projectId ? <EditorModeTabs projectId={projectId} mode="clips" /> : null}
     </div>
   );
 }

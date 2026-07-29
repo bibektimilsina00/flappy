@@ -104,6 +104,7 @@ class JobCreate(BaseModel):
     source_url: str | None = None
     source_key: str | None = None
     source_title: str | None = None
+    workflow_id: uuid.UUID | None = None  # link to an existing project (its Clips tab)
     params: dict = {}
 
 
@@ -138,8 +139,12 @@ def create_job(
     )
     # Every clips job is a project from the start (shows in Projects/recents).
     from apps.api.app.features.clips.project_link import create_project_for_job
+    from apps.api.app.features.workflows import repository as workflows_repo
 
-    create_project_for_job(session, job)
+    if body.workflow_id and workflows_repo.get(session, workspace_id, body.workflow_id):
+        job.workflow_id = body.workflow_id
+    else:
+        create_project_for_job(session, job)
     job = repository.save(session, job)
     celery_app.send_task("run_clips_job", args=[str(job.id)])
     return _job_out(job, get_storage())

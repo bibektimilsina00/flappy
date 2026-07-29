@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import { ClipsPage } from "@/features/clips";
 
 export default function Page() {
-  return <ClipsPage />;
+  return (
+    <Suspense>
+      <ClipsPage />
+    </Suspense>
+  );
 }

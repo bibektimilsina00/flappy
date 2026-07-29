@@ -124,6 +124,7 @@ export function createClipsJob(body: {
   source_url?: string;
   source_key?: string;
   source_title?: string;
+  workflow_id?: string;
   params: ClipsParams;
 }): Promise<ClipsJob> {
   return api("/clips/jobs", { method: "POST", body: JSON.stringify(body) });

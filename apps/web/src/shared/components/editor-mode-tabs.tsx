@@ -9,8 +9,8 @@ import { cn } from "@/lib/cn";
 const ACCENT = "#14b8a6";
 
 /**
- * Workflow ⇄ Video (⇄ Clips) switcher — VSCode-style editor tabs. The Clips tab
- * appears only when this project is linked to a clips job.
+ * Workflow ⇄ Video ⇄ Clips switcher — VSCode-style editor tabs. Clips routes
+ * to the linked job when one exists, else to the project-scoped clips landing.
  */
 const TABS = [
   { id: "canvas", label: "Canvas", Icon: Component, to: (id: string) => `/canvas?project=${id}` },
@@ -26,9 +26,13 @@ export function EditorModeTabs({ projectId, mode }: { projectId: string; mode: "
 
   const tabs = [
     ...TABS.map((t) => ({ ...t, href: t.to(projectId) })),
-    ...(clipsLink?.job_id
-      ? [{ id: "clips" as const, label: "Clips", Icon: Scissors, href: `/clips/${clipsLink.job_id}` }]
-      : []),
+    {
+      id: "clips" as const,
+      label: "Clips",
+      Icon: Scissors,
+      // No job yet -> the clips landing scoped to this project (paste/upload there).
+      href: clipsLink?.job_id ? `/clips/${clipsLink.job_id}` : `/clips?project=${projectId}`,
+    },
   ];
 
   return (
