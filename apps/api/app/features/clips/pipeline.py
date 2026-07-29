@@ -136,7 +136,8 @@ def _ingest(session: Session, job: ClipsJob, storage, workdir: str) -> str:
     key = f"{job.workspace_id}/clips/{job.id}/source.mp4"
     with open(path, "rb") as f:
         storage.put(key, f.read(), "video/mp4")
-    _set(session, job, source_key=key, **({"source_title": str(title)[:200]} if title else {}))
+    # Never overwrite a user-provided title from the configure step.
+    _set(session, job, source_key=key, **({"source_title": str(title)[:200]} if title and not job.source_title else {}))
     return path
 
 

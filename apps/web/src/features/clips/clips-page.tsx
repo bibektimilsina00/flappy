@@ -30,6 +30,7 @@ import {
   createClipsJob,
   deleteClipsJob,
   listClipsJobs,
+  probeClipsSource,
   uploadClipsSource,
 } from "./api";
 
@@ -106,60 +107,89 @@ const PLATFORMS: { name: string; icon: React.ComponentType<GlyphProps> }[] = [
   },
 ];
 
+interface SourceMeta {
+  title: string | null;
+  duration: number | null;
+  thumbnail: string | null;
+  height: number | null;
+}
+
 export function ClipsPage() {
   const router = useRouter();
   const [value, setValue] = useState("");
   const [params, setParams] = useState<ClipsParams>(DEFAULTS);
-  const [optionsOpen, setOptionsOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null); // "upload: name" | "start"
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [hint, setHint] = useState(false);
   const [jobs, setJobs] = useState<ClipsJob[] | null>(null);
+  // Two-step flow: pick a source, then configure before the job starts.
+  const [step, setStep] = useState<"input" | "config">("input");
+  const [source, setSource] = useState<{ source_url?: string; source_key?: string } | null>(null);
+  const [meta, setMeta] = useState<SourceMeta | null>(null);
+  const [title, setTitle] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     listClipsJobs().then(setJobs).catch(() => setJobs([]));
   }, []);
 
-  const start = useCallback(
-    async (source: { source_url?: string; source_key?: string }) => {
-      setBusy("start");
-      setError(null);
-      try {
-        const job = await createClipsJob({ ...source, params });
-        router.push(`/clips/${job.id}`);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Could not start the job");
-        setBusy(null);
-      }
-    },
-    [params, router],
-  );
+  const start = useCallback(async () => {
+    if (!source) return;
+    setBusy("start");
+    setError(null);
+    try {
+      const job = await createClipsJob({ ...source, source_title: title.trim() || undefined, params });
+      router.push(`/clips/${job.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not start the job");
+      setBusy(null);
+    }
+  }, [source, title, params, router]);
 
-  const onFile = useCallback(
-    async (file: File | undefined) => {
-      if (!file) return;
-      setBusy(`Uploading ${file.name}…`);
-      setError(null);
-      try {
-        const { source_key } = await uploadClipsSource(file);
-        await start({ source_key });
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Upload failed");
-        setBusy(null);
-      }
-    },
-    [start],
-  );
+  const onFile = useCallback(async (file: File | undefined) => {
+    if (!file) return;
+    setBusy(`Uploading ${file.name}…`);
+    setError(null);
+    try {
+      const { source_key } = await uploadClipsSource(file);
+      setSource({ source_key });
+      setMeta({ title: file.name.replace(/\.[^.]+$/, ""), duration: null, thumbnail: null, height: null });
+      setTitle(file.name.replace(/\.[^.]+$/, ""));
+      setStep("config");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setBusy(null);
+    }
+  }, []);
 
-  const submit = () => {
+  const submit = async () => {
     const url = value.trim();
     if (!url) {
       fileRef.current?.click();
       return;
     }
-    void start({ source_url: url });
+    setBusy("Reading link…");
+    setError(null);
+    try {
+      const m = await probeClipsSource(url);
+      setSource({ source_url: url });
+      setMeta(m);
+      setTitle(m.title ?? "");
+      setStep("config");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not read that link");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const backToInput = () => {
+    setStep("input");
+    setSource(null);
+    setMeta(null);
+    setError(null);
   };
 
   return (
@@ -185,7 +215,21 @@ export function ClipsPage() {
         </p>
       </div>
 
-      {/* The one input — CTA lives inside the bar; options are always-visible pills */}
+      {step === "config" && source ? (
+        <ConfigPanel
+          meta={meta}
+          title={title}
+          setTitle={setTitle}
+          params={params}
+          setParams={setParams}
+          busy={busy}
+          error={error}
+          onStart={() => void start()}
+          onBack={backToInput}
+        />
+      ) : (
+        <>
+      {/* The one input — pick a source, configure on the next step */}
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -282,78 +326,6 @@ export function ClipsPage() {
             <p className="flex items-center gap-2 text-sm font-medium text-teal-300">
               <Upload className="size-4" /> Drop your video to start
             </p>
-          </div>
-        ) : null}
-
-        {/* settings — always visible, one quiet row */}
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-          <PillSelect
-            label="Clips"
-            value={String(params.count)}
-            options={["auto", "1", "2", "3", "5", "8", "10"]}
-            display={(v) => (v === "auto" ? "Auto" : v)}
-            onChange={(v) => setParams((p) => ({ ...p, count: v === "auto" ? "auto" : Number(v) }))}
-          />
-          <PillSelect
-            label="Length"
-            value={params.duration}
-            options={["auto", "short", "medium", "long"]}
-            display={(v) =>
-              v === "auto" ? "Auto" : v === "short" ? "15–30s" : v === "medium" ? "30–60s" : "60–90s"
-            }
-            onChange={(v) => setParams((p) => ({ ...p, duration: v as ClipsParams["duration"] }))}
-          />
-          <PillSelect
-            label="Format"
-            value={params.ratio}
-            options={["9:16", "1:1", "16:9"]}
-            display={(v) => v}
-            onChange={(v) => setParams((p) => ({ ...p, ratio: v as ClipsParams["ratio"] }))}
-          />
-          <PillSelect
-            label="Captions"
-            value={params.captions ? params.caption_style : "off"}
-            options={["clean", "bold", "highlight", "off"]}
-            display={(v) => (v === "off" ? "Off" : v[0].toUpperCase() + v.slice(1))}
-            onChange={(v) =>
-              setParams((p) =>
-                v === "off"
-                  ? { ...p, captions: false }
-                  : { ...p, captions: true, caption_style: v as ClipsParams["caption_style"] },
-              )
-            }
-          />
-          <PillSelect
-            label="Framing"
-            value={params.framing ? "on" : "off"}
-            options={["on", "off"]}
-            display={(v) => (v === "on" ? "Auto" : "Off")}
-            onChange={(v) => setParams((p) => ({ ...p, framing: v === "on" }))}
-          />
-          <button
-            type="button"
-            onClick={() => setOptionsOpen((v) => !v)}
-            className={cn(
-              "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors",
-              params.focus?.trim()
-                ? "border-teal-400/40 bg-teal-400/10 text-teal-300"
-                : "border-white/10 bg-white/5 text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <Sparkles className="size-3.5" />
-            {params.focus?.trim() ? "Focus set" : "Add focus"}
-          </button>
-        </div>
-
-        {optionsOpen ? (
-          <div className="mx-auto mt-3 max-w-xl">
-            <input
-              value={params.focus ?? ""}
-              onChange={(e) => setParams((p) => ({ ...p, focus: e.target.value }))}
-              onKeyDown={(e) => e.key === "Enter" && setOptionsOpen(false)}
-              placeholder="What should we look for? e.g. “actionable advice”, “funny moments”"
-              className="w-full rounded-xl border border-white/10 bg-[#161616] px-4 py-2.5 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-teal-400/50"
-            />
           </div>
         ) : null}
 
@@ -459,6 +431,294 @@ export function ClipsPage() {
               />
             ))}
           </div>
+        </div>
+      ) : null}
+        </>
+      )}
+    </div>
+  );
+}
+
+const fmtDur = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+// Step 2: configure the job (OpusClip-style) before it starts.
+function ConfigPanel({
+  meta,
+  title,
+  setTitle,
+  params,
+  setParams,
+  busy,
+  error,
+  onStart,
+  onBack,
+}: {
+  meta: SourceMeta | null;
+  title: string;
+  setTitle: (t: string) => void;
+  params: ClipsParams;
+  setParams: React.Dispatch<React.SetStateAction<ClipsParams>>;
+  busy: string | null;
+  error: string | null;
+  onStart: () => void;
+  onBack: () => void;
+}) {
+  const tooLong = (meta?.duration ?? 0) > 30 * 60;
+  return (
+    <div className="space-y-5">
+      {/* source chip */}
+      <div className="flex items-center gap-4 rounded-2xl border border-white/10 bg-[#161616] p-4">
+        {meta?.thumbnail ? (
+          // biome-ignore lint/a11y/useAltText: source thumbnail
+          <img src={meta.thumbnail} className="h-16 w-28 shrink-0 rounded-lg object-cover" />
+        ) : (
+          <span className="grid h-16 w-28 shrink-0 place-items-center rounded-lg bg-white/5">
+            <Film className="size-6 text-muted-foreground/60" />
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Video title"
+            className="w-full rounded-lg bg-transparent px-1 py-0.5 text-[15px] font-semibold outline-none transition-colors hover:bg-white/5 focus:bg-white/5"
+          />
+          <div className="mt-1.5 flex gap-1.5 px-1">
+            {meta?.height ? (
+              <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[11px] text-muted-foreground">{meta.height}p</span>
+            ) : null}
+            {meta?.duration ? (
+              <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[11px] tabular-nums text-muted-foreground">
+                {fmtDur(meta.duration)}
+              </span>
+            ) : null}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onBack}
+          className="shrink-0 rounded-lg px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
+        >
+          Change
+        </button>
+      </div>
+
+      {tooLong ? (
+        <p className="rounded-xl border border-amber-400/20 bg-amber-400/5 px-4 py-2.5 text-xs text-amber-300">
+          This video is longer than the 30-minute limit — the job will fail. Pick a shorter source.
+        </p>
+      ) : null}
+
+      {/* fields */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <FieldSelect
+          label="Ratio"
+          value={params.ratio}
+          options={["9:16", "1:1", "16:9"]}
+          display={(v) => v}
+          onChange={(v) => setParams((p) => ({ ...p, ratio: v as ClipsParams["ratio"] }))}
+        />
+        <FieldSelect
+          label="Clip length"
+          value={params.duration}
+          options={["auto", "short", "medium", "long"]}
+          display={(v) =>
+            v === "auto" ? "Auto (AI decides)" : v === "short" ? "15–30s" : v === "medium" ? "30–60s" : "60–90s"
+          }
+          onChange={(v) => setParams((p) => ({ ...p, duration: v as ClipsParams["duration"] }))}
+        />
+        <FieldSelect
+          label="Clips"
+          value={String(params.count)}
+          options={["auto", "1", "2", "3", "5", "8", "10"]}
+          display={(v) => (v === "auto" ? "Auto" : v)}
+          onChange={(v) => setParams((p) => ({ ...p, count: v === "auto" ? "auto" : Number(v) }))}
+        />
+      </div>
+
+      {/* caption style cards */}
+      <div>
+        <p className="mb-2 text-sm font-medium">Caption style</p>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {(
+            [
+              { id: "clean", name: "Clean", bg: "from-slate-700 to-slate-900" },
+              { id: "bold", name: "Bold", bg: "from-indigo-800 to-slate-900" },
+              { id: "highlight", name: "Highlight", bg: "from-teal-900 to-slate-900" },
+              { id: "off", name: "No captions", bg: "from-neutral-800 to-neutral-900" },
+            ] as const
+          ).map((card) => {
+            const active = card.id === "off" ? !params.captions : params.captions && params.caption_style === card.id;
+            return (
+              <button
+                key={card.id}
+                type="button"
+                onClick={() =>
+                  setParams((p) =>
+                    card.id === "off"
+                      ? { ...p, captions: false }
+                      : { ...p, captions: true, caption_style: card.id },
+                  )
+                }
+                className={cn(
+                  "group overflow-hidden rounded-xl border text-left transition-all",
+                  active ? "border-teal-400 ring-1 ring-teal-400" : "border-white/10 hover:border-white/25",
+                )}
+              >
+                <div className={cn("relative aspect-[9/14] w-full bg-gradient-to-br", card.bg)}>
+                  {active ? (
+                    <span className="absolute right-1.5 top-1.5 grid size-5 place-items-center rounded-full bg-teal-400 text-black">
+                      <Check className="size-3" />
+                    </span>
+                  ) : null}
+                  {/* sample caption in the actual style */}
+                  {card.id !== "off" ? (
+                    <span className="absolute inset-x-1.5 bottom-3 text-center">
+                      {card.id === "clean" ? (
+                        <span className="rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                          here is your subtitle
+                        </span>
+                      ) : card.id === "bold" ? (
+                        <span className="text-[11px] font-extrabold uppercase tracking-wide text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9)]">
+                          Here is your subtitle
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-bold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9)]">
+                          Here <span className="text-teal-300">is your</span> subtitle
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="absolute inset-0 grid place-items-center text-[11px] text-white/40">—</span>
+                  )}
+                </div>
+                <p className="px-2.5 py-2 text-xs font-medium">{card.name}</p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* framing toggle */}
+      <label className="flex cursor-pointer items-center justify-between rounded-2xl border border-white/10 bg-[#161616] px-4 py-3">
+        <span>
+          <span className="block text-sm font-medium">Auto-framing</span>
+          <span className="block text-xs text-muted-foreground">Keep faces centered when cropping to vertical</span>
+        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={params.framing}
+          onClick={() => setParams((p) => ({ ...p, framing: !p.framing }))}
+          className={cn("relative h-6 w-11 rounded-full transition-colors", params.framing ? "bg-teal-400" : "bg-white/15")}
+        >
+          <span
+            className={cn(
+              "absolute top-0.5 size-5 rounded-full bg-white shadow transition-transform",
+              params.framing ? "translate-x-[22px]" : "translate-x-0.5",
+            )}
+          />
+        </button>
+      </label>
+
+      {/* focus */}
+      <div>
+        <p className="mb-1.5 text-sm font-medium">
+          Find clip moment <span className="font-normal text-muted-foreground">Optional</span>
+        </p>
+        <input
+          value={params.focus ?? ""}
+          onChange={(e) => setParams((p) => ({ ...p, focus: e.target.value }))}
+          placeholder="For example: when they talk about pricing strategy."
+          className="w-full rounded-xl border border-white/10 bg-[#161616] px-4 py-3 text-sm outline-none placeholder:text-muted-foreground/50 focus:border-teal-400/50"
+        />
+      </div>
+
+      <button
+        type="button"
+        disabled={busy !== null || tooLong}
+        onClick={onStart}
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-teal-400 py-3.5 text-sm font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-60"
+      >
+        {busy ? <Loader2 className="size-4 animate-spin" /> : <Scissors className="size-4" />}
+        {busy ? "Starting…" : "Get AI clips"}
+      </button>
+      {error ? <p className="text-center text-xs text-red-400">{error}</p> : null}
+    </div>
+  );
+}
+
+// Bordered full-width dropdown field (custom menu, same behavior as PillSelect).
+function FieldSelect({
+  label,
+  value,
+  options,
+  display,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  display: (v: string) => string;
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "flex w-full items-center justify-between gap-2 rounded-xl border bg-[#161616] px-4 py-3 text-sm transition-colors",
+          open ? "border-teal-400/50" : "border-white/10 hover:border-white/20",
+        )}
+      >
+        <span className="text-muted-foreground">{label}</span>
+        <span className="flex items-center gap-1.5 font-medium">
+          {display(value)}
+          <ChevronDown className={cn("size-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
+        </span>
+      </button>
+      {open ? (
+        <div
+          role="listbox"
+          className="absolute left-0 right-0 top-full z-30 mt-1.5 rounded-xl border border-white/10 bg-[#1e1e1e] p-1 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-100"
+        >
+          {options.map((o) => {
+            const active = o === value;
+            return (
+              <button
+                key={o}
+                type="button"
+                role="option"
+                aria-selected={active}
+                onClick={() => {
+                  onChange(o);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors",
+                  active ? "bg-teal-400/10 text-teal-300" : "text-foreground/90 hover:bg-white/5",
+                )}
+              >
+                {display(o)}
+                {active ? <Check className="size-4" /> : null}
+              </button>
+            );
+          })}
         </div>
       ) : null}
     </div>

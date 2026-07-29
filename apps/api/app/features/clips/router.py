@@ -69,9 +69,39 @@ async def upload_source(
     return {"source_key": key, "name": file.filename}
 
 
+class ProbeRequest(BaseModel):
+    source_url: str
+
+
+@router.post("/probe")
+def probe_source(
+    body: ProbeRequest,
+    _workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Read a link's metadata (no download) so the configure step can show
+    title/thumbnail/duration before the job starts."""
+    if not URL_RE.match(body.source_url.strip()):
+        raise HTTPException(status_code=422, detail="That doesn't look like a valid link.")
+    import yt_dlp
+
+    try:
+        with yt_dlp.YoutubeDL({"noplaylist": True, "quiet": True, "no_warnings": True}) as ydl:
+            info = ydl.extract_info(body.source_url.strip(), download=False)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Could not read that link: {exc}") from exc
+    return {
+        "title": info.get("title"),
+        "duration": info.get("duration"),
+        "thumbnail": info.get("thumbnail"),
+        "height": info.get("height"),
+    }
+
+
 class JobCreate(BaseModel):
     source_url: str | None = None
     source_key: str | None = None
+    source_title: str | None = None
     params: dict = {}
 
 
@@ -115,6 +145,7 @@ def create_job(
             workspace_id=workspace_id,
             source_url=(body.source_url or "").strip() or None,
             source_key=body.source_key,
+            source_title=(body.source_title or "").strip()[:200] or None,
             params=params,
         ),
     )

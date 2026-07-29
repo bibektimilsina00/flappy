@@ -51,9 +51,20 @@ export interface ClipsParams {
   framing: boolean;
 }
 
+// Read a link's metadata (title/thumb/duration) before starting a job.
+export function probeClipsSource(source_url: string): Promise<{
+  title: string | null;
+  duration: number | null;
+  thumbnail: string | null;
+  height: number | null;
+}> {
+  return api("/clips/probe", { method: "POST", body: JSON.stringify({ source_url }) });
+}
+
 export function createClipsJob(body: {
   source_url?: string;
   source_key?: string;
+  source_title?: string;
   params: ClipsParams;
 }): Promise<ClipsJob> {
   return api("/clips/jobs", { method: "POST", body: JSON.stringify(body) });
