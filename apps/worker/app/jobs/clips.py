@@ -61,7 +61,7 @@ def rerender_clip(job_id: str, clip_id: str) -> None:
                     f.write(storage.get(job.source_key))
                 key = f"{job.workspace_id}/clips/{job.id}/clip-{clip_id}-{uuid_mod.uuid4().hex[:8]}.mp4"
                 render_clip_file(job, src, clip, workdir, storage, key)
-            clip.update({"key": key, "status": "ready", "duration": round(clip["end"] - clip["start"], 2)})
+            clip.update({"key": key, "status": "ready", "clean": True, "duration": round(clip["end"] - clip["start"], 2)})
         except Exception as exc:  # noqa: BLE001 — surface on the clip, keep the job alive
             log.warning("clip rerender %s/%s failed: %s", job_id, clip_id, exc)
             clip.update({"status": "failed", "error": str(exc)[:300]})

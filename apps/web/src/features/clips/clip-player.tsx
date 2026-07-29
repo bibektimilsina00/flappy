@@ -78,8 +78,11 @@ export function ClipPlayer({
   const [dur, setDur] = useState(clip.end - clip.start);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const lines = useMemo(() => buildLines(transcript, clip), [transcript, clip]);
-  const line = cc.on ? lines.find((l) => t >= l.s && t <= l.e) : undefined;
+  // Legacy clips (pre clean-master) have captions burned into the file —
+  // overlaying would show them twice, so the caption layer is clean-only.
+  const captionable = clip.clean === true;
+  const lines = useMemo(() => (captionable ? buildLines(transcript, clip) : []), [captionable, transcript, clip]);
+  const line = captionable && cc.on ? lines.find((l) => t >= l.s && t <= l.e) : undefined;
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -184,7 +187,7 @@ export function ClipPlayer({
             {fmtTime(t)} / {fmtTime(dur)}
           </span>
           <span className="flex-1" />
-          <div className="relative">
+          <div className={cn("relative", !captionable && "hidden")}>
             <PlayerBtn label="Captions" active={cc.on} onClick={() => setMenuOpen((v) => !v)}>
               <Captions className="size-4" />
             </PlayerBtn>

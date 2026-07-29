@@ -12,6 +12,7 @@ export interface ClipItem {
   key: string;
   url: string | null;
   status?: "ready" | "rendering" | "failed";
+  clean?: boolean; // master has no burned captions (overlay/burn apply)
   error?: string;
   caption_edits?: { start: number; end: number; text: string }[] | null;
 }

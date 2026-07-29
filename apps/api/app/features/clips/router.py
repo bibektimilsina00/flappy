@@ -219,7 +219,8 @@ def download_clip(
         raise HTTPException(status_code=404, detail="Clip not found")
 
     storage = get_storage()
-    if body.style == "none":
+    # Legacy clips (pre clean-master) already have captions burned in.
+    if body.style == "none" or not clip.get("clean"):
         return {"url": storage.url(clip["key"])}
     cached = (clip.get("burned") or {}).get(body.style)
     key = cached or burn_clip_captions(job, clip, body.style, storage)
@@ -284,7 +285,7 @@ def job_zip(
             if not clip.get("key"):
                 continue
             key = clip["key"]
-            if style:
+            if style and clip.get("clean"):
                 key = burn_clip_captions(job, clip, style, storage) or key
             safe = re.sub(r"[^\w\- ]", "", clip.get("title") or f"clip {i + 1}")[:60]
             zf.writestr(f"{i + 1:02d} {safe}.mp4", storage.get(key))

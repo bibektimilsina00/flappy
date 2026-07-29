@@ -28,7 +28,7 @@ log = logging.getLogger(__name__)
 
 MAX_SOURCE_MINUTES = 30
 DEFAULT_COUNT = 5
-DURATION_BANDS = {"short": (15, 30), "medium": (30, 60), "long": (60, 90), "auto": (15, 90)}
+DURATION_BANDS = {"short": (15, 30), "medium": (30, 60), "long": (60, 90), "auto": (10, 90)}
 RATIO_SIZES = {"9:16": (1080, 1920), "1:1": (1080, 1080), "16:9": (1920, 1080)}
 
 _whisper_model = None  # loaded once per worker process
@@ -77,7 +77,7 @@ def run_pipeline(session: Session, job: ClipsJob, charge) -> None:
         clips = []
         for i, seg in enumerate(segments):
             key = _render_clip(job, source, seg, i, workdir, storage)
-            clips.append({**seg, "id": uuid.uuid4().hex, "key": key})
+            clips.append({**seg, "id": uuid.uuid4().hex, "key": key, "clean": True})
             _set(session, job, progress=(i + 1) / len(segments), clips=clips)
         charge(settings.clips_credits_per_clip * len(clips), "clips-render")
 
@@ -195,8 +195,20 @@ def _select(job: ClipsJob, transcript: list[dict], duration: float) -> list[dict
     params = job.params or {}
     count = params.get("count", "auto")
     count = DEFAULT_COUNT if count in (None, "auto") else max(1, min(10, int(count)))
-    band = DURATION_BANDS.get(params.get("duration") or "auto", DURATION_BANDS["auto"])
+    duration_pref = params.get("duration") or "auto"
+    band = DURATION_BANDS.get(duration_pref, DURATION_BANDS["auto"])
     focus = (params.get("focus") or "").strip()
+
+    if duration_pref == "auto":
+        # Default product promise: ready-to-post TikTok/Reels length, AI-decided.
+        length_rule = (
+            "Choose each clip's length by topic completeness — the moment it stops "
+            "being gripping, cut. Target the short-form sweet spot of 20-45 seconds "
+            "(perfect for TikTok/Reels/Shorts); never shorter than 10s or longer "
+            "than 90s, and never pad a clip to make it longer. "
+        )
+    else:
+        length_rule = f"Each segment must be {band[0]}-{band[1]} seconds long. "
 
     lines = "\n".join(f"[{s['start']:.0f}-{s['end']:.0f}] {s['text']}" for s in transcript)
     prompt = (
@@ -206,8 +218,8 @@ def _select(job: ClipsJob, transcript: list[dict], duration: float) -> list[dict
         "a complete idea that needs no outside context, and high engagement "
         "(dense speech, emotion, concrete takeaways). "
         + (f"The user asked to focus on: {focus}. " if focus else "")
-        + f"Each segment must be {band[0]}-{band[1]} seconds long. "
-        "Respond with ONLY a JSON array, no prose, each item: "
+        + length_rule
+        + "Respond with ONLY a JSON array, no prose, each item: "
         '{"start": <sec>, "end": <sec>, "title": "<catchy 4-8 word title>", '
         '"score": <0-100 virality estimate>, "reason": "<one line why>"}'
     )
