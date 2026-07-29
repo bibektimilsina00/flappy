@@ -6,6 +6,7 @@ import {
   CalendarClock,
   Check,
   Clapperboard,
+  Component,
   Download,
   DownloadCloud,
   FileText,
@@ -36,7 +37,6 @@ import {
   type ScheduledPost,
 } from "./api";
 import { Checkbox } from "@/components/ui/checkbox";
-import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
 import { ClipEditModal } from "./clip-edit-modal";
 import { PublishPanel } from "./publish-panel";
 import { defaultSchedule, ScheduleModal } from "./schedule-modal";
@@ -161,10 +161,8 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
         </div>
       ) : (
         <>
-          {job.workflow_id ? (
-            <div className="mb-5 inline-flex overflow-hidden rounded-lg border border-border">
-              <EditorModeTabs projectId={job.workflow_id} mode="clips" />
-            </div>
+          {job.status === "completed" && job.clips.length > 0 ? (
+            <ClipsModeTabs job={job} onLinked={(wf) => setJob({ ...job, workflow_id: wf })} />
           ) : null}
           <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
             <div className="flex min-w-0 items-center gap-4">
@@ -295,6 +293,62 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+// Canvas | Editor | Clips switcher — always visible on a finished job. If the
+// job isn't linked to a project yet, the first switch creates it.
+function ClipsModeTabs({ job, onLinked }: { job: ClipsJob; onLinked: (workflowId: string) => void }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const go = (mode: "canvas" | "video") => {
+    const dest = (wf: string) => (mode === "canvas" ? `/canvas?project=${wf}` : `/video-editor?project=${wf}`);
+    if (job.workflow_id) {
+      router.push(dest(job.workflow_id));
+      return;
+    }
+    setBusy(mode);
+    clipsToProject(job.id)
+      .then(({ workflow_id }) => {
+        onLinked(workflow_id);
+        router.push(dest(workflow_id));
+      })
+      .catch(() => setBusy(null));
+  };
+
+  const tabs = [
+    { id: "canvas", label: "Canvas", Icon: Component, onClick: () => go("canvas") },
+    { id: "video", label: "Editor", Icon: Clapperboard, onClick: () => go("video") },
+    { id: "clips", label: "Clips", Icon: Scissors, onClick: () => {} },
+  ] as const;
+
+  return (
+    <div className="mb-5 inline-flex overflow-hidden rounded-lg border border-border bg-card text-[13px]">
+      {tabs.map(({ id, label, Icon, onClick }) => {
+        const active = id === "clips";
+        return (
+          <button
+            key={id}
+            type="button"
+            onClick={onClick}
+            disabled={busy !== null}
+            aria-current={active ? "page" : undefined}
+            className={cn(
+              "relative flex items-center gap-2 border-r border-border px-4 py-1.5 font-medium transition-colors last:border-r-0",
+              active ? "bg-background text-foreground" : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
+            )}
+          >
+            {busy === id ? (
+              <Loader2 className="size-4 shrink-0 animate-spin" />
+            ) : (
+              <Icon className="size-4 shrink-0" style={active ? { color: "#14b8a6" } : undefined} />
+            )}
+            {label}
+          </button>
+        );
+      })}
     </div>
   );
 }
