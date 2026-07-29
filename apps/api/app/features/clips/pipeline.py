@@ -302,11 +302,10 @@ def _render_clip(job: ClipsJob, source: str, seg: dict, index: int, workdir: str
 
 
 def render_clip_file(job: ClipsJob, source: str, seg: dict, workdir: str, storage, key: str) -> str:
-    """Cut [start,end] from source, crop to the target aspect, burn captions
-    (unless params.captions is false), store at `key`. Shared by the pipeline
-    and single-clip re-renders."""
-    from apps.api.app.features.clips.captions import FONTS_DIR, build_ass
-
+    """Cut [start,end] from source and crop to the target aspect — a CLEAN
+    master (no burned captions). Captions live as a layer: overlaid in the web
+    player, burned on demand at download (burn_clip_captions), and handed to
+    the editor as separate text clips."""
     params = job.params or {}
     w, h = RATIO_SIZES.get(params.get("ratio") or "9:16", RATIO_SIZES["9:16"])
     out = os.path.join(workdir, "render.mp4")
@@ -323,18 +322,6 @@ def render_clip_file(job: ClipsJob, source: str, seg: dict, workdir: str, storag
             x_expr = f"min(max(in_w*{center:.4f}-out_w/2\\,0)\\,in_w-out_w)"
     vf = f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h}:x='{x_expr}':y='(in_h-out_h)/2',fps=30"
 
-    if params.get("captions", True):
-        ass = build_ass(
-            job.transcript or [], seg["start"], seg["end"],
-            style=params.get("caption_style") or "clean",
-            width=w, height=h, edits=seg.get("caption_edits"),
-        )
-        if ass:
-            ass_path = os.path.join(workdir, "captions.ass")
-            with open(ass_path, "w", encoding="utf-8") as f:
-                f.write(ass)
-            vf += f",ass={ass_path}:fontsdir={FONTS_DIR}"
-
     cmd = [
         exe, "-y", "-ss", f"{seg['start']:.2f}", "-to", f"{seg['end']:.2f}", "-i", source,
         "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
@@ -345,4 +332,43 @@ def render_clip_file(job: ClipsJob, source: str, seg: dict, workdir: str, storag
         raise RuntimeError(f"Clip render failed: {proc.stderr.decode(errors='ignore')[-300:]}")
     with open(out, "rb") as f:
         storage.put(key, f.read(), "video/mp4")
+    return key
+
+
+def burn_clip_captions(job: ClipsJob, clip: dict, style: str, storage) -> str | None:
+    """Burn captions onto a clip's clean master and cache the result on the
+    clip ({burned: {style: key}}). Returns the burned key, or None when the
+    clip has no speech. Caller persists the job row."""
+    from apps.api.app.features.clips.captions import FONTS_DIR, build_ass
+
+    burned = clip.get("burned") or {}
+    if style in burned:
+        return burned[style]
+
+    w, h = RATIO_SIZES.get((job.params or {}).get("ratio") or "9:16", RATIO_SIZES["9:16"])
+    ass = build_ass(job.transcript or [], clip["start"], clip["end"], style, w, h, clip.get("caption_edits"))
+    if not ass:
+        return None
+
+    exe = imageio_ffmpeg.get_ffmpeg_exe()
+    with tempfile.TemporaryDirectory() as d:
+        master = os.path.join(d, "master.mp4")
+        with open(master, "wb") as f:
+            f.write(storage.get(clip["key"]))
+        ass_path = os.path.join(d, "c.ass")
+        with open(ass_path, "w", encoding="utf-8") as f:
+            f.write(ass)
+        out = os.path.join(d, "out.mp4")
+        cmd = [
+            exe, "-y", "-i", master, "-vf", f"ass={ass_path}:fontsdir={FONTS_DIR}",
+            "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
+            "-c:a", "copy", "-movflags", "+faststart", out,
+        ]
+        proc = subprocess.run(cmd, capture_output=True, timeout=300)
+        if proc.returncode != 0 or not os.path.exists(out) or os.path.getsize(out) == 0:
+            raise RuntimeError(f"Caption burn failed: {proc.stderr.decode(errors='ignore')[-300:]}")
+        key = f"{job.workspace_id}/clips/{job.id}/clip-{clip['id']}-{style}.mp4"
+        with open(out, "rb") as f:
+            storage.put(key, f.read(), "video/mp4")
+    clip["burned"] = {**burned, style: key}
     return key

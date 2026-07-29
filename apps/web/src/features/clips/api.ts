@@ -20,6 +20,7 @@ export interface TranscriptSegment {
   text: string;
   start: number;
   end: number;
+  words?: { w: string; s: number; e: number }[];
 }
 
 export interface ClipsJob {
@@ -75,6 +76,18 @@ export function rerenderClip(
   body: { start?: number; end?: number; caption_edits?: { start: number; end: number; text: string }[] },
 ): Promise<ClipsJob> {
   return api(`/clips/jobs/${jobId}/clips/${clipId}/rerender`, { method: "POST", body: JSON.stringify(body) });
+}
+
+// Resolve a downloadable MP4 URL (clean master or lazily-burned captions).
+export function getClipDownloadUrl(
+  jobId: string,
+  clipId: string,
+  style: "none" | "clean" | "bold" | "highlight",
+): Promise<{ url: string }> {
+  return api(`/clips/jobs/${jobId}/clips/${clipId}/download`, {
+    method: "POST",
+    body: JSON.stringify({ style }),
+  });
 }
 
 export function clipsToProject(jobId: string): Promise<{ workflow_id: string }> {

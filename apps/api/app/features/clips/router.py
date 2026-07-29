@@ -42,9 +42,10 @@ def _job_out(job: ClipsJob, storage, with_transcript: bool = False) -> dict:
         ],
     }
     if with_transcript:
-        # Segment texts only (no word timings) — enough for the caption editor.
+        # Words included: the player overlays live karaoke captions from them.
         out["transcript"] = [
-            {"text": s["text"], "start": s["start"], "end": s["end"]} for s in (job.transcript or [])
+            {"text": s["text"], "start": s["start"], "end": s["end"], "words": s.get("words") or []}
+            for s in (job.transcript or [])
         ]
     return out
 
@@ -177,7 +178,8 @@ def rerender(
         end = min(end, job.duration)
     if end - start < 3:
         raise HTTPException(status_code=422, detail="A clip must be at least 3 seconds long.")
-    clip.update({"start": round(start, 2), "end": round(end, 2), "status": "rendering"})
+    # Trim/caption edits invalidate any cached caption burns.
+    clip.update({"start": round(start, 2), "end": round(end, 2), "status": "rendering", "burned": {}})
     if body.caption_edits is not None:
         edits = [
             {"start": float(e["start"]), "end": float(e["end"]), "text": str(e["text"]).strip()}
@@ -189,6 +191,44 @@ def rerender(
     repository.save(session, job)
     celery_app.send_task("rerender_clip", args=[str(job.id), clip_id])
     return _job_out(job, get_storage(), with_transcript=True)
+
+
+class DownloadRequest(BaseModel):
+    style: str = "none"  # none | clean | bold | highlight
+
+
+@router.post("/jobs/{job_id}/clips/{clip_id}/download")
+def download_clip(
+    job_id: uuid.UUID,
+    clip_id: str,
+    body: DownloadRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """URL for a downloadable MP4 — the clean master, or a caption burn in the
+    requested style (burned lazily, cached per style on the clip)."""
+    from apps.api.app.features.clips.pipeline import burn_clip_captions
+
+    if body.style not in ("none", "clean", "bold", "highlight"):
+        raise HTTPException(status_code=422, detail="Unknown caption style")
+    job = repository.get(session, workspace_id, job_id)
+    clips = list(job.clips or []) if job else []
+    clip = next((c for c in clips if c.get("id") == clip_id), None)
+    if job is None or clip is None or not clip.get("key"):
+        raise HTTPException(status_code=404, detail="Clip not found")
+
+    storage = get_storage()
+    if body.style == "none":
+        return {"url": storage.url(clip["key"])}
+    cached = (clip.get("burned") or {}).get(body.style)
+    key = cached or burn_clip_captions(job, clip, body.style, storage)
+    if key is None:
+        return {"url": storage.url(clip["key"])}  # no speech -> master
+    if not cached:
+        job.clips = clips
+        repository.save(session, job)
+    return {"url": storage.url(key)}
 
 
 @router.get("/jobs/{job_id}/clips/{clip_id}/srt")
@@ -229,16 +269,27 @@ def job_zip(
 
     from fastapi.responses import StreamingResponse
 
+    from apps.api.app.features.clips.pipeline import burn_clip_captions
+
     job = repository.get(session, workspace_id, job_id)
     if job is None or not job.clips:
         raise HTTPException(status_code=404, detail="No clips to download")
     storage = get_storage()
+    params = job.params or {}
+    style = (params.get("caption_style") or "clean") if params.get("captions", True) else None
+    clips = list(job.clips)
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as zf:
-        for i, clip in enumerate(job.clips):
-            if clip.get("key"):
-                safe = re.sub(r"[^\w\- ]", "", clip.get("title") or f"clip {i + 1}")[:60]
-                zf.writestr(f"{i + 1:02d} {safe}.mp4", storage.get(clip["key"]))
+        for i, clip in enumerate(clips):
+            if not clip.get("key"):
+                continue
+            key = clip["key"]
+            if style:
+                key = burn_clip_captions(job, clip, style, storage) or key
+            safe = re.sub(r"[^\w\- ]", "", clip.get("title") or f"clip {i + 1}")[:60]
+            zf.writestr(f"{i + 1:02d} {safe}.mp4", storage.get(key))
+    job.clips = clips  # persist any burns done above
+    repository.save(session, job)
     buf.seek(0)
     name = re.sub(r"[^\w\- ]", "", job.source_title or "clips")[:60] or "clips"
     return StreamingResponse(
@@ -248,6 +299,74 @@ def job_zip(
     )
 
 
+def _editor_doc_from_job(job: ClipsJob) -> dict:
+    """Timeline doc for the editor: clips laid out sequentially on a video
+    track, with their captions as SEPARATE text clips (linked to the video clip
+    via parentClipId) so users edit video and captions individually."""
+    from apps.api.app.features.clips.pipeline import RATIO_SIZES
+
+    w, h = RATIO_SIZES.get((job.params or {}).get("ratio") or "9:16", RATIO_SIZES["9:16"])
+
+    def _base(kind: str, start: float, dur: float) -> dict:
+        return {
+            "id": uuid.uuid4().hex,
+            "kind": kind,
+            "start": round(start, 2),
+            "duration": round(dur, 2),
+            "in": 0.0,
+            "out": round(dur, 2),
+            "speed": 1.0,
+            "volume": 1.0,
+            "transform": {"x": 0, "y": 0, "scale": 1, "rotation": 0, "opacity": 1},
+            "keyframes": [],
+            "effects": [],
+        }
+
+    video_clips: list[dict] = []
+    text_clips: list[dict] = []
+    t = 0.0
+    for clip in job.clips:
+        if not clip.get("key"):
+            continue
+        dur = float(clip["end"]) - float(clip["start"])
+        vc = {**_base("video", t, dur), "assetId": clip["key"]}
+        video_clips.append(vc)
+        segments = clip.get("caption_edits") or [
+            s for s in (job.transcript or []) if s["end"] > clip["start"] and s["start"] < clip["end"]
+        ]
+        for seg in segments:
+            s = max(float(seg["start"]), float(clip["start"]))
+            e = min(float(seg["end"]), float(clip["end"]))
+            text = (seg.get("text") or "").strip()
+            if e - s < 0.2 or not text:
+                continue
+            tc = {
+                **_base("text", t + (s - float(clip["start"])), e - s),
+                "text": {"content": text},
+                "parentClipId": vc["id"],  # moves/deletes with its video clip
+            }
+            text_clips.append(tc)
+        t += dur
+
+    def _track(kind: str, name: str, clips: list[dict]) -> dict:
+        return {"id": uuid.uuid4().hex, "kind": kind, "name": name, "locked": False, "hidden": False, "muted": False, "clips": clips}
+
+    tracks = [_track("video", "V1", video_clips)]
+    if text_clips:
+        tracks.append(_track("text", "Captions", text_clips))
+    tracks.append(_track("video", "Track", []))
+    return {
+        "version": 1,
+        "fps": 30,
+        "width": w,
+        "height": h,
+        "duration": t,
+        "background": "#000000",
+        "tracks": tracks,
+        "markers": [],
+    }
+
+
 @router.post("/jobs/{job_id}/to-project", status_code=201)
 def to_project(
     job_id: uuid.UUID,
@@ -255,8 +374,11 @@ def to_project(
     workspace_id: uuid.UUID = Depends(current_workspace_id),
     _user: User = Depends(get_current_user),
 ) -> dict:
-    """Create a workflow project holding this job's clips, so they open in the
-    timeline editor (and canvas) with the shared media pool."""
+    """Create a workflow + seeded timeline from this job's clips. Clip video
+    and captions arrive as separate timeline items (text clips), individually
+    editable in the editor."""
+    from apps.api.app.features.video_editor import repository as editor_repo
+    from apps.api.app.features.video_editor.models import VideoEditorProject
     from apps.api.app.features.workflows import repository as workflows_repo
     from apps.api.app.features.workflows.models import Workflow
 
@@ -284,6 +406,17 @@ def to_project(
             workspace_id=workspace_id,
             name=(job.source_title or "Clips")[:80],
             graph={"nodes": nodes, "edges": []},
+        ),
+    )
+    # Pre-seed the timeline so the editor opens with video + caption tracks
+    # (get_project only seeds when no project exists yet).
+    editor_repo.add(
+        session,
+        VideoEditorProject(
+            workspace_id=workspace_id,
+            workflow_id=workflow.id,
+            title=workflow.name,
+            doc=_editor_doc_from_job(job),
         ),
     )
     return {"workflow_id": str(workflow.id)}

@@ -26,9 +26,11 @@ import {
   type ClipsJob,
   clipsToProject,
   createClipsJob,
+  getClipDownloadUrl,
   getClipsJob,
 } from "./api";
 import { ClipEditModal } from "./clip-edit-modal";
+import { type CcState, ClipPlayer } from "./clip-player";
 
 const PHASES = [
   {
@@ -435,7 +437,26 @@ function RenderingGallery({ job }: { job: ClipsJob }) {
 
 function ClipGallery({ job, onJobUpdate }: { job: ClipsJob; onJobUpdate: (j: ClipsJob) => void }) {
   const [editing, setEditing] = useState<ClipItem | null>(null);
+  // Per-clip caption state (overlay + what Download burns). Defaults from job settings.
+  const jobCc: CcState = {
+    on: (job.params as { captions?: boolean }).captions !== false,
+    style: ((job.params as { caption_style?: string }).caption_style as CcState["style"]) ?? "clean",
+  };
+  const [ccMap, setCcMap] = useState<Record<string, CcState>>({});
+  const [downloading, setDownloading] = useState<string | null>(null);
   const title = job.source_title ?? "clip";
+
+  const download = async (clip: ClipItem, index: number) => {
+    setDownloading(clip.id);
+    try {
+      const cc = ccMap[clip.id] ?? jobCc;
+      const { url } = await getClipDownloadUrl(job.id, clip.id, cc.on ? cc.style : "none");
+      triggerDownload(url, `${title}-clip-${index + 1}.mp4`);
+    } finally {
+      setDownloading(null);
+    }
+  };
+
   if (job.clips.length === 0) {
     return <p className="text-sm text-muted-foreground">No clips were produced from this source.</p>;
   }
@@ -445,16 +466,12 @@ function ClipGallery({ job, onJobUpdate }: { job: ClipsJob; onJobUpdate: (j: Cli
         {job.clips.map((clip, i) => (
           <div key={clip.id} className="overflow-hidden rounded-xl border border-border bg-card">
             <div className="relative bg-black">
-              {clip.url ? (
-                // biome-ignore lint/a11y/useMediaCaption: generated clip preview
-                <video
-                  key={clip.key}
-                  src={clip.url}
-                  controls
-                  preload="metadata"
-                  className="aspect-[9/16] w-full object-contain"
-                />
-              ) : null}
+              <ClipPlayer
+                clip={clip}
+                transcript={job.transcript ?? []}
+                cc={ccMap[clip.id] ?? jobCc}
+                onCcChange={(cc) => setCcMap((m) => ({ ...m, [clip.id]: cc }))}
+              />
               <span
                 className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-semibold text-white"
                 title={clip.reason}
@@ -513,11 +530,12 @@ function ClipGallery({ job, onJobUpdate }: { job: ClipsJob; onJobUpdate: (j: Cli
                   <button
                     type="button"
                     aria-label="Download clip"
-                    title="Download MP4"
-                    onClick={() => clip.url && triggerDownload(clip.url, `${title}-clip-${i + 1}.mp4`)}
-                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    title="Download MP4 (with current caption setting)"
+                    disabled={downloading === clip.id}
+                    onClick={() => void download(clip, i)}
+                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
                   >
-                    <Download className="size-4" />
+                    {downloading === clip.id ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
                   </button>
                 </div>
               </div>
