@@ -553,7 +553,7 @@ function ConfigPanel({
           value={params.duration}
           options={["auto", "short", "medium", "long"]}
           display={(v) =>
-            v === "auto" ? "Auto (AI decides)" : v === "short" ? "15–30s" : v === "medium" ? "30–60s" : "60–90s"
+            v === "auto" ? "Auto" : v === "short" ? "15–30s" : v === "medium" ? "30–60s" : "60–90s"
           }
           onChange={(v) => setParams((p) => ({ ...p, duration: v as ClipsParams["duration"] }))}
         />
