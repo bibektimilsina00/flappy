@@ -529,6 +529,7 @@ function ClipGallery({ job, onJobUpdate }: { job: ClipsJob; onJobUpdate: (j: Cli
   };
   const [ccMap, setCcMap] = useState<Record<string, CcState>>({});
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [sort, setSort] = useState<"score" | "time">("score");
   const title = job.source_title ?? "clip";
 
   const download = async (clip: ClipItem, index: number) => {
@@ -545,92 +546,197 @@ function ClipGallery({ job, onJobUpdate }: { job: ClipsJob; onJobUpdate: (j: Cli
   if (job.clips.length === 0) {
     return <p className="text-sm text-muted-foreground">No clips were produced from this source.</p>;
   }
+
+  const clips = [...job.clips].sort((a, b) => (sort === "score" ? b.score - a.score : a.start - b.start));
+
   return (
     <>
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-        {job.clips.map((clip, i) => (
-          <div key={clip.id} className="overflow-hidden rounded-xl border border-border bg-card">
-            <div className="relative bg-black">
-              <ClipPlayer
-                clip={clip}
-                transcript={job.transcript ?? []}
-                cc={ccMap[clip.id] ?? jobCc}
-                onCcChange={(cc) => setCcMap((m) => ({ ...m, [clip.id]: cc }))}
-              />
-              <span
-                className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-semibold text-white"
-                title={clip.reason}
-              >
-                <Flame className="size-3 text-orange-400" />
-                {clip.score}
-              </span>
-              {clip.status === "rendering" ? (
-                <div className="absolute inset-0 grid place-items-center bg-black/70 text-xs text-white">
-                  <span className="flex items-center gap-2">
-                    <Loader2 className="size-4 animate-spin" /> Re-rendering…
-                  </span>
-                </div>
-              ) : null}
-              {clip.status === "failed" ? (
-                <div className="absolute inset-x-0 bottom-0 bg-red-500/80 px-2 py-1 text-[11px] text-white" title={clip.error}>
-                  Re-render failed
-                </div>
-              ) : null}
-            </div>
-            <div className="p-3">
-              <p className="truncate text-sm font-medium" title={clip.title}>
-                {clip.title}
-              </p>
-              {clip.reason ? (
-                <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted-foreground" title={clip.reason}>
-                  {clip.reason}
-                </p>
-              ) : null}
-              <div className="mt-1.5 flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">
-                  {fmt(clip.start)}–{fmt(clip.end)} · {Math.round(clip.end - clip.start)}s
-                </span>
-                <div className="flex">
-                  <button
-                    type="button"
-                    aria-label="Edit clip"
-                    title="Trim & captions"
-                    disabled={clip.status === "rendering"}
-                    onClick={() => setEditing(clip)}
-                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
-                  >
-                    <Pencil className="size-4" />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Download captions (SRT)"
-                    title="Captions (.srt)"
-                    onClick={() =>
-                      void authDownload(`/clips/jobs/${job.id}/clips/${clip.id}/srt`, `${title}-clip-${i + 1}.srt`)
-                    }
-                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                  >
-                    <FileText className="size-4" />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Download clip"
-                    title="Download MP4 (with current caption setting)"
-                    disabled={downloading === clip.id}
-                    onClick={() => void download(clip, i)}
-                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
-                  >
-                    {downloading === clip.id ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">{clips.length} clips</p>
+        <div className="flex gap-1 rounded-lg border border-white/10 p-0.5 text-xs">
+          {(["score", "time"] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setSort(s)}
+              className={cn(
+                "rounded-md px-2.5 py-1 transition-colors",
+                sort === s ? "bg-white/10 text-foreground" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {s === "score" ? "Highest score" : "Timeline order"}
+            </button>
+          ))}
+        </div>
       </div>
+
+      <div className="flex gap-6">
+        {/* clip rail */}
+        <aside className="sticky top-6 hidden w-52 shrink-0 self-start xl:block">
+          <div className="space-y-1.5">
+            {clips.map((clip, i) => (
+              <button
+                key={clip.id}
+                type="button"
+                onClick={() => document.getElementById(`clip-${clip.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                className="flex w-full items-center gap-2.5 rounded-xl p-1.5 text-left transition-colors hover:bg-white/5"
+              >
+                <span className="relative h-14 w-9 shrink-0 overflow-hidden rounded-md bg-black">
+                  {clip.url ? (
+                    // biome-ignore lint/a11y/useMediaCaption: rail thumbnail
+                    <video src={clip.url} preload="metadata" muted className="size-full object-cover" />
+                  ) : null}
+                  <span className="absolute bottom-0 left-0 rounded-tr-md bg-black/80 px-1 text-[9px] font-bold text-white">
+                    {i + 1}
+                  </span>
+                </span>
+                <span className="line-clamp-2 text-xs leading-snug text-foreground/80">{clip.title}</span>
+              </button>
+            ))}
+          </div>
+        </aside>
+
+        {/* result rows */}
+        <div className="min-w-0 flex-1 space-y-5">
+          {clips.map((clip, i) => (
+            <ClipRow
+              key={clip.id}
+              job={job}
+              clip={clip}
+              rank={i + 1}
+              cc={ccMap[clip.id] ?? jobCc}
+              onCcChange={(cc) => setCcMap((m) => ({ ...m, [clip.id]: cc }))}
+              downloading={downloading === clip.id}
+              onDownload={() => void download(clip, i)}
+              onSrt={() => void authDownload(`/clips/jobs/${job.id}/clips/${clip.id}/srt`, `${title}-clip-${i + 1}.srt`)}
+              onEdit={() => setEditing(clip)}
+            />
+          ))}
+        </div>
+      </div>
+
       {editing ? (
         <ClipEditModal job={job} clip={editing} onClose={() => setEditing(null)} onSaved={onJobUpdate} />
       ) : null}
     </>
+  );
+}
+
+function ClipRow({
+  job,
+  clip,
+  rank,
+  cc,
+  onCcChange,
+  downloading,
+  onDownload,
+  onSrt,
+  onEdit,
+}: {
+  job: ClipsJob;
+  clip: ClipItem;
+  rank: number;
+  cc: CcState;
+  onCcChange: (cc: CcState) => void;
+  downloading: boolean;
+  onDownload: () => void;
+  onSrt: () => void;
+  onEdit: () => void;
+}) {
+  const segments = (job.transcript ?? []).filter((s) => s.end > clip.start && s.start < clip.end);
+  return (
+    <div id={`clip-${clip.id}`} className="scroll-mt-6 rounded-2xl border border-border bg-card p-4">
+      <div className="flex flex-col gap-5 sm:flex-row">
+        {/* player */}
+        <div className="relative w-full shrink-0 overflow-hidden rounded-xl sm:w-[240px]">
+          <ClipPlayer clip={clip} transcript={job.transcript ?? []} cc={cc} onCcChange={onCcChange} />
+          {clip.status === "rendering" ? (
+            <div className="absolute inset-0 grid place-items-center bg-black/70 text-xs text-white">
+              <span className="flex items-center gap-2">
+                <Loader2 className="size-4 animate-spin" /> Re-rendering…
+              </span>
+            </div>
+          ) : null}
+          {clip.status === "failed" ? (
+            <div className="absolute inset-x-0 bottom-0 bg-red-500/80 px-2 py-1 text-[11px] text-white" title={clip.error}>
+              Re-render failed
+            </div>
+          ) : null}
+        </div>
+
+        {/* details */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="text-lg font-semibold leading-snug">
+              <span className="mr-2 text-muted-foreground">#{rank}</span>
+              {clip.title}
+            </h3>
+            <div className="flex shrink-0">
+              <button
+                type="button"
+                aria-label="Edit clip"
+                title="Trim & captions"
+                disabled={clip.status === "rendering"}
+                onClick={onEdit}
+                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
+              >
+                <Pencil className="size-4" />
+              </button>
+              <button
+                type="button"
+                aria-label="Download captions (SRT)"
+                title="Captions (.srt)"
+                onClick={onSrt}
+                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <FileText className="size-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-4">
+            <div>
+              <p className="text-3xl font-extrabold leading-none text-teal-300">{clip.score}</p>
+              <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Virality
+              </p>
+            </div>
+            <span className="rounded-full bg-white/5 px-2.5 py-1 text-xs tabular-nums text-muted-foreground">
+              {fmt(clip.start)}–{fmt(clip.end)} · {Math.round(clip.end - clip.start)}s
+            </span>
+            <span className="flex-1" />
+            <button
+              type="button"
+              disabled={downloading}
+              onClick={onDownload}
+              className="flex items-center gap-2 rounded-xl bg-teal-400 px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-60"
+            >
+              {downloading ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+              Download
+            </button>
+          </div>
+
+          {clip.reason ? (
+            <div className="mt-3 rounded-xl bg-white/5 px-3.5 py-2.5">
+              <p className="text-[11px] font-medium text-muted-foreground">Viral reason</p>
+              <p className="mt-0.5 text-sm text-foreground/90">{clip.reason}</p>
+            </div>
+          ) : null}
+
+          {segments.length > 0 ? (
+            <div className="mt-3 max-h-48 space-y-1.5 overflow-y-auto pr-2 [scrollbar-width:thin]">
+              {segments.map((seg) => (
+                <p key={`${seg.start}`} className="text-sm leading-relaxed text-muted-foreground">
+                  <span className="mr-2 select-none text-[11px] tabular-nums text-muted-foreground/50">
+                    {fmt(Math.max(seg.start, clip.start))}
+                  </span>
+                  {seg.text}
+                </p>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
   );
 }
