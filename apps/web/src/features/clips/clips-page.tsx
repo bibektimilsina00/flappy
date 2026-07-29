@@ -574,6 +574,14 @@ function ConfigPanel({
 
       {/* group 1: templates + caption extras */}
       <div className="space-y-6 rounded-3xl border border-white/[0.05] bg-white/[0.02] p-6">
+        <CaptionStylePicker
+          captions={params.captions}
+          style={params.caption_style}
+          custom={params.caption_custom ?? null}
+          headline={params.headline?.enabled ? params.headline : null}
+          onChange={(patch) => setParams((p) => ({ ...p, ...patch }))}
+        />
+
         {/* clip title banner */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
           <label className="flex cursor-pointer items-center gap-3 text-[15px]">
@@ -623,14 +631,6 @@ function ConfigPanel({
             </>
           ) : null}
         </div>
-
-        <CaptionStylePicker
-          captions={params.captions}
-          style={params.caption_style}
-          custom={params.caption_custom ?? null}
-          headline={params.headline?.enabled ? params.headline : null}
-          onChange={(patch) => setParams((p) => ({ ...p, ...patch }))}
-        />
 
         <div className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-white/[0.06] pt-5 sm:grid-cols-3">
           {(
