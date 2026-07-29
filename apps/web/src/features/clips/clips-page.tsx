@@ -168,8 +168,8 @@ export function ClipsPage() {
     }
   }, []);
 
-  const submit = async () => {
-    const url = value.trim();
+  const submit = async (explicit?: string) => {
+    const url = (explicit ?? value).trim();
     if (!url) {
       fileRef.current?.click();
       return;
@@ -260,6 +260,14 @@ export function ClipsPage() {
             onFocus={() => setHint(true)}
             onBlur={() => setHint(false)}
             onKeyDown={(e) => e.key === "Enter" && submit()}
+            onPaste={(e) => {
+              const text = e.clipboardData.getData("text").trim();
+              if (/^https?:\/\/\S+$/.test(text)) {
+                e.preventDefault();
+                setValue(text);
+                void submit(text);
+              }
+            }}
             placeholder="Drop a video link…"
             className="min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground/70"
           />
