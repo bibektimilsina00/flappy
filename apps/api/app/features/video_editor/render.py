@@ -2,8 +2,8 @@
 
 v1 scope: composite every visual clip (bottom track → top) onto a black canvas
 with per-clip trim, speed, contain-scale, translate and opacity; mix all
-audio-lane clips (trim, speed, volume, delay). Text clips and video-embedded
-audio are skipped — see ceilings below.
+audio-lane clips (trim, speed, volume, delay). Text clips burn as bottom-center
+caption pills (matching the preview) via ASS; video-embedded audio is skipped.
 """
 
 from __future__ import annotations
@@ -17,6 +17,52 @@ def _lane(kind: str) -> str:
     return "audio" if kind == "audio" else "text" if kind == "text" else "visual"
 
 
+def _ass_time(t: float) -> str:
+    cs = max(0, int(round(t * 100)))
+    return f"{cs // 360000}:{cs % 360000 // 6000:02d}:{cs % 6000 // 100:02d}.{cs % 100:02d}"
+
+
+def build_text_ass(doc: dict) -> str | None:
+    """ASS document for the doc's text clips — bottom-centered boxed pills,
+    matching the editor preview. None when there are no text clips."""
+    from apps.api.app.features.clips.captions import FONT_NAME
+
+    w = int(doc.get("width") or 1080)
+    h = int(doc.get("height") or 1920)
+    events = []
+    for track in doc.get("tracks", []):
+        if track.get("hidden"):
+            continue
+        for clip in track.get("clips", []):
+            content = ((clip.get("text") or {}).get("content") or "").strip()
+            if clip.get("kind") != "text" or not content:
+                continue
+            start = float(clip.get("start", 0))
+            end = start + float(clip.get("duration", 0))
+            if end <= start:
+                continue
+            text = content.replace("{", "").replace("}", "").replace("\n", "\\N")
+            events.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Cap,,0,0,0,,{{\\fad(120,60)}}{text}")
+    if not events:
+        return None
+
+    fontsize = round(h * 16 / 400)
+    margin_v = round(h * 0.04)
+    return (
+        "[Script Info]\nScriptType: v4.00+\n"
+        f"PlayResX: {w}\nPlayResY: {h}\nWrapStyle: 2\n\n"
+        "[V4+ Styles]\n"
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
+        "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
+        "Alignment, MarginL, MarginR, MarginV, Encoding\n"
+        f"Style: Cap,{FONT_NAME},{fontsize},&H00FFFFFF,&H00FFFFFF,&H00000000,&H50000000,"
+        f"0,0,0,0,100,100,0,0,4,1,0,2,40,40,{margin_v},1\n\n"
+        "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+        + "\n".join(events)
+        + "\n"
+    )
+
+
 def doc_duration(doc: dict) -> float:
     end = 0.0
     for t in doc.get("tracks", []):
@@ -25,11 +71,13 @@ def doc_duration(doc: dict) -> float:
     return max(end, float(doc.get("duration") or 0), 0.5)
 
 
-def build_render_args(doc: dict, sources: dict[str, dict]) -> tuple[list[str], str, list[str], float]:
+def build_render_args(
+    doc: dict, sources: dict[str, dict], ass_path: str | None = None
+) -> tuple[list[str], str, list[str], float]:
     """Return (input_args, filter_complex, post_args, total_seconds).
 
     `sources` maps assetId -> {"path": str, "kind": "image"|"video"|"audio"}.
-    Clips whose asset is missing (or text clips) are skipped.
+    Clips whose asset is missing are skipped; text clips burn via `ass_path`.
     """
     w = int(doc.get("width") or 1080)
     h = int(doc.get("height") or 1920)
@@ -49,7 +97,7 @@ def build_render_args(doc: dict, sources: dict[str, dict]) -> tuple[list[str], s
             if lane == "audio":
                 audio.append({"clip": clip, "src": src})
             elif clip.get("kind") == "text":
-                continue  # ponytail: text render needs a bundled font → Phase 2
+                continue  # burned separately via ass_path (build_text_ass)
             else:
                 visual.append({"clip": clip, "src": src, "z": z})
     visual.sort(key=lambda v: v["z"])  # stable: lower track first, keeps start order
@@ -97,6 +145,11 @@ def build_render_args(doc: dict, sources: dict[str, dict]) -> tuple[list[str], s
         out = f"ov{n}"
         fc.append(f"[{prev}][v{n}]overlay=x={x}:y={y}:enable='between(t,{_f(start)},{_f(start + dur)})'[{out}]")
         prev = out
+    if ass_path:
+        from apps.api.app.features.clips.captions import FONTS_DIR
+
+        fc.append(f"[{prev}]ass={ass_path}:fontsdir={FONTS_DIR}[vtxt]")
+        prev = "vtxt"
     vout = prev
 
     alabels: list[str] = []

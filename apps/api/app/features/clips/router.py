@@ -91,6 +91,21 @@ def create_job(
     if not billing_service.has_credits(session, workspace_id, estimated):
         raise HTTPException(status_code=402, detail=f"Not enough credits (about {estimated:.0f} needed).")
 
+    # Free plan: cap jobs per day (whisper time is real compute).
+    from datetime import datetime, timezone
+
+    from apps.api.app.features.workspaces import repository as workspaces_repo
+
+    workspace = workspaces_repo.get(session, workspace_id)
+    if (workspace.plan if workspace else "free") == "free":
+        today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
+        used = sum(1 for j in repository.list_for_workspace(session, workspace_id) if j.created_at >= today)
+        if used >= settings.clips_free_jobs_per_day:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Free plan is limited to {settings.clips_free_jobs_per_day} clip jobs per day — upgrade for more.",
+            )
+
     job = repository.add(
         session,
         ClipsJob(

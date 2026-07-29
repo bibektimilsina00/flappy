@@ -6,7 +6,6 @@ import {
   Crop,
   Diamond,
   Download,
-  FolderPlus,
   Heading1,
   Heading2,
   Heading3,
@@ -38,7 +37,7 @@ import { Markdown } from "./markdown";
 import { PrecisionEdit } from "./precision-edit";
 import { VideoActionModal, type VideoAction } from "./video-action-modal";
 
-// Per-kind "Actions" dropdown items (AI operations — wired later).
+// Per-kind "Actions" dropdown items — each opens its modal (grid extract, tune, trim…).
 const ACTIONS: Partial<Record<NodeKind, string[]>> = {
   image: [
     "Extract from grid",
@@ -196,14 +195,7 @@ export function NodeToolbar({
       {actions ? <Divider /> : null}
 
       <Btn icon={Maximize2} label="Expand" onClick={() => setExpanded(true)} />
-      {kind !== "text" ? (
-        <>
-          <Btn icon={Download} label="Download" onClick={download} />
-          <Btn icon={FolderPlus} label="Save to library" />
-        </>
-      ) : null}
-      <Divider />
-      <Btn icon={Diamond} label="Options" />
+      {kind !== "text" ? <Btn icon={Download} label="Download" onClick={download} /> : null}
 
       {expanded ? <ExpandOverlay kind={kind} content={content} onClose={() => setExpanded(false)} /> : null}
       {imageModal === "crop" ? (

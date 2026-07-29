@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     clips_select_model: str = ""  # empty -> default text model
     clips_credits_select: float = 1.0
     clips_credits_per_clip: float = 2.0
+    clips_free_jobs_per_day: int = 5
 
 
 settings = Settings()

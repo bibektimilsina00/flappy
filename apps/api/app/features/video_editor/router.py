@@ -19,7 +19,7 @@ from apps.api.app.features.assets.models import Asset
 from apps.api.app.features.executions import service as executions_service
 from apps.api.app.features.video_editor import repository
 from apps.api.app.features.video_editor.models import VideoEditorComment, VideoEditorProject
-from apps.api.app.features.video_editor.render import build_render_args
+from apps.api.app.features.video_editor.render import build_render_args, build_text_ass
 from apps.api.app.features.users.models import User
 from apps.api.app.features.workflows import repository as workflows_repo
 from apps.api.app.storage.factory import get_storage
@@ -342,7 +342,13 @@ def render_project(
             kind = "image" if item["kind"] == "image" else "audio" if item["kind"] == "audio" else "video"
             sources[ref] = {"path": path, "kind": kind}
 
-        input_args, filter_complex, post, total = build_render_args(project.doc, sources)
+        text_ass = build_text_ass(project.doc)
+        ass_path = None
+        if text_ass:
+            ass_path = os.path.join(d, "text.ass")
+            with open(ass_path, "w", encoding="utf-8") as f:
+                f.write(text_ass)
+        input_args, filter_complex, post, total = build_render_args(project.doc, sources, ass_path)
         out = os.path.join(d, "out.mp4")
         cmd = [exe, "-y", *input_args, "-filter_complex", filter_complex, *post, out]
         proc = subprocess.run(cmd, capture_output=True, timeout=900)
