@@ -144,7 +144,9 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
   };
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-6 py-8 pb-20">
+    <div className="flex h-full w-full flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-7xl px-6 py-8">
       <button
         type="button"
         onClick={() => router.push("/clips")}
@@ -273,9 +275,6 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
                 onPublish={setPublishClip}
               />
               <PostingQueue jobId={job.id} refresh={queueNonce} />
-              {job.status === "completed" && job.clips.length > 0 ? (
-                <ClipsModeTabs job={job} onLinked={(wf) => setJob({ ...job, workflow_id: wf })} />
-              ) : null}
               {publishClip ? <PublishPanel clipTitle={publishClip.title} onClose={() => setPublishClip(null)} /> : null}
               {bulkOpen ? (
                 <ScheduleModal
@@ -293,6 +292,11 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
           )}
         </>
       )}
+        </div>
+      </div>
+      {job && job.status === "completed" && job.clips.length > 0 ? (
+        <ClipsModeTabs job={job} onLinked={(wf) => setJob({ ...job, workflow_id: wf })} />
+      ) : null}
     </div>
   );
 }
@@ -325,7 +329,7 @@ function ClipsModeTabs({ job, onLinked }: { job: ClipsJob; onLinked: (workflowId
   ] as const;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 flex w-full items-stretch border-t border-border bg-card text-[13px]">
+    <div className="flex w-full shrink-0 items-stretch border-t border-border bg-card text-[13px]">
       {tabs.map(({ id, label, Icon, onClick }) => {
         const active = id === "clips";
         return (
