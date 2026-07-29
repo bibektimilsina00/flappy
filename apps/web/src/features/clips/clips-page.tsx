@@ -4,6 +4,8 @@ import {
   ArrowDown,
   ArrowRight,
   Captions,
+  Check,
+  ChevronDown,
   Clapperboard,
   Film,
   Flame,
@@ -415,6 +417,7 @@ function JobRow({ job, onOpen, onDelete }: { job: ClipsJob; onOpen: () => void; 
   );
 }
 
+// Custom dropdown pill (native <select> can't be styled to match the theme).
 function PillSelect({
   label,
   value,
@@ -428,20 +431,71 @@ function PillSelect({
   display: (v: string) => string;
   onChange: (v: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
   return (
-    <label className="flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs transition-colors hover:border-white/20">
-      <span className="text-muted-foreground">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="cursor-pointer bg-transparent font-medium text-foreground outline-none"
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors",
+          open ? "border-teal-400/50 bg-white/10" : "border-white/10 bg-white/5 hover:border-white/20",
+        )}
       >
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {display(o)}
-          </option>
-        ))}
-      </select>
-    </label>
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-medium text-foreground">{display(value)}</span>
+        <ChevronDown className={cn("size-3 text-muted-foreground transition-transform", open && "rotate-180")} />
+      </button>
+
+      {open ? (
+        <div
+          role="listbox"
+          className="absolute left-1/2 top-full z-30 mt-1.5 min-w-[130px] -translate-x-1/2 rounded-xl border border-white/10 bg-[#1e1e1e] p-1 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-100"
+        >
+          {options.map((o) => {
+            const active = o === value;
+            return (
+              <button
+                key={o}
+                type="button"
+                role="option"
+                aria-selected={active}
+                onClick={() => {
+                  onChange(o);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors",
+                  active ? "bg-teal-400/10 text-teal-300" : "text-foreground/90 hover:bg-white/5",
+                )}
+              >
+                {display(o)}
+                {active ? <Check className="size-3.5" /> : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
   );
 }
