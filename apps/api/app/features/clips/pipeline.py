@@ -395,7 +395,9 @@ def burn_clip_captions(job: ClipsJob, clip: dict, style: str, storage) -> str | 
         return burned[style]
 
     w, h = RATIO_SIZES.get((job.params or {}).get("ratio") or "9:16", RATIO_SIZES["9:16"])
-    ass = build_ass(job.transcript or [], clip["start"], clip["end"], style, w, h, clip.get("caption_edits"))
+    # "custom" resolves to the job's saved template definition.
+    style_def = ((job.params or {}).get("caption_custom") or "clean") if style == "custom" else style
+    ass = build_ass(job.transcript or [], clip["start"], clip["end"], style_def, w, h, clip.get("caption_edits"))
     if not ass:
         return None
 

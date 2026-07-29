@@ -649,7 +649,13 @@ function ClipRow({
       <div className="flex flex-col gap-5 sm:flex-row">
         {/* player */}
         <div className="relative w-full shrink-0 overflow-hidden rounded-xl sm:w-[240px]">
-          <ClipPlayer clip={clip} transcript={job.transcript ?? []} cc={cc} onCcChange={onCcChange} />
+          <ClipPlayer
+            clip={clip}
+            transcript={job.transcript ?? []}
+            cc={cc}
+            onCcChange={onCcChange}
+            customStyle={(job.params as { caption_custom?: import("./api").CustomCaptionStyle | null }).caption_custom ?? null}
+          />
           {clip.status === "rendering" ? (
             <div className="absolute inset-0 grid place-items-center bg-black/70 text-xs text-white">
               <span className="flex items-center gap-2">

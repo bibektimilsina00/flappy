@@ -3,19 +3,13 @@
 import { Captions, Check, Maximize, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
-import type { ClipItem, TranscriptSegment } from "./api";
+import type { ClipItem, CustomCaptionStyle, TranscriptSegment } from "./api";
+import { CaptionSample, captionCss, PRESET_META } from "./caption-templates";
 
-export type CaptionStyle = "clean" | "bold" | "highlight";
 export interface CcState {
   on: boolean;
-  style: CaptionStyle;
+  style: string; // preset id or "custom"
 }
-
-const STYLES: { id: CaptionStyle; label: string }[] = [
-  { id: "clean", label: "Clean" },
-  { id: "bold", label: "Bold" },
-  { id: "highlight", label: "Highlight" },
-];
 
 interface Word {
   w: string;
@@ -64,11 +58,13 @@ export function ClipPlayer({
   transcript,
   cc,
   onCcChange,
+  customStyle,
 }: {
   clip: ClipItem;
   transcript: TranscriptSegment[];
   cc: CcState;
   onCcChange: (cc: CcState) => void;
+  customStyle?: CustomCaptionStyle | null;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -119,29 +115,9 @@ export function ClipPlayer({
         />
       ) : null}
 
-      {/* caption overlay — mirrors the burned styles */}
+      {/* caption overlay — same resolver as the template cards, so WYSIWYG */}
       {line ? (
-        <div className="pointer-events-none absolute inset-x-2 bottom-[18%] flex justify-center">
-          <span
-            className={cn(
-              "max-w-full text-center leading-snug",
-              cc.style === "clean" && "rounded-md bg-black/60 px-2 py-1 text-[13px] font-medium text-white",
-              cc.style === "bold" &&
-                "text-[15px] font-extrabold uppercase tracking-wide text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9),0_0_10px_rgba(0,0,0,0.6)]",
-              cc.style === "highlight" &&
-                "text-[14px] font-bold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9)]",
-            )}
-          >
-            {line.words.map((w, i) => (
-              <span
-                key={`${w.s}-${i}`}
-                className={cn(cc.style === "highlight" && t >= w.s && t <= w.e && "text-teal-300")}
-              >
-                {w.w}{" "}
-              </span>
-            ))}
-          </span>
-        </div>
+        <CaptionOverlay line={line} t={t} style={cc.style} custom={customStyle} />
       ) : null}
 
       {/* center play affordance when paused */}
@@ -201,10 +177,10 @@ export function ClipPlayer({
                     setMenuOpen(false);
                   }}
                 />
-                {STYLES.map((s) => (
+                {PRESET_META.map((s) => (
                   <CcItem
                     key={s.id}
-                    label={s.label}
+                    label={s.name}
                     active={cc.on && cc.style === s.id}
                     onClick={() => {
                       onCcChange({ on: true, style: s.id });
@@ -212,6 +188,16 @@ export function ClipPlayer({
                     }}
                   />
                 ))}
+                {customStyle ? (
+                  <CcItem
+                    label={customStyle.name || "Custom"}
+                    active={cc.on && cc.style === "custom"}
+                    onClick={() => {
+                      onCcChange({ on: true, style: "custom" });
+                      setMenuOpen(false);
+                    }}
+                  />
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -223,6 +209,35 @@ export function ClipPlayer({
           </PlayerBtn>
         </div>
       </div>
+    </div>
+  );
+}
+
+function CaptionOverlay({
+  line,
+  t,
+  style,
+  custom,
+}: {
+  line: Line;
+  t: number;
+  style: string;
+  custom?: CustomCaptionStyle | null;
+}) {
+  const css = captionCss(style, custom, 1.15);
+  const active = line.words.find((w) => t >= w.s && t <= w.e);
+  return (
+    <div
+      className={cn(
+        "pointer-events-none absolute inset-x-2 flex justify-center",
+        css.middle ? "top-1/2 -translate-y-1/2" : "bottom-[18%]",
+      )}
+    >
+      <CaptionSample
+        css={css}
+        text={line.words.map((w) => w.w).join(" ")}
+        activeIndex={active ? line.words.indexOf(active) : -1}
+      />
     </div>
   );
 }

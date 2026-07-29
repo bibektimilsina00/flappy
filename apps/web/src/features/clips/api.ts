@@ -41,6 +41,17 @@ export interface ClipsJob {
   transcript?: TranscriptSegment[]; // only on single-job GET
 }
 
+export interface CustomCaptionStyle {
+  name: string;
+  color: string; // #RRGGBB base text color
+  highlight: string; // active-word color
+  size: "s" | "m" | "l";
+  bold: boolean;
+  uppercase: boolean;
+  box: boolean;
+  position: "bottom" | "middle";
+}
+
 export interface ScheduleConfig {
   enabled: boolean;
   min_score: number | null;
@@ -70,7 +81,8 @@ export interface ClipsParams {
   ratio: "9:16" | "1:1" | "16:9";
   focus?: string;
   captions: boolean;
-  caption_style: "clean" | "bold" | "highlight";
+  caption_style: string; // preset id or "custom"
+  caption_custom?: CustomCaptionStyle | null;
   framing: boolean;
   schedule?: ScheduleConfig;
 }
@@ -118,7 +130,7 @@ export function rerenderClip(
 export function getClipDownloadUrl(
   jobId: string,
   clipId: string,
-  style: "none" | "clean" | "bold" | "highlight",
+  style: string, // "none" | preset id | "custom"
 ): Promise<{ url: string }> {
   return api(`/clips/jobs/${jobId}/clips/${clipId}/download`, {
     method: "POST",

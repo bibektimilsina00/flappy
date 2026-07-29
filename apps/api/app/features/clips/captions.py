@@ -13,16 +13,52 @@ FONTS_DIR = os.path.join(os.path.dirname(__file__), "fonts")
 FONT_NAME = "Inter"
 MAX_WORDS_PER_LINE = 4
 
-# name -> (Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, BorderStyle, Outline)
-# ASS colors are &HAABBGGRR (alpha 00 = opaque).
-STYLES = {
+def hex_to_ass(color: str) -> str:
+    """#RRGGBB -> &H00BBGGRR (ASS colour, opaque)."""
+    c = (color or "").lstrip("#")
+    if len(c) != 6:
+        return "&H00FFFFFF"
+    r, g, b = c[0:2], c[2:4], c[4:6]
+    return f"&H00{b}{g}{r}".upper()
+
+
+# Preset caption styles. In karaoke terms: secondary = base colour, primary =
+# the active (already-sung) word colour. ASS colors are &HAABBGGRR.
+PRESETS: dict[str, dict] = {
     # white text in a soft dark box
-    "clean": (15, "&H00FFFFFF", "&H00FFFFFF", "&H00000000", "&H60000000", 0, 4, 1),
-    # big bold white with heavy outline
-    "bold": (19, "&H00FFFFFF", "&H00FFFFFF", "&H00000000", "&H00000000", 1, 1, 3),
-    # karaoke: words start white, the active word fills teal
-    "highlight": (17, "&H00A6B814", "&H00FFFFFF", "&H00000000", "&H00000000", 1, 1, 2),
+    "clean": dict(size=15, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline_c="&H00000000", back="&H60000000", bold=0, border=4, outline=1, upper=False),
+    # big bold uppercase white with heavy outline
+    "bold": dict(size=19, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline_c="&H00000000", back="&H00000000", bold=1, border=1, outline=3, upper=True),
+    # words start white, the active word fills teal
+    "highlight": dict(size=17, primary="&H00A6B814", secondary="&H00FFFFFF", outline_c="&H00000000", back="&H00000000", bold=1, border=1, outline=2, upper=False),
+    # MrBeast-style: loud uppercase, active word turns yellow
+    "beast": dict(size=19, primary=hex_to_ass("#FFD700"), secondary="&H00FFFFFF", outline_c="&H00000000", back="&H00000000", bold=1, border=1, outline=3, upper=True),
+    # white text with a teal glow outline
+    "neon": dict(size=17, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline_c=hex_to_ass("#14B8A6"), back="&H00000000", bold=1, border=1, outline=2, upper=False),
+    # minimal small white, no box
+    "mono": dict(size=13, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline_c="&H00000000", back="&H00000000", bold=0, border=1, outline=1, upper=False),
 }
+
+SIZE_MAP = {"s": 13, "m": 16, "l": 20}
+
+
+def resolve_style(style: "str | dict | None") -> dict:
+    """Preset name or a custom template dict -> ASS parameters."""
+    if isinstance(style, dict):
+        base = hex_to_ass(str(style.get("color") or "#FFFFFF"))
+        return dict(
+            size=SIZE_MAP.get(str(style.get("size") or "m"), 16),
+            primary=hex_to_ass(str(style.get("highlight") or style.get("color") or "#14B8A6")),
+            secondary=base,
+            outline_c="&H00000000",
+            back="&H60000000" if style.get("box") else "&H00000000",
+            bold=1 if style.get("bold", True) else 0,
+            border=4 if style.get("box") else 1,
+            outline=1 if style.get("box") else 2,
+            upper=bool(style.get("uppercase")),
+            middle=style.get("position") == "middle",
+        )
+    return PRESETS.get(str(style or "clean"), PRESETS["clean"])
 
 
 def _clip_segments(transcript: list[dict], start: float, end: float) -> list[dict]:
@@ -75,21 +111,23 @@ def build_ass(
     transcript: list[dict],
     start: float,
     end: float,
-    style: str,
+    style: "str | dict",
     width: int,
     height: int,
     edits: list[dict] | None = None,
 ) -> str | None:
     """ASS subtitle document for one clip; None when there's nothing to show.
+    `style` is a preset name or a custom template dict.
     `edits` (absolute-time [{start,end,text}]) replaces the transcript slice."""
     segments = edits if edits else _clip_segments(transcript, start, end)
     lines = _lines(segments, start, end)
     if not lines:
         return None
 
-    size, primary, secondary, outline_c, back, bold, border_style, outline = STYLES.get(style) or STYLES["clean"]
-    fontsize = round(height * size / 400)  # style sizes are per 400px of height
-    margin_v = round(height * 0.16)
+    p = resolve_style(style)
+    fontsize = round(height * p["size"] / 400)  # style sizes are per 400px of height
+    alignment = 5 if p.get("middle") else 2  # middle-center vs bottom-center
+    margin_v = 0 if p.get("middle") else round(height * 0.16)
 
     header = (
         "[Script Info]\nScriptType: v4.00+\n"
@@ -98,8 +136,8 @@ def build_ass(
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
         "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
         "Alignment, MarginL, MarginR, MarginV, Encoding\n"
-        f"Style: Cap,{FONT_NAME},{fontsize},{primary},{secondary},{outline_c},{back},"
-        f"{-1 if bold else 0},0,0,0,100,100,0,0,{border_style},{outline},0,2,40,40,{margin_v},1\n\n"
+        f"Style: Cap,{FONT_NAME},{fontsize},{p['primary']},{p['secondary']},{p['outline_c']},{p['back']},"
+        f"{-1 if p['bold'] else 0},0,0,0,100,100,0,0,{p['border']},{p['outline']},0,{alignment},40,40,{margin_v},1\n\n"
         "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
     )
 
@@ -109,6 +147,8 @@ def build_ass(
         for w in group:
             dur_cs = max(1, int(round((w["e"] - w["s"]) * 100)))
             text = str(w["w"]).strip().replace("{", "").replace("}", "").replace("\n", " ")
+            if p.get("upper"):
+                text = text.upper()
             parts.append(f"{{\\k{dur_cs}}}{text}")
         # \fad: quick fade-in/out per line — subtle motion that reads as "animated".
         events.append(f"Dialogue: 0,{_ass_time(s)},{_ass_time(e)},Cap,,0,0,0,,{{\\fad(120,60)}}{' '.join(parts)}")

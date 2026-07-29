@@ -22,6 +22,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
+import { CaptionStylePicker } from "./caption-templates";
 import { defaultSchedule, ScheduleModal } from "./schedule-modal";
 import {
   type ClipsJob,
@@ -358,6 +359,27 @@ export function ClipsPage() {
   );
 }
 
+// Knob is anchored with `left` (buttons center static content, which pushed a
+// translate-only knob out of the track).
+function Switch({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={onChange}
+      className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", checked ? "bg-teal-400" : "bg-white/15")}
+    >
+      <span
+        className={cn(
+          "absolute top-0.5 size-5 rounded-full bg-white shadow transition-[left] duration-150",
+          checked ? "left-[22px]" : "left-0.5",
+        )}
+      />
+    </button>
+  );
+}
+
 const fmtDur = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 // "Source -> AI -> clips" strip. With a completed job, it shows the user's own
@@ -544,67 +566,15 @@ function ConfigPanel({
         />
       </div>
 
-      {/* caption style cards */}
+      {/* caption templates */}
       <div>
         <p className="mb-2 text-sm font-medium">Caption style</p>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {(
-            [
-              { id: "clean", name: "Clean", bg: "from-slate-700 to-slate-900" },
-              { id: "bold", name: "Bold", bg: "from-indigo-800 to-slate-900" },
-              { id: "highlight", name: "Highlight", bg: "from-teal-900 to-slate-900" },
-              { id: "off", name: "No captions", bg: "from-neutral-800 to-neutral-900" },
-            ] as const
-          ).map((card) => {
-            const active = card.id === "off" ? !params.captions : params.captions && params.caption_style === card.id;
-            return (
-              <button
-                key={card.id}
-                type="button"
-                onClick={() =>
-                  setParams((p) =>
-                    card.id === "off"
-                      ? { ...p, captions: false }
-                      : { ...p, captions: true, caption_style: card.id },
-                  )
-                }
-                className={cn(
-                  "group overflow-hidden rounded-xl border text-left transition-all",
-                  active ? "border-teal-400 ring-1 ring-teal-400" : "border-white/10 hover:border-white/25",
-                )}
-              >
-                <div className={cn("relative aspect-[9/14] w-full bg-gradient-to-br", card.bg)}>
-                  {active ? (
-                    <span className="absolute right-1.5 top-1.5 grid size-5 place-items-center rounded-full bg-teal-400 text-black">
-                      <Check className="size-3" />
-                    </span>
-                  ) : null}
-                  {/* sample caption in the actual style */}
-                  {card.id !== "off" ? (
-                    <span className="absolute inset-x-1.5 bottom-3 text-center">
-                      {card.id === "clean" ? (
-                        <span className="rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
-                          here is your subtitle
-                        </span>
-                      ) : card.id === "bold" ? (
-                        <span className="text-[11px] font-extrabold uppercase tracking-wide text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9)]">
-                          Here is your subtitle
-                        </span>
-                      ) : (
-                        <span className="text-[11px] font-bold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.9)]">
-                          Here <span className="text-teal-300">is your</span> subtitle
-                        </span>
-                      )}
-                    </span>
-                  ) : (
-                    <span className="absolute inset-0 grid place-items-center text-[11px] text-white/40">—</span>
-                  )}
-                </div>
-                <p className="px-2.5 py-2 text-xs font-medium">{card.name}</p>
-              </button>
-            );
-          })}
-        </div>
+        <CaptionStylePicker
+          captions={params.captions}
+          style={params.caption_style}
+          custom={params.caption_custom ?? null}
+          onChange={(patch) => setParams((p) => ({ ...p, ...patch }))}
+        />
       </div>
 
       {/* framing toggle */}
@@ -613,20 +583,7 @@ function ConfigPanel({
           <span className="block text-sm font-medium">Auto-framing</span>
           <span className="block text-xs text-muted-foreground">Keep faces centered when cropping to vertical</span>
         </span>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={params.framing}
-          onClick={() => setParams((p) => ({ ...p, framing: !p.framing }))}
-          className={cn("relative h-6 w-11 rounded-full transition-colors", params.framing ? "bg-teal-400" : "bg-white/15")}
-        >
-          <span
-            className={cn(
-              "absolute top-0.5 size-5 rounded-full bg-white shadow transition-transform",
-              params.framing ? "translate-x-[22px]" : "translate-x-0.5",
-            )}
-          />
-        </button>
+        <Switch checked={params.framing} onChange={() => setParams((p) => ({ ...p, framing: !p.framing }))} />
       </label>
 
       {/* focus */}
@@ -651,28 +608,15 @@ function ConfigPanel({
               Queue clips for posting automatically when they're ready. Save 1 step.
             </span>
           </span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={Boolean(params.schedule?.enabled)}
-            onClick={() =>
+          <Switch
+            checked={Boolean(params.schedule?.enabled)}
+            onChange={() =>
               setParams((p) => ({
                 ...p,
                 schedule: p.schedule?.enabled ? { ...p.schedule, enabled: false } : (p.schedule ?? defaultSchedule()),
               }))
             }
-            className={cn(
-              "relative h-6 w-11 shrink-0 rounded-full transition-colors",
-              params.schedule?.enabled ? "bg-teal-400" : "bg-white/15",
-            )}
-          >
-            <span
-              className={cn(
-                "absolute top-0.5 size-5 rounded-full bg-white shadow transition-transform",
-                params.schedule?.enabled ? "translate-x-[22px]" : "translate-x-0.5",
-              )}
-            />
-          </button>
+          />
         </div>
         {params.schedule?.enabled ? (
           <div className="mt-3 flex items-center gap-2">

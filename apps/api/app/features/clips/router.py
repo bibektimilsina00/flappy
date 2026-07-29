@@ -225,7 +225,7 @@ def rerender(
 
 
 class DownloadRequest(BaseModel):
-    style: str = "none"  # none | clean | bold | highlight
+    style: str = "none"  # none | a preset name | custom (job's saved template)
 
 
 @router.post("/jobs/{job_id}/clips/{clip_id}/download")
@@ -241,7 +241,9 @@ def download_clip(
     requested style (burned lazily, cached per style on the clip)."""
     from apps.api.app.features.clips.pipeline import burn_clip_captions
 
-    if body.style not in ("none", "clean", "bold", "highlight"):
+    from apps.api.app.features.clips.captions import PRESETS
+
+    if body.style not in ("none", "custom", *PRESETS):
         raise HTTPException(status_code=422, detail="Unknown caption style")
     job = repository.get(session, workspace_id, job_id)
     clips = list(job.clips or []) if job else []
