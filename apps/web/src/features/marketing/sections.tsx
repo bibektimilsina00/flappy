@@ -1,6 +1,7 @@
 import { ArrowRight, Check, Play, Scissors, Star, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { COMPARE, FEATURE_ROWS, FEATURES, HERO, LOGOS, MODELS, STATS, STEPS, TESTIMONIALS, USE_CASES } from "./content";
+import { cn } from "@/lib/cn";
 import { FaqList } from "./faq";
 import { Icon } from "./icon";
 import { Poster, toneAt } from "./media";
@@ -388,6 +389,87 @@ export function CTA() {
               </li>
             ))}
           </ul>
+        </div>
+      </Container>
+    </Section>
+  );
+}
+
+// ── AI Clips showcase: the repurposing pipeline, illustrated ──
+export function ClipsShowcase() {
+  const cards = [
+    { tone: "violet", score: 92, caption: ["the", "wild", "part", "is…"], r: "-7deg", lift: "" },
+    { tone: "teal", score: 88, caption: ["nobody", "talks", "about"], r: "0deg", lift: "-translate-y-4" },
+    { tone: "amber", score: 81, caption: ["here's", "the", "secret"], r: "7deg", lift: "" },
+  ];
+  return (
+    <Section id="clips" className="border-y border-mk-border bg-mk-surface/40">
+      <Container>
+        <SectionHeading
+          eyebrow="AI Clips"
+          title="Turn one long video into a week of content."
+          sub="Paste a link. Flappy transcribes every word, scores the strongest moments, and hands back captioned vertical clips — scheduled and ready to post."
+        />
+        <div>
+          <div className="mt-14 grid items-center gap-10 md:grid-cols-[1fr_auto_1.2fr]">
+            {/* source */}
+            <div className="mx-auto w-full max-w-[340px]">
+              <div className="relative overflow-hidden rounded-2xl border border-mk-border shadow-2xl" style={{ aspectRatio: "16 / 9" }}>
+                <Poster tone="slate" ratio="16 / 9" className="absolute inset-0 w-full" />
+                <div className="absolute inset-0 grid place-items-center">
+                  <span className="grid size-12 place-items-center rounded-full bg-white/10 backdrop-blur">
+                    <Play className="ml-0.5 size-5 fill-white text-white" />
+                  </span>
+                </div>
+                <div className="absolute inset-x-4 bottom-3 h-1 overflow-hidden rounded-full bg-white/20">
+                  <div className="h-full w-1/3 rounded-full bg-mk-accent" />
+                </div>
+              </div>
+              <p className="mt-3 text-center text-sm text-mk-muted">Your 25-minute episode</p>
+            </div>
+
+            {/* arrow */}
+            <div className="mx-auto flex flex-col items-center gap-1 text-mk-accent">
+              <ArrowRight className="hidden size-6 md:block" />
+              <p className="w-28 text-center text-xs leading-tight text-mk-muted">AI finds the moments</p>
+            </div>
+
+            {/* clip fan */}
+            <div className="flex items-end justify-center gap-4">
+              {cards.map((c, i) => (
+                <div
+                  key={c.score}
+                  className={cn("mk-float relative h-56 w-32 overflow-hidden rounded-2xl border border-mk-border shadow-2xl", c.lift)}
+                  style={{ "--mk-r": c.r, animationDelay: `${i * 0.6}s` } as React.CSSProperties}
+                >
+                  <Poster tone={c.tone} ratio="9 / 16" className="absolute inset-0 w-full" />
+                  <span className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold text-white">
+                    🔥 {c.score}
+                  </span>
+                  <span className="absolute inset-x-2 bottom-3 rounded-lg bg-black/60 px-2 py-1.5 text-center text-[10px] font-semibold leading-tight text-white">
+                    {c.caption.map((w, j) => (
+                      <span key={w} className={j === 1 ? "text-mk-accent" : ""}>
+                        {w}{" "}
+                      </span>
+                    ))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mx-auto mt-12 flex max-w-3xl flex-wrap items-center justify-center gap-x-8 gap-y-3">
+            {["AI moment selection", "Word-by-word captions", "Face-aware framing", "Virality scores", "Auto-schedule"].map((f) => (
+              <span key={f} className="flex items-center gap-2 text-sm text-mk-muted">
+                <Check className="size-4 text-mk-accent" /> {f}
+              </span>
+            ))}
+          </div>
+          <div className="mt-10 text-center">
+            <Button href="/login" size="lg">
+              Clip your first video free
+            </Button>
+          </div>
         </div>
       </Container>
     </Section>

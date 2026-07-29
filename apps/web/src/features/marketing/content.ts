@@ -16,8 +16,10 @@ export type NavItem = { label: string; href?: string; featured?: NavFeatured; me
 export const NAV: NavItem[] = [
   {
     label: "Features",
-    featured: { title: "The canvas", desc: "Generate by chaining models on a node graph.", visual: "canvas", href: "/features", badge: "Core" },
+    featured: { title: "AI Clips", desc: "One long video in, ten captioned viral clips out.", visual: "canvas", href: "/features", badge: "New" },
     menu: [
+      { icon: "Scissors", title: "AI Clips", desc: "Long video → shorts", href: "/features" },
+      { icon: "Workflow", title: "Node canvas", desc: "Chain models visually", href: "/features" },
       { icon: "Clapperboard", title: "Video editor", desc: "Magnetic timeline", href: "/features" },
       { icon: "Image", title: "Text to image", desc: "Stills from a prompt", href: "/features" },
       { icon: "Video", title: "Text to video", desc: "Words into footage", href: "/features" },
@@ -36,7 +38,7 @@ export const HERO = {
   eyebrow: "AI video studio",
   title: "The all-in-one AI video studio",
   accent: "AI video", // highlighted in accent colour within the title
-  subtitle: "Flappy has everything you need to generate, edit, and ship trending video — on one canvas.",
+  subtitle: "Generate footage, cut it on a real timeline, and turn long videos into ready-to-post viral clips — all in one studio.",
   primary: { label: "Try online for free", href: "/login" },
   secondary: { label: "Watch the demo", href: "#showcase" },
   note: "No credit card required",
@@ -48,10 +50,11 @@ export const STATS = [
   { value: "40+", label: "AI models, one interface" },
   { value: "4K", label: "Export resolution" },
   { value: "<60s", label: "First frame to first cut" },
-  { value: "1", label: "Canvas for the whole pipeline" },
+  { value: "1→10", label: "Long video to viral clips" },
 ];
 
 export const FEATURES = [
+  { icon: "Scissors", visual: "bars", title: "AI Clips", desc: "Drop in a long video. Flappy transcribes every word, finds the strongest moments, and cuts captioned vertical clips with virality scores." },
   { icon: "Workflow", visual: "canvas", title: "Node canvas", desc: "Wire prompts, images, and clips into a visual graph. Every node is a model call; every edge passes media downstream." },
   { icon: "Clapperboard", visual: "timeline", title: "Magnetic timeline", desc: "A Final-Cut-style editor that never leaves a gap. Insert makes room, delete closes it, trims ripple — frame-perfect." },
   { icon: "Sparkles", visual: "nodes", title: "Every model, one place", desc: "Text-to-image, text-to-video, image-to-video, and extend — switch models from a single menu without new accounts." },
@@ -93,6 +96,14 @@ export const TOOL_TABS = [
   },
   {
     n: "03",
+    label: "Repurpose",
+    title: "Long video in, viral clips out",
+    desc: "Paste a link or upload a video. The AI reads the transcript, picks the moments with hooks, and hands back captioned, face-framed clips — scored and scheduled.",
+    bullets: ["AI moment selection + virality scores", "Word-by-word animated captions", "Face-aware vertical framing", "Auto-schedule the posting queue"],
+    media: "AI clipping",
+  },
+  {
+    n: "04",
     label: "Enhance",
     title: "Assistant & connected clips",
     desc: "Describe what you want in plain language, and keep captions, audio, and overlays locked to their shot.",
@@ -100,7 +111,7 @@ export const TOOL_TABS = [
     media: "AI assistant",
   },
   {
-    n: "04",
+    n: "05",
     label: "Export",
     title: "Ship it anywhere",
     desc: "Render a clean MP4 in the exact ratio you need — vertical for social, wide for the screen, up to 4K.",
@@ -127,12 +138,20 @@ export const FEATURE_ROWS = [
     reverse: true,
   },
   {
+    eyebrow: "AI Clips",
+    title: "One long video. Ten viral clips.",
+    desc: "Flappy listens to every word of your podcast or stream, scores each moment for hook strength and completeness, then renders vertical clips with karaoke captions, face-aware framing, and a posting schedule. Review, tweak a caption, and ship.",
+    bullets: ["Whisper-accurate transcripts, word by word", "Virality scores with the reasoning shown", "Caption templates — or design your own", "Bulk schedule straight to a posting queue"],
+    media: { tone: "teal", label: "AI clipping", play: true } as const,
+    reverse: false,
+  },
+  {
     eyebrow: "AI assistant",
     title: "Describe it in a sentence. Ship it.",
     desc: "Not sure which model to use? Tell the assistant what you want. It picks the mode and model, writes the prompt, and generates — then hands you a clip you can drop straight onto the timeline.",
     bullets: ["Plain-language prompts", "Auto-selects the right model", "One-click generate", "Refine on the canvas"],
     media: { tone: "violet", label: "AI assistant", play: false } as const,
-    reverse: false,
+    reverse: true,
   },
 ];
 
@@ -141,15 +160,16 @@ export const MODELS = ["Google Veo", "Kling", "Seedance", "Hailuo", "Flux", "SDX
 export const COMPARE = {
   old: {
     title: "The old way",
-    points: ["Generate in one app, export, re-import to edit", "Juggle a dozen model subscriptions", "Manual timelines that leave gaps", "Wait on a render farm", "Watermarks on anything free"],
+    points: ["Generate in one app, export, re-import to edit", "Juggle a dozen model subscriptions", "Manual timelines that leave gaps", "Scrubbing hour-long footage for clip-worthy moments", "Wait on a render farm", "Watermarks on anything free"],
   },
   now: {
     title: "With Flappy",
-    points: ["Generate and edit on one canvas", "Every model behind a single login", "A magnetic timeline that's always clean", "Cloud renders that stream back to you", "Clean exports at your resolution"],
+    points: ["Generate and edit on one canvas", "Every model behind a single login", "A magnetic timeline that's always clean", "AI finds, cuts, and captions the viral moments", "Cloud renders that stream back to you", "Clean exports at your resolution"],
   },
 };
 
 export const BLOG = [
+  { title: "AI Clips: turn one video into a week of content", excerpt: "How the clipping engine scores moments, writes captions, and schedules your posting queue.", category: "Product", date: "Jul 2026", tone: "teal" },
   { title: "Introducing Flappy: one canvas for AI video", excerpt: "Why we fused a node-based generator and a real editor into a single workspace.", category: "Product", date: "Jul 2026", tone: "violet" },
   { title: "How the magnetic timeline works", excerpt: "A look under the hood at frame-perfect, gap-free editing — and why it matters.", category: "Engineering", date: "Jul 2026", tone: "teal" },
   { title: "Image-to-video: from a still to a shot", excerpt: "A step-by-step walkthrough of animating a single frame into moving footage.", category: "Tutorial", date: "Jun 2026", tone: "indigo" },
@@ -164,10 +184,12 @@ export const USE_CASES = [
   { icon: "GraduationCap", title: "Explainers", desc: "Script, storyboard, and animate a concept end-to-end." },
   { icon: "Clapperboard", title: "Short films", desc: "Pre-viz or produce entire scenes from a single canvas." },
   { icon: "Store", title: "Social content", desc: "Batch vertical clips for every platform from one project." },
+  { icon: "Music", title: "Podcast clipping", desc: "Every episode becomes a stack of captioned, scored shorts." },
   { icon: "Newspaper", title: "News & recaps", desc: "Turn a headline into a narrated, illustrated segment." },
 ];
 
 export const TESTIMONIALS = [
+  { quote: "I pasted a 25-minute episode and got eight scored clips with captions burned in. Two of them outperformed everything we posted last month.", name: "Lena Torres", role: "Podcast Producer" },
   { quote: "The canvas plus timeline combo is the first tool that feels like an actual studio, not a toy. We cut our promo turnaround from a week to a day.", name: "Maya Okafor", role: "Creative Director, Lumen" },
   { quote: "I chained an image model into a video model, extended the shot, and cut it — without leaving one tab. That never used to be possible.", name: "Dre Santos", role: "Motion Designer, Freelance" },
   { quote: "The magnetic timeline alone sold me. It behaves exactly like Final Cut but sits right next to the models generating the footage.", name: "Priya Nair", role: "Editor, Monarch Media" },
@@ -184,7 +206,7 @@ export const PRICING = [
     blurb: "Everything you need to try the full pipeline.",
     cta: "Start free",
     highlight: false,
-    features: ["Monthly free credits", "Canvas + timeline editor", "Free-tier models", "720p exports", "Community support"],
+    features: ["Monthly free credits", "Canvas + timeline editor", "AI Clips — 5 jobs a day", "Free-tier models", "720p exports", "Community support"],
   },
   {
     name: "Pro",
@@ -193,7 +215,7 @@ export const PRICING = [
     blurb: "For creators shipping video every week.",
     cta: "Go Pro",
     highlight: true,
-    features: ["Everything in Free", "Premium models (Veo, Kling & more)", "4K exports, no watermark", "Priority generation queue", "Connected clips & advanced timeline", "Email support"],
+    features: ["Everything in Free", "Premium models (Veo, Kling & more)", "Unlimited AI Clips + auto-schedule", "4K exports, no watermark", "Priority generation queue", "Connected clips & advanced timeline", "Email support"],
   },
   {
     name: "Studio",
@@ -207,6 +229,7 @@ export const PRICING = [
 ];
 
 export const FAQ = [
+  { q: "How does AI clipping work?", a: "Paste a link or upload a video up to 30 minutes. Flappy transcribes it word by word, an AI picks the most engaging self-contained moments, and each one renders as a vertical clip with animated captions, face-aware framing, and a virality score explaining the pick. You can trim, restyle captions, bulk-schedule, or open any clip in the full editor." },
   { q: "What is Flappy, exactly?", a: "A single workspace for AI video: a node canvas where you generate footage by chaining models, and a magnetic timeline where you cut it together. Both share one media pool." },
   { q: "Which AI models can I use?", a: "Text-to-image, text-to-video, image-to-video, and video-extend models from leading providers — all selectable from one menu. Free-tier models are included; premium models unlock on Pro." },
   { q: "Do I need any editing experience?", a: "No. The assistant can pick the model and generate for you, and the timeline is magnetic — it keeps everything gap-free automatically. Power users still get frame-level control." },
@@ -219,6 +242,7 @@ export const FOOTER = [
   {
     title: "Product",
     links: [
+      { label: "AI Clips", href: "/features" },
       { label: "Canvas", href: "/features" },
       { label: "Video editor", href: "/features" },
       { label: "Templates", href: "/#showcase" },
@@ -228,6 +252,7 @@ export const FOOTER = [
   {
     title: "AI tools",
     links: [
+      { label: "Video repurposing", href: "/features" },
       { label: "Text to image", href: "/features" },
       { label: "Text to video", href: "/features" },
       { label: "Image to video", href: "/features" },

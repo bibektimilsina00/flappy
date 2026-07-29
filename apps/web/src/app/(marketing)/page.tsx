@@ -1,6 +1,7 @@
 import { FeatureTabs } from "@/features/marketing/feature-tabs";
 import { Reveal } from "@/features/marketing/reveal";
 import {
+  ClipsShowcase,
   Compare,
   CTA,
   Faq,
@@ -17,7 +18,7 @@ import {
 } from "@/features/marketing/sections";
 
 export default function MarketingHome() {
-  const below = [LogoCloud, FeatureRows, FeatureTabs, Models, HowItWorks, Features, Gallery, Compare, Stats, UseCases, Testimonials, Faq, CTA];
+  const below = [LogoCloud, ClipsShowcase, FeatureRows, FeatureTabs, Models, HowItWorks, Features, Gallery, Compare, Stats, UseCases, Testimonials, Faq, CTA];
   return (
     <>
       <Hero />
