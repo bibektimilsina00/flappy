@@ -202,9 +202,6 @@ export function ClipsPage() {
       </div>
 
       <div className="mb-10 text-center">
-        <p className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-teal-400/20 bg-teal-400/10 px-3 py-1 text-xs font-medium text-teal-300">
-          <Sparkles className="size-3.5" /> AI clipping studio
-        </p>
         <h1 className="text-4xl font-bold tracking-tight">
           One long video.{" "}
           <span className="text-teal-300">
