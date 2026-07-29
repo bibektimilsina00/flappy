@@ -540,7 +540,7 @@ function ConfigPanel({
       ) : null}
 
       {/* fields */}
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <FieldSelect
           label="Ratio"
           value={params.ratio}
@@ -564,6 +564,13 @@ function ConfigPanel({
           display={(v) => (v === "auto" ? "Auto" : v)}
           onChange={(v) => setParams((p) => ({ ...p, count: v === "auto" ? "auto" : Number(v) }))}
         />
+        <FieldSelect
+          label="Face framing"
+          value={params.framing ? "on" : "off"}
+          options={["on", "off"]}
+          display={(v) => (v === "on" ? "Auto" : "Off")}
+          onChange={(v) => setParams((p) => ({ ...p, framing: v === "on" }))}
+        />
       </div>
 
       {/* caption templates */}
@@ -576,15 +583,6 @@ function ConfigPanel({
           onChange={(patch) => setParams((p) => ({ ...p, ...patch }))}
         />
       </div>
-
-      {/* framing toggle */}
-      <label className="flex cursor-pointer items-center justify-between rounded-2xl border border-white/10 bg-[#161616] px-4 py-3">
-        <span>
-          <span className="block text-sm font-medium">Auto-framing</span>
-          <span className="block text-xs text-muted-foreground">Keep faces centered when cropping to vertical</span>
-        </span>
-        <Switch checked={params.framing} onChange={() => setParams((p) => ({ ...p, framing: !p.framing }))} />
-      </label>
 
       {/* focus */}
       <div>

@@ -192,26 +192,28 @@ export function CaptionStylePicker({
       type="button"
       onClick={onClick}
       className={cn(
-        "group relative w-[104px] shrink-0 overflow-hidden rounded-xl border text-left transition-all",
-        active ? "border-teal-400 ring-1 ring-teal-400" : "border-white/10 hover:border-white/25",
+        "group relative h-[250px] w-[148px] shrink-0 overflow-hidden rounded-2xl border-2 text-left transition-all",
+        active ? "border-teal-400 shadow-[0_0_20px_-6px_rgba(45,212,191,0.5)]" : "border-white/10 hover:border-white/30",
       )}
     >
-      <div className={cn("relative h-[132px] w-full bg-gradient-to-br", bg)}>
-        {active ? (
-          <span className="absolute right-1.5 top-1.5 z-10 grid size-5 place-items-center rounded-full bg-teal-400 text-black">
-            <Check className="size-3" />
-          </span>
-        ) : null}
-        {css ? (
-          <span className={cn("absolute inset-x-1 flex justify-center", css.middle ? "top-1/2 -translate-y-1/2" : "bottom-2.5")}>
-            <CaptionSample css={css} />
-          </span>
-        ) : (
-          <span className="absolute inset-0 grid place-items-center text-sm text-white/35">—</span>
-        )}
-        {extra}
-      </div>
-      <p className="truncate bg-black/40 px-2 py-1.5 text-[11px] font-medium">{name}</p>
+      <div className={cn("absolute inset-0 bg-gradient-to-br", bg)} />
+      {active ? (
+        <span className="absolute left-2 top-2 z-10 grid size-6 place-items-center rounded-full bg-teal-400 text-black">
+          <Check className="size-3.5" />
+        </span>
+      ) : null}
+      {css ? (
+        <span className={cn("absolute inset-x-2 flex justify-center", css.middle ? "top-1/2 -translate-y-1/2" : "bottom-14")}>
+          <CaptionSample css={css} />
+        </span>
+      ) : (
+        <span className="absolute inset-0 grid place-items-center text-sm text-white/35">No captions</span>
+      )}
+      {/* name inside the card, over a bottom fade */}
+      <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent pb-2.5 pt-8 text-center text-sm font-medium text-white">
+        {name}
+      </span>
+      {extra}
     </button>
   );
 
@@ -283,7 +285,7 @@ export function CaptionStylePicker({
             <button
               type="button"
               onClick={() => setEditing("new")}
-              className="grid h-[164px] w-[104px] shrink-0 place-items-center rounded-xl border-2 border-dashed border-white/15 text-muted-foreground transition-colors hover:border-teal-400/50 hover:text-teal-300"
+              className="grid h-[250px] w-[148px] shrink-0 place-items-center rounded-2xl border-2 border-dashed border-white/15 text-muted-foreground transition-colors hover:border-teal-400/50 hover:text-teal-300"
             >
               <span className="flex flex-col items-center gap-1.5 text-xs">
                 <Plus className="size-5" />
