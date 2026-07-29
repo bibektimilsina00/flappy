@@ -4,7 +4,6 @@ import {
   ArrowDown,
   ArrowRight,
   Captions,
-  ChevronDown,
   Clapperboard,
   Film,
   Flame,
@@ -126,7 +125,7 @@ export function ClipsPage() {
         </p>
       </div>
 
-      {/* The one input */}
+      {/* The one input — CTA lives inside the bar; options are always-visible pills */}
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -138,29 +137,40 @@ export function ClipsPage() {
           setDragging(false);
           void onFile(e.dataTransfer.files?.[0]);
         }}
-        className={cn(
-          "rounded-2xl border transition-colors",
-          dragging ? "border-teal-400 bg-teal-400/5" : "border-white/10",
-        )}
+        className="relative"
       >
-        <div className="rounded-2xl bg-[#141414] p-6">
-        <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 px-4 py-2 transition-colors focus-within:border-teal-400/50">
-          <Link2 className="size-4 shrink-0 text-muted-foreground" />
+        <div
+          className={cn(
+            "flex h-16 items-center gap-3 rounded-2xl border bg-[#161616] pl-5 pr-2 shadow-[0_8px_40px_-16px_rgba(0,0,0,0.8)] transition-colors",
+            "focus-within:border-teal-400/60",
+            dragging ? "border-teal-400" : "border-white/12",
+          )}
+        >
+          <Link2 className="size-[18px] shrink-0 text-muted-foreground" />
           <input
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submit()}
-            placeholder="Paste a YouTube / TikTok / Vimeo link, or drop a video file here"
-            className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
+            placeholder="Paste a YouTube, TikTok, or Vimeo link…"
+            className="min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground/70"
           />
           <button
             type="button"
-            aria-label="Upload a file"
             onClick={() => fileRef.current?.click()}
-            className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            title="Upload a file"
+            className="hidden shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground sm:flex"
           >
             <Upload className="size-4" />
+            Upload
+          </button>
+          <span className="h-7 w-px shrink-0 bg-white/10" />
+          <button
+            type="button"
+            disabled={busy !== null}
+            onClick={submit}
+            className="flex h-11 shrink-0 items-center gap-2 rounded-xl bg-teal-400 px-5 text-sm font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-60"
+          >
+            {busy ? <Loader2 className="size-4 animate-spin" /> : <Scissors className="size-4" />}
+            {busy ? "Working…" : "Get clips"}
           </button>
         </div>
         <input
@@ -174,90 +184,91 @@ export function ClipsPage() {
           }}
         />
 
-        {/* Options — collapsed; the defaults are the product */}
-        <button
-          type="button"
-          onClick={() => setOptionsOpen((v) => !v)}
-          className="mt-3 flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ChevronDown className={cn("size-3.5 transition-transform", optionsOpen && "rotate-180")} />
-          Options
-          {!optionsOpen ? (
-            <span className="text-muted-foreground/60">
-              · Auto clips · Auto length · {params.ratio} · Captions {params.captions ? "on" : "off"}
-            </span>
-          ) : null}
-        </button>
+        {/* drop overlay */}
+        {dragging ? (
+          <div className="pointer-events-none absolute inset-x-0 -top-3 bottom-[-88px] z-10 grid place-items-center rounded-3xl border-2 border-dashed border-teal-400 bg-[#0f0f0f]/90">
+            <p className="flex items-center gap-2 text-sm font-medium text-teal-300">
+              <Upload className="size-4" /> Drop your video to start
+            </p>
+          </div>
+        ) : null}
+
+        {/* settings — always visible, one quiet row */}
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <PillSelect
+            label="Clips"
+            value={String(params.count)}
+            options={["auto", "1", "2", "3", "5", "8", "10"]}
+            display={(v) => (v === "auto" ? "Auto" : v)}
+            onChange={(v) => setParams((p) => ({ ...p, count: v === "auto" ? "auto" : Number(v) }))}
+          />
+          <PillSelect
+            label="Length"
+            value={params.duration}
+            options={["auto", "short", "medium", "long"]}
+            display={(v) =>
+              v === "auto" ? "Auto" : v === "short" ? "15–30s" : v === "medium" ? "30–60s" : "60–90s"
+            }
+            onChange={(v) => setParams((p) => ({ ...p, duration: v as ClipsParams["duration"] }))}
+          />
+          <PillSelect
+            label="Format"
+            value={params.ratio}
+            options={["9:16", "1:1", "16:9"]}
+            display={(v) => v}
+            onChange={(v) => setParams((p) => ({ ...p, ratio: v as ClipsParams["ratio"] }))}
+          />
+          <PillSelect
+            label="Captions"
+            value={params.captions ? params.caption_style : "off"}
+            options={["clean", "bold", "highlight", "off"]}
+            display={(v) => (v === "off" ? "Off" : v[0].toUpperCase() + v.slice(1))}
+            onChange={(v) =>
+              setParams((p) =>
+                v === "off"
+                  ? { ...p, captions: false }
+                  : { ...p, captions: true, caption_style: v as ClipsParams["caption_style"] },
+              )
+            }
+          />
+          <PillSelect
+            label="Framing"
+            value={params.framing ? "on" : "off"}
+            options={["on", "off"]}
+            display={(v) => (v === "on" ? "Auto" : "Off")}
+            onChange={(v) => setParams((p) => ({ ...p, framing: v === "on" }))}
+          />
+          <button
+            type="button"
+            onClick={() => setOptionsOpen((v) => !v)}
+            className={cn(
+              "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors",
+              params.focus?.trim()
+                ? "border-teal-400/40 bg-teal-400/10 text-teal-300"
+                : "border-white/10 bg-white/5 text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Sparkles className="size-3.5" />
+            {params.focus?.trim() ? "Focus set" : "Add focus"}
+          </button>
+        </div>
+
         {optionsOpen ? (
-          <div className="mt-3 space-y-3">
-            <div className="flex flex-wrap gap-2">
-              <PillSelect
-                label="Clips"
-                value={String(params.count)}
-                options={["auto", "1", "2", "3", "5", "8", "10"]}
-                display={(v) => (v === "auto" ? "Auto" : v)}
-                onChange={(v) => setParams((p) => ({ ...p, count: v === "auto" ? "auto" : Number(v) }))}
-              />
-              <PillSelect
-                label="Length"
-                value={params.duration}
-                options={["auto", "short", "medium", "long"]}
-                display={(v) =>
-                  v === "auto" ? "Auto" : v === "short" ? "15-30s" : v === "medium" ? "30-60s" : "60-90s"
-                }
-                onChange={(v) => setParams((p) => ({ ...p, duration: v as ClipsParams["duration"] }))}
-              />
-              <PillSelect
-                label="Format"
-                value={params.ratio}
-                options={["9:16", "1:1", "16:9"]}
-                display={(v) => v}
-                onChange={(v) => setParams((p) => ({ ...p, ratio: v as ClipsParams["ratio"] }))}
-              />
-              <PillSelect
-                label="Captions"
-                value={params.captions ? params.caption_style : "off"}
-                options={["clean", "bold", "highlight", "off"]}
-                display={(v) => (v === "off" ? "Off" : v[0].toUpperCase() + v.slice(1))}
-                onChange={(v) =>
-                  setParams((p) =>
-                    v === "off"
-                      ? { ...p, captions: false }
-                      : { ...p, captions: true, caption_style: v as ClipsParams["caption_style"] },
-                  )
-                }
-              />
-              <PillSelect
-                label="Face framing"
-                value={params.framing ? "on" : "off"}
-                options={["on", "off"]}
-                display={(v) => (v === "on" ? "Auto" : "Off")}
-                onChange={(v) => setParams((p) => ({ ...p, framing: v === "on" }))}
-              />
-            </div>
+          <div className="mx-auto mt-3 max-w-xl">
             <input
               value={params.focus ?? ""}
               onChange={(e) => setParams((p) => ({ ...p, focus: e.target.value }))}
-              placeholder="What should we look for? e.g. “actionable advice”, “funny moments” (optional)"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground/70"
+              onKeyDown={(e) => e.key === "Enter" && setOptionsOpen(false)}
+              placeholder="What should we look for? e.g. “actionable advice”, “funny moments”"
+              className="w-full rounded-xl border border-white/10 bg-[#161616] px-4 py-2.5 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-teal-400/50"
             />
           </div>
         ) : null}
 
-        <button
-          type="button"
-          disabled={busy !== null}
-          onClick={submit}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-teal-400 py-3 text-sm font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-60"
-        >
-          {busy ? <Loader2 className="size-4 animate-spin" /> : <Scissors className="size-4" />}
-          {busy ?? (value.trim() ? "Get clips" : "Get clips — paste a link or pick a file")}
-        </button>
-        {error ? <p className="mt-2 text-center text-xs text-red-400">{error}</p> : null}
-          <p className="mt-3 text-center text-[11px] text-muted-foreground/70">
-            Only import content you have the rights to use. Sources up to 30 minutes.
-          </p>
-        </div>
+        {error ? <p className="mt-3 text-center text-xs text-red-400">{error}</p> : null}
+        <p className="mt-3 text-center text-[11px] text-muted-foreground/50">
+          Sources up to 30 minutes · only import content you have the rights to use
+        </p>
       </div>
 
       {/* How it works — the transformation, illustrated */}
@@ -418,12 +429,12 @@ function PillSelect({
   onChange: (v: string) => void;
 }) {
   return (
-    <label className="flex items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs">
+    <label className="flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs transition-colors hover:border-white/20">
       <span className="text-muted-foreground">{label}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="bg-transparent text-foreground outline-none"
+        className="cursor-pointer bg-transparent font-medium text-foreground outline-none"
       >
         {options.map((o) => (
           <option key={o} value={o}>
