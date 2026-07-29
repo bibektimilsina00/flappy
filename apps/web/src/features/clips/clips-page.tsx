@@ -543,10 +543,9 @@ function ConfigPanel({
         </p>
       ) : null}
 
-      {/* group 1: format + templates + caption extras — one clean surface */}
-      <div className="space-y-6 rounded-3xl border border-white/[0.05] bg-white/[0.02] p-6">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <FieldSelect
+      {/* format fields — standalone row above the group */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <FieldSelect
             label="Ratio"
             value={params.ratio}
             options={["9:16", "1:1", "16:9"]}
@@ -576,8 +575,10 @@ function ConfigPanel({
             display={(v) => (v === "on" ? "Auto" : "Off")}
             onChange={(v) => setParams((p) => ({ ...p, framing: v === "on" }))}
           />
-        </div>
+      </div>
 
+      {/* group 1: templates + caption extras */}
+      <div className="space-y-6 rounded-3xl border border-white/[0.05] bg-white/[0.02] p-6">
         <CaptionStylePicker
           captions={params.captions}
           style={params.caption_style}
