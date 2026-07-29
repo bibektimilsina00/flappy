@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     database_url: str = ""
     redis_url: str = ""
     secret_key: str = ""
-    access_token_expire_minutes: int = 1440
+    access_token_expire_minutes: int = 43200  # 30 days — consumer app, not a bank
 
     # Storage
     s3_endpoint: str = ""
