@@ -161,6 +161,23 @@ export function CaptionStylePicker({
   const [templates, setTemplates] = useState<UserTemplate[]>([]);
   const [editing, setEditing] = useState<UserTemplate | "new" | null>(null);
   const rowRef = useRef<HTMLDivElement>(null);
+  const [canScroll, setCanScroll] = useState({ left: false, right: false });
+
+  const updateArrows = () => {
+    const el = rowRef.current;
+    if (!el) return;
+    setCanScroll({
+      left: el.scrollLeft > 4,
+      right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
+    });
+  };
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: content width changes with tab/templates
+  useEffect(() => {
+    updateArrows();
+    window.addEventListener("resize", updateArrows);
+    return () => window.removeEventListener("resize", updateArrows);
+  }, [tab, templates]);
 
   useEffect(() => {
     setTemplates(loadTemplates());
@@ -245,23 +262,27 @@ export function CaptionStylePicker({
       </div>
 
       <div className="relative">
-        <button
-          type="button"
-          aria-label="Scroll left"
-          onClick={() => rowRef.current?.scrollBy({ left: -320, behavior: "smooth" })}
-          className="absolute -left-3 top-1/2 z-10 grid size-8 -translate-y-1/2 place-items-center rounded-full border border-white/15 bg-[#222] text-foreground/80 shadow-xl transition-colors hover:bg-[#2e2e2e] hover:text-foreground"
-        >
-          <ChevronLeft className="size-4" />
-        </button>
-        <button
-          type="button"
-          aria-label="Scroll right"
-          onClick={() => rowRef.current?.scrollBy({ left: 320, behavior: "smooth" })}
-          className="absolute -right-3 top-1/2 z-10 grid size-8 -translate-y-1/2 place-items-center rounded-full border border-white/15 bg-[#222] text-foreground/80 shadow-xl transition-colors hover:bg-[#2e2e2e] hover:text-foreground"
-        >
-          <ChevronRight className="size-4" />
-        </button>
-        <div ref={rowRef} className="flex snap-x gap-3 overflow-x-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {canScroll.left ? (
+          <button
+            type="button"
+            aria-label="Scroll left"
+            onClick={() => rowRef.current?.scrollBy({ left: -320, behavior: "smooth" })}
+            className="absolute -left-9 top-1/2 z-10 grid size-8 -translate-y-1/2 place-items-center rounded-full border border-white/15 bg-[#222] text-foreground/80 shadow-xl transition-colors hover:bg-[#2e2e2e] hover:text-foreground"
+          >
+            <ChevronLeft className="size-4" />
+          </button>
+        ) : null}
+        {canScroll.right ? (
+          <button
+            type="button"
+            aria-label="Scroll right"
+            onClick={() => rowRef.current?.scrollBy({ left: 320, behavior: "smooth" })}
+            className="absolute -right-9 top-1/2 z-10 grid size-8 -translate-y-1/2 place-items-center rounded-full border border-white/15 bg-[#222] text-foreground/80 shadow-xl transition-colors hover:bg-[#2e2e2e] hover:text-foreground"
+          >
+            <ChevronRight className="size-4" />
+          </button>
+        ) : null}
+        <div ref={rowRef} onScroll={updateArrows} className="flex snap-x gap-3 overflow-x-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {tab === "featured" ? (
           <>
             {PRESET_META.map((p) =>
