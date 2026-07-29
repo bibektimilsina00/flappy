@@ -552,14 +552,9 @@ function ConfigPanel({
             display={(v) => v}
             onChange={(v) => setParams((p) => ({ ...p, ratio: v as ClipsParams["ratio"] }))}
           />
-          <FieldSelect
-            label="Clip length"
+          <LengthSelect
             value={params.duration}
-            options={["auto", "short", "medium", "long"]}
-            display={(v) =>
-              v === "auto" ? "Auto" : v === "short" ? "15–30s" : v === "medium" ? "30–60s" : "60–90s"
-            }
-            onChange={(v) => setParams((p) => ({ ...p, duration: v as ClipsParams["duration"] }))}
+            onChange={(v) => setParams((p) => ({ ...p, duration: v }))}
           />
           <FieldSelect
             label="Clips"
@@ -681,6 +676,88 @@ function ConfigPanel({
         />
       ) : null}
       {error ? <p className="text-center text-xs text-red-400">{error}</p> : null}
+    </div>
+  );
+}
+
+const LENGTH_BANDS: { key: string; label: string }[] = [
+  { key: "lt30", label: "<30s" },
+  { key: "30-60", label: "30s–60s" },
+  { key: "60-90", label: "60s–90s" },
+  { key: "90-180", label: "90s–3mins" },
+  { key: "gt180", label: ">3mins" },
+];
+
+// Clip length: "Any length" or a multi-selection of bands (checkbox dropdown).
+function LengthSelect({
+  value,
+  onChange,
+}: {
+  value: "auto" | string[];
+  onChange: (v: "auto" | string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = value === "auto" ? [] : value;
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  const toggleBand = (key: string) => {
+    const next = selected.includes(key) ? selected.filter((k) => k !== key) : [...selected, key];
+    onChange(next.length === 0 ? "auto" : next);
+  };
+
+  const label =
+    value === "auto"
+      ? "Any length"
+      : LENGTH_BANDS.filter((b) => selected.includes(b.key))
+          .map((b) => b.label)
+          .slice(0, 2)
+          .join(", ") + (selected.length > 2 ? ` +${selected.length - 2}` : "");
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "flex w-full items-center justify-between gap-2 rounded-xl border bg-[#161616] px-4 py-3 text-sm transition-colors",
+          open ? "border-teal-400/50" : "border-white/10 hover:border-white/20",
+        )}
+      >
+        <span className="text-muted-foreground">Clip length</span>
+        <span className="flex items-center gap-1.5 truncate font-medium">
+          {label}
+          <ChevronDown className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
+        </span>
+      </button>
+      {open ? (
+        <div className="absolute left-0 right-0 top-full z-30 mt-1.5 rounded-xl border border-white/10 bg-[#1e1e1e] p-1.5 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-100">
+          <label className="flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2.5 text-sm transition-colors hover:bg-white/5">
+            <Checkbox checked={value === "auto"} onCheckedChange={() => onChange("auto")} />
+            Any length
+          </label>
+          <div className="my-1 h-px bg-white/10" />
+          {LENGTH_BANDS.map((band) => (
+            <label
+              key={band.key}
+              className="flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2.5 text-sm transition-colors hover:bg-white/5"
+            >
+              <Checkbox checked={selected.includes(band.key)} onCheckedChange={() => toggleBand(band.key)} />
+              {band.label}
+            </label>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

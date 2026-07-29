@@ -28,7 +28,12 @@ log = logging.getLogger(__name__)
 
 MAX_SOURCE_MINUTES = 30
 DEFAULT_COUNT = 5
-DURATION_BANDS = {"short": (15, 30), "medium": (30, 60), "long": (60, 90), "auto": (10, 90)}
+DURATION_BANDS = {
+    # legacy single-select keys
+    "short": (15, 30), "medium": (30, 60), "long": (60, 90), "auto": (10, 90),
+    # multi-select bands (reference-style length filter)
+    "lt30": (10, 30), "30-60": (30, 60), "60-90": (60, 90), "90-180": (90, 180), "gt180": (180, 600),
+}
 RATIO_SIZES = {"9:16": (1080, 1920), "1:1": (1080, 1080), "16:9": (1920, 1080)}
 
 _whisper_model = None  # loaded once per worker process
@@ -201,10 +206,23 @@ def _select(job: ClipsJob, transcript: list[dict], duration: float) -> list[dict
     count = params.get("count", "auto")
     count = DEFAULT_COUNT if count in (None, "auto") else max(1, min(10, int(count)))
     duration_pref = params.get("duration") or "auto"
-    band = DURATION_BANDS.get(duration_pref, DURATION_BANDS["auto"])
+    if isinstance(duration_pref, list):
+        chosen = [DURATION_BANDS[b] for b in duration_pref if b in DURATION_BANDS]
+        if chosen:
+            # envelope for sanitizing; the prompt lists the exact ranges
+            band = (min(lo for lo, _ in chosen), max(hi for _, hi in chosen))
+            ranges = " or ".join(f"{lo}-{hi}s" for lo, hi in chosen)
+            duration_pref = f"ranges:{ranges}"
+        else:
+            duration_pref = "auto"
+            band = DURATION_BANDS["auto"]
+    else:
+        band = DURATION_BANDS.get(duration_pref, DURATION_BANDS["auto"])
     focus = (params.get("focus") or "").strip()
 
-    if duration_pref == "auto":
+    if isinstance(duration_pref, str) and duration_pref.startswith("ranges:"):
+        length_rule = f"Each segment's length must fall in one of these ranges: {duration_pref[7:]}. "
+    elif duration_pref == "auto":
         # Default product promise: ready-to-post TikTok/Reels length, AI-decided.
         length_rule = (
             "Choose each clip's length by topic completeness — the moment it stops "

@@ -93,7 +93,7 @@ export interface ScheduledPost {
 
 export interface ClipsParams {
   count: number | "auto";
-  duration: "auto" | "short" | "medium" | "long";
+  duration: "auto" | string[]; // "auto" or multi-selected length bands
   ratio: "9:16" | "1:1" | "16:9";
   focus?: string;
   captions: boolean;
