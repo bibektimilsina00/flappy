@@ -210,7 +210,22 @@ def _select(job: ClipsJob, transcript: list[dict], duration: float) -> list[dict
     else:
         length_rule = f"Each segment must be {band[0]}-{band[1]} seconds long. "
 
-    lines = "\n".join(f"[{s['start']:.0f}-{s['end']:.0f}] {s['text']}" for s in transcript)
+    # Condense very long transcripts so small-context models still fit: merge
+    # adjacent segments into ~60 blocks (timing precision comes from snapping
+    # to word boundaries later, not from these lines).
+    condensed = transcript
+    if len(transcript) > 120:
+        block = max(2, len(transcript) // 60)
+        condensed = [
+            {
+                "start": chunk[0]["start"],
+                "end": chunk[-1]["end"],
+                "text": " ".join(s["text"] for s in chunk),
+            }
+            for chunk in (transcript[i : i + block] for i in range(0, len(transcript), block))
+        ]
+
+    lines = "\n".join(f"[{s['start']:.0f}-{s['end']:.0f}] {s['text']}" for s in condensed)
     prompt = (
         "You are a short-form video editor. Below is a timestamped transcript "
         f"({duration:.0f}s total). Pick the {count} best self-contained segments to "
@@ -224,30 +239,50 @@ def _select(job: ClipsJob, transcript: list[dict], duration: float) -> list[dict
         '"score": <0-100 virality estimate>, "reason": "<one line why>"}'
     )
 
-    raw = None
-    try:
-        model = resolve_model("text", settings.clips_select_model or None)
-        if model is not None:
+    model = resolve_model("text", settings.clips_select_model or None)
+    segments: list[dict] = []
+    # Two attempts: free/default models are flaky on strict-JSON tasks.
+    for attempt in (1, 2):
+        if model is None:
+            break
+        try:
             adapter = get_adapter(model.adapter)
             result = adapter.generate(model, GenerationRequest(kind="text", prompt=prompt), None)
-            raw = result.text
-    except Exception as exc:  # noqa: BLE001 — fall back rather than fail the job
-        log.warning("clips selection model failed, using fallback: %s", exc)
+            raw = result.text or ""
+            segments = parse_selection(raw, duration, band)
+            if segments:
+                break
+            log.warning(
+                "clips selection (%s, attempt %d): unparseable response, head: %r",
+                model.id, attempt, raw[:300],
+            )
+        except Exception as exc:  # noqa: BLE001 — fall back rather than fail the job
+            log.warning("clips selection (%s, attempt %d) failed: %s", getattr(model, "id", "?"), attempt, exc)
 
-    segments = parse_selection(raw, duration, band) if raw else []
     if not segments:
+        log.warning("clips selection: using deterministic fallback (scores will be 50)")
         segments = fallback_selection(transcript, duration, band, count)
     return segments[:count]
 
 
 def parse_selection(raw: str, duration: float, band: tuple[int, int]) -> list[dict]:
-    """Parse + sanitize the model's JSON. Bad items are dropped, not fatal."""
-    match = re.search(r"\[.*\]", raw, re.DOTALL)
-    if not match:
-        return []
-    try:
-        items = json.loads(match.group(0))
-    except json.JSONDecodeError:
+    """Parse + sanitize the model's JSON. Bad items are dropped, not fatal.
+    Tolerates prose/fences around the array: decodes from the first '[' and
+    ignores anything after the JSON ends."""
+    items = None
+    decoder = json.JSONDecoder()
+    idx = raw.find("[")
+    while idx != -1:
+        try:
+            candidate, _end = decoder.raw_decode(raw, idx)
+        except json.JSONDecodeError:
+            idx = raw.find("[", idx + 1)
+            continue
+        if isinstance(candidate, list):
+            items = candidate
+            break
+        idx = raw.find("[", idx + 1)
+    if items is None:
         return []
     out: list[dict] = []
     for item in items:
