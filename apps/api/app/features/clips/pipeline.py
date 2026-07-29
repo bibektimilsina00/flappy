@@ -47,6 +47,9 @@ def run_pipeline(session: Session, job: ClipsJob, charge) -> None:
     with tempfile.TemporaryDirectory() as workdir:
         _set(session, job, status="running", phase="ingest", progress=0.0)
         source = _ingest(session, job, storage, workdir)
+        probed = _probe_duration(source)
+        if probed and probed > MAX_SOURCE_MINUTES * 60:
+            raise ValueError(f"Source is {probed / 60:.0f} min — the limit is {MAX_SOURCE_MINUTES} min.")
 
         _set(session, job, phase="transcribe", progress=0.0)
         transcript, duration = _transcribe(source)
@@ -74,6 +77,17 @@ def _storage():
     from apps.api.app.storage.factory import get_storage
 
     return get_storage()
+
+
+def _probe_duration(path: str) -> float | None:
+    """Source length in seconds from ffmpeg's banner — enforces the cap before
+    spending transcription time on an over-long video."""
+    proc = subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-i", path], capture_output=True)
+    m = re.search(rb"Duration: (\d+):(\d+):(\d+\.\d+)", proc.stderr)
+    if not m:
+        return None
+    h, mi, s = int(m.group(1)), int(m.group(2)), float(m.group(3))
+    return h * 3600 + mi * 60 + s
 
 
 # ── phase 1: ingest ──────────────────────────────────────────────────────────
