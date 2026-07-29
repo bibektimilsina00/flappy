@@ -30,6 +30,7 @@ const DEFAULTS: ClipsParams = {
   focus: "",
   captions: true,
   caption_style: "clean",
+  framing: true,
 };
 
 const PHASE_LABEL: Record<string, string> = {
@@ -202,6 +203,13 @@ export function ClipsPage() {
                       : { ...p, captions: true, caption_style: v as ClipsParams["caption_style"] },
                   )
                 }
+              />
+              <PillSelect
+                label="Face framing"
+                value={params.framing ? "on" : "off"}
+                options={["on", "off"]}
+                display={(v) => (v === "on" ? "Auto" : "Off")}
+                onChange={(v) => setParams((p) => ({ ...p, framing: v === "on" }))}
               />
             </div>
             <input

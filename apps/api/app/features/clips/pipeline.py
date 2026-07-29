@@ -258,8 +258,17 @@ def render_clip_file(job: ClipsJob, source: str, seg: dict, workdir: str, storag
     w, h = RATIO_SIZES.get(params.get("ratio") or "9:16", RATIO_SIZES["9:16"])
     out = os.path.join(workdir, "render.mp4")
     exe = imageio_ffmpeg.get_ffmpeg_exe()
-    # ponytail: center cover-crop; face-aware framing is M3 (CLIPS-PLAN.md)
-    vf = f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},fps=30"
+
+    # Cover-scale then crop. With framing on (default), the crop window centers
+    # on the detected face instead of the frame middle.
+    x_expr = "(in_w-out_w)/2"
+    if params.get("framing", True):
+        from apps.api.app.features.clips.framing import face_center_fraction
+
+        center = face_center_fraction(source, seg["start"], seg["end"])
+        if center is not None:
+            x_expr = f"min(max(in_w*{center:.4f}-out_w/2\\,0)\\,in_w-out_w)"
+    vf = f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h}:x='{x_expr}':y='(in_h-out_h)/2',fps=30"
 
     if params.get("captions", True):
         ass = build_ass(

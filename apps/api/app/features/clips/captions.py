@@ -110,7 +110,8 @@ def build_ass(
             dur_cs = max(1, int(round((w["e"] - w["s"]) * 100)))
             text = str(w["w"]).strip().replace("{", "").replace("}", "").replace("\n", " ")
             parts.append(f"{{\\k{dur_cs}}}{text}")
-        events.append(f"Dialogue: 0,{_ass_time(s)},{_ass_time(e)},Cap,,0,0,0,,{' '.join(parts)}")
+        # \fad: quick fade-in/out per line — subtle motion that reads as "animated".
+        events.append(f"Dialogue: 0,{_ass_time(s)},{_ass_time(e)},Cap,,0,0,0,,{{\\fad(120,60)}}{' '.join(parts)}")
     return header + "\n".join(events) + "\n"
 
 

@@ -271,6 +271,11 @@ function ClipGallery({ job, onJobUpdate }: { job: ClipsJob; onJobUpdate: (j: Cli
               <p className="truncate text-sm font-medium" title={clip.title}>
                 {clip.title}
               </p>
+              {clip.reason ? (
+                <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted-foreground" title={clip.reason}>
+                  {clip.reason}
+                </p>
+              ) : null}
               <div className="mt-1.5 flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">
                   {fmt(clip.start)}–{fmt(clip.end)} · {Math.round(clip.end - clip.start)}s

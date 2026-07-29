@@ -44,6 +44,7 @@ export interface ClipsParams {
   focus?: string;
   captions: boolean;
   caption_style: "clean" | "bold" | "highlight";
+  framing: boolean;
 }
 
 export function createClipsJob(body: {
