@@ -217,7 +217,8 @@ export function CaptionStylePicker({
 
   return (
     <div>
-      <div className="mb-3 flex items-center gap-1 border-b border-white/10">
+      {/* folder-style tabs: the active tab connects to the panel below */}
+      <div className="flex items-end gap-1">
         {(
           [
             { id: "featured", label: "Featured" },
@@ -229,10 +230,10 @@ export function CaptionStylePicker({
             type="button"
             onClick={() => setTab(t.id)}
             className={cn(
-              "-mb-px border-b-2 px-3 py-2 text-sm transition-colors",
+              "-mb-px rounded-t-xl border px-4 py-2.5 text-sm transition-colors",
               tab === t.id
-                ? "border-teal-400 font-medium text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
+                ? "relative z-10 border-white/10 border-b-transparent bg-[#161616] font-medium text-foreground"
+                : "border-white/10 bg-white/[0.02] text-muted-foreground hover:text-foreground",
             )}
           >
             {t.label}
@@ -240,7 +241,7 @@ export function CaptionStylePicker({
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3 rounded-xl rounded-tl-none border border-white/10 bg-[#161616] p-4">
         {tab === "featured" ? (
           <>
             {PRESET_META.map((p) =>
