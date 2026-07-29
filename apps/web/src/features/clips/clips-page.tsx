@@ -274,7 +274,7 @@ export function ClipsPage() {
           <button
             type="button"
             disabled={busy !== null}
-            onClick={submit}
+            onClick={() => void submit()}
             className="flex h-11 shrink-0 items-center gap-2 rounded-xl bg-teal-400 px-5 text-sm font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-60"
           >
             {busy ? <Loader2 className="size-4 animate-spin" /> : <Scissors className="size-4" />}
