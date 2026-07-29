@@ -1,17 +1,16 @@
 "use client";
 
-import { Loader2, X } from "lucide-react";
-import { useMemo, useState } from "react";
-import {
-  type ClipItem,
-  type ClipsJob,
-  type TranscriptSegment,
-  rerenderClip,
-} from "./api";
+import { ChevronsLeft, ChevronsRight, Loader2, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Slider } from "@/components/ui/slider";
+import { cn } from "@/lib/cn";
+import { type ClipItem, type ClipsJob, rerenderClip } from "./api";
 
-const fmt = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, "0")}`;
+const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}.${Math.floor((s % 1) * 10)}`;
 
-// Trim + caption editing for one clip. Apply re-renders just this clip.
+// Vizard-style clip editor: source video + full transcript with the selected
+// range highlighted; trim by transcript ("start/end here"), the range slider,
+// or timecodes. In-range text is editable (burns as caption edits).
 export function ClipEditModal({
   job,
   clip,
@@ -23,32 +22,38 @@ export function ClipEditModal({
   onClose: () => void;
   onSaved: (job: ClipsJob) => void;
 }) {
-  const sourceDur = job.duration ?? clip.end + 15;
-  // Trim window: the clip ± 15s of context, clamped to the source.
-  const min = Math.max(0, clip.start - 15);
-  const max = Math.min(sourceDur, clip.end + 15);
+  const sourceDur = job.duration ?? clip.end + 30;
   const [start, setStart] = useState(clip.start);
   const [end, setEnd] = useState(clip.end);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Caption segments inside the (current) window, editable text.
-  const baseSegments = useMemo<TranscriptSegment[]>(() => {
-    if (clip.caption_edits?.length) return clip.caption_edits;
-    return (job.transcript ?? []).filter((s) => s.end > min && s.start < max);
-  }, [job.transcript, clip.caption_edits, min, max]);
   const [texts, setTexts] = useState<Record<number, string>>({});
+  const [t, setT] = useState(clip.start);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
-  const visible = baseSegments
-    .map((seg, i) => ({ ...seg, i }))
-    .filter((seg) => seg.end > start && seg.start < end);
+  const segments = useMemo(() => job.transcript ?? [], [job.transcript]);
+  const firstInRange = segments.findIndex((s) => s.end > start && s.start < end);
+
+  // open with the selection's first segment in view
+  useEffect(() => {
+    const el = listRef.current?.querySelector<HTMLElement>("[data-in-range=true]");
+    el?.scrollIntoView({ block: "center" });
+    if (videoRef.current) videoRef.current.currentTime = start;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const seek = (time: number) => {
+    if (videoRef.current) videoRef.current.currentTime = time;
+  };
 
   const apply = async () => {
+    if (busy) return;
     setBusy(true);
     setError(null);
     try {
       const edited = Object.keys(texts).length
-        ? baseSegments
+        ? segments
             .map((seg, i) => ({ start: seg.start, end: seg.end, text: texts[i] ?? seg.text }))
             .filter((seg) => seg.end > start && seg.start < end && seg.text.trim())
         : undefined;
@@ -65,110 +70,157 @@ export function ClipEditModal({
     }
   };
 
-  const captionsOn = (job.params as { captions?: boolean }).captions !== false;
-
   return (
-    <div className="dark fixed inset-0 z-[200] grid place-items-center bg-black/80 p-6" onClick={onClose}>
+    <div className="dark fixed inset-0 z-[200] grid place-items-center bg-black/85 p-3" onClick={onClose}>
       <div
-        className="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-2xl border border-white/10 bg-[#1a1a1a] text-foreground"
+        className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#161616] text-foreground"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
-          <h3 className="text-sm font-semibold">Edit clip · {clip.title}</h3>
+        {/* header */}
+        <div className="flex items-center justify-between border-b border-white/[0.07] px-5 py-3">
+          <h3 className="text-[15px] font-bold">Edit clip</h3>
           <button type="button" aria-label="Close" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/10 hover:text-foreground">
             <X className="size-4" />
           </button>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-5 [scrollbar-width:thin]">
-          {clip.url ? (
-            // biome-ignore lint/a11y/useMediaCaption: clip preview
-            <video src={clip.url} controls className="mx-auto max-h-64 rounded-lg bg-black" />
-          ) : null}
-
-          {/* Trim */}
-          <div>
-            <div className="mb-2 flex items-center justify-between text-sm">
-              <span className="font-medium">Trim</span>
-              <span className="text-muted-foreground">
-                {fmt(start)} → {fmt(end)} · {(end - start).toFixed(1)}s
-              </span>
-            </div>
-            <div className="space-y-2">
-              <label className="flex items-center gap-3 text-xs text-muted-foreground">
-                <span className="w-8">Start</span>
-                <input
-                  type="range"
-                  min={min}
-                  max={end - 3}
-                  step={0.1}
-                  value={start}
-                  onChange={(e) => setStart(Math.min(Number(e.target.value), end - 3))}
-                  className="flex-1 accent-teal-400"
-                />
-              </label>
-              <label className="flex items-center gap-3 text-xs text-muted-foreground">
-                <span className="w-8">End</span>
-                <input
-                  type="range"
-                  min={start + 3}
-                  max={max}
-                  step={0.1}
-                  value={end}
-                  onChange={(e) => setEnd(Math.max(Number(e.target.value), start + 3))}
-                  className="flex-1 accent-teal-400"
-                />
-              </label>
-            </div>
-            <p className="mt-1 text-[11px] text-muted-foreground/60">
-              Drag to nudge the boundaries — up to 15s beyond the original cut.
+        {/* body: video | transcript */}
+        <div className="grid min-h-0 flex-1 md:grid-cols-[1fr_1fr]">
+          <div className="flex min-h-0 flex-col items-center justify-center bg-[#101010] p-6">
+            {job.source_media_url ? (
+              // biome-ignore lint/a11y/useMediaCaption: source preview
+              <video
+                ref={videoRef}
+                src={job.source_media_url}
+                controls
+                playsInline
+                onTimeUpdate={(e) => setT(e.currentTarget.currentTime)}
+                className="max-h-full w-full rounded-xl bg-black"
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">Source video unavailable for this job.</p>
+            )}
+            <p className="mt-3 text-xs text-muted-foreground">
+              Selection: <span className="tabular-nums text-foreground">{fmt(start)}</span> –{" "}
+              <span className="tabular-nums text-foreground">{fmt(end)}</span> ·{" "}
+              <span className="text-teal-300">{(end - start).toFixed(1)}s</span>
             </p>
           </div>
 
-          {/* Captions */}
-          {captionsOn ? (
-            <div>
-              <p className="mb-2 text-sm font-medium">Captions</p>
-              {visible.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No speech inside the current trim.</p>
-              ) : (
-                <div className="space-y-1.5">
-                  {visible.map((seg) => (
-                    <div key={seg.i} className="flex items-start gap-2">
-                      <span className="w-14 shrink-0 pt-2 text-right text-[11px] text-muted-foreground">
-                        {fmt(Math.max(seg.start, start) - start)}
-                      </span>
-                      <textarea
-                        value={texts[seg.i] ?? seg.text}
-                        onChange={(e) => setTexts((t) => ({ ...t, [seg.i]: e.target.value }))}
-                        rows={1}
-                        className="min-h-9 flex-1 resize-y rounded-lg bg-white/5 px-3 py-2 text-sm outline-none focus:bg-white/10"
-                      />
+          {/* transcript */}
+          <div ref={listRef} className="min-h-0 overflow-y-auto border-l border-white/[0.07] p-5 [scrollbar-width:thin]">
+            {segments.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No transcript for this job.</p>
+            ) : (
+              <div className="space-y-1">
+                {segments.map((seg, i) => {
+                  const inRange = seg.end > start && seg.start < end;
+                  const playing = t >= seg.start && t <= seg.end;
+                  return (
+                    <div
+                      key={`${seg.start}-${i}`}
+                      data-in-range={inRange}
+                      className={cn(
+                        "group relative rounded-lg px-3 py-2 transition-colors",
+                        inRange ? "bg-teal-400/[0.08]" : "hover:bg-white/[0.04]",
+                        i === firstInRange && "border-l-2 border-teal-400",
+                      )}
+                    >
+                      <div className="flex items-start gap-3">
+                        <button
+                          type="button"
+                          onClick={() => seek(seg.start)}
+                          className={cn(
+                            "shrink-0 pt-0.5 text-[11px] tabular-nums transition-colors",
+                            playing ? "text-teal-300" : "text-muted-foreground/60 hover:text-foreground",
+                          )}
+                        >
+                          {fmt(seg.start)}
+                        </button>
+                        {inRange ? (
+                          <textarea
+                            value={texts[i] ?? seg.text}
+                            onChange={(e) => setTexts((m) => ({ ...m, [i]: e.target.value }))}
+                            rows={1}
+                            className="min-h-6 flex-1 resize-none bg-transparent text-sm leading-relaxed outline-none [field-sizing:content]"
+                          />
+                        ) : (
+                          <p className="flex-1 text-sm leading-relaxed text-muted-foreground">{seg.text}</p>
+                        )}
+                      </div>
+                      {/* hover trim actions */}
+                      <div className="absolute -top-2.5 right-2 hidden gap-1 group-hover:flex">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStart(Math.min(seg.start, end - 3));
+                            seek(seg.start);
+                          }}
+                          className="flex items-center gap-1 rounded-md border border-white/10 bg-[#242424] px-2 py-0.5 text-[10px] text-foreground/90 shadow-lg hover:bg-[#2e2e2e]"
+                        >
+                          <ChevronsLeft className="size-3" /> Start here
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEnd(Math.max(seg.end, start + 3))}
+                          className="flex items-center gap-1 rounded-md border border-white/10 bg-[#242424] px-2 py-0.5 text-[10px] text-foreground/90 shadow-lg hover:bg-[#2e2e2e]"
+                        >
+                          End here <ChevronsRight className="size-3" />
+                        </button>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              )}
-              <p className="mt-1.5 text-[11px] text-muted-foreground/60">
-                Fix typos here — edits re-render into the burned captions.
-              </p>
-            </div>
-          ) : null}
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-white/10 px-5 py-3">
-          <span className="text-xs text-red-400">{error}</span>
-          <div className="flex gap-2">
-            <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm text-muted-foreground hover:bg-white/5">
+        {/* footer: range timeline + actions */}
+        <div className="border-t border-white/[0.07] px-5 py-4">
+          <div className="relative">
+            {/* playhead marker */}
+            <span
+              className="pointer-events-none absolute -top-1 h-6 w-px bg-white/60"
+              style={{ left: `${Math.min(100, Math.max(0, (t / sourceDur) * 100))}%` }}
+            />
+            <Slider
+              min={0}
+              max={Math.max(1, Math.round(sourceDur * 10) / 10)}
+              step={0.1}
+              value={[start, end]}
+              onValueChange={([a, b]) => {
+                if (b - a >= 3) {
+                  setStart(a);
+                  setEnd(b);
+                }
+              }}
+              className="py-1"
+            />
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <span className="rounded-xl border border-white/10 px-3 py-2 text-sm tabular-nums">{fmt(start)}</span>
+            <span className="text-muted-foreground">–</span>
+            <span className="rounded-xl border border-white/10 px-3 py-2 text-sm tabular-nums">{fmt(end)}</span>
+            <button
+              type="button"
+              onClick={() => seek(start)}
+              className="rounded-xl px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
+            >
+              Preview from start
+            </button>
+            <span className="flex-1 text-right text-xs text-red-400">{error}</span>
+            <button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-white/5">
               Cancel
             </button>
             <button
               type="button"
               disabled={busy}
               onClick={() => void apply()}
-              className="flex items-center gap-2 rounded-lg bg-teal-500 px-4 py-2 text-sm font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-60"
+              className="flex items-center gap-2 rounded-xl bg-teal-400 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-60"
             >
               {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-              Apply & re-render
+              Save & re-render
             </button>
           </div>
         </div>

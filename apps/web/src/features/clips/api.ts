@@ -39,6 +39,7 @@ export interface ClipsJob {
   phase_started_at: string | null;
   clips: ClipItem[];
   transcript?: TranscriptSegment[]; // only on single-job GET
+  source_media_url?: string | null; // presigned source video (single-job GET)
 }
 
 export interface CustomCaptionStyle {

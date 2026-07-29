@@ -42,6 +42,8 @@ def _job_out(job: ClipsJob, storage, with_transcript: bool = False) -> dict:
         ],
     }
     if with_transcript:
+        # Source playback for the clip editor (trim against the full video).
+        out["source_media_url"] = storage.url(job.source_key) if job.source_key else None
         # Words included: the player overlays live karaoke captions from them.
         out["transcript"] = [
             {"text": s["text"], "start": s["start"], "end": s["end"], "words": s.get("words") or []}

@@ -29,12 +29,18 @@ function Slider({ className, ticks, ...props }: SliderProps) {
           : null}
         <SliderPrimitive.Range className="absolute h-full rounded-full bg-gradient-to-r from-teal-500 to-teal-300" />
       </SliderPrimitive.Track>
-      <SliderPrimitive.Thumb
-        className={cn(
-          "block size-5 rounded-full border-[3px] border-white bg-teal-400 shadow-[0_0_0_5px_rgba(45,212,191,0.18),0_2px_8px_rgba(0,0,0,0.5)]",
-          "outline-none transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-teal-400/40",
-        )}
-      />
+      {Array.from(
+        { length: Array.isArray(props.value) ? props.value.length : Array.isArray(props.defaultValue) ? props.defaultValue.length : 1 },
+        (_, i) => (
+          <SliderPrimitive.Thumb
+            key={`thumb-${i}`}
+            className={cn(
+              "block size-5 rounded-full border-[3px] border-white bg-teal-400 shadow-[0_0_0_5px_rgba(45,212,191,0.18),0_2px_8px_rgba(0,0,0,0.5)]",
+              "outline-none transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-teal-400/40",
+            )}
+          />
+        ),
+      )}
     </SliderPrimitive.Root>
   )
 }
