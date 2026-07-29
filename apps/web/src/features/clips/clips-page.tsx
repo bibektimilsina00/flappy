@@ -352,7 +352,6 @@ export function ClipsPage() {
 
         {/* arrow */}
         <div className="flex flex-col items-center gap-1 text-teal-300">
-          <Sparkles className="size-5" />
           <ArrowRight className="hidden size-5 md:block" />
           <ArrowDown className="size-5 md:hidden" />
           <p className="w-24 text-center text-[11px] leading-tight text-muted-foreground">
