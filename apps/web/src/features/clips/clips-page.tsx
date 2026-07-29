@@ -3,18 +3,15 @@
 import {
   ArrowDown,
   ArrowRight,
-  Captions,
   Check,
   ChevronDown,
   Clapperboard,
   Film,
   Flame,
   FolderOpen,
-  FolderArchive,
   Link2,
   Loader2,
   Play,
-  ScanFace,
   Scissors,
   SlidersHorizontal,
   Sparkles,
@@ -393,25 +390,6 @@ export function ClipsPage() {
             </div>
           ))}
         </div>
-      </div>
-
-      {/* feature chips */}
-      <div className="mt-12 flex flex-wrap items-center justify-center gap-2.5">
-        {[
-          { icon: Captions, label: "Word-by-word captions" },
-          { icon: ScanFace, label: "Face-aware framing" },
-          { icon: Flame, label: "Virality scores" },
-          { icon: FolderArchive, label: "SRT + zip export" },
-          { icon: Clapperboard, label: "Opens in the editor" },
-        ].map(({ icon: Icon, label }) => (
-          <span
-            key={label}
-            className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-foreground/80"
-          >
-            <Icon className="size-3.5 text-teal-300" />
-            {label}
-          </span>
-        ))}
       </div>
 
       {/* Recents */}
