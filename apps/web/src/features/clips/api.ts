@@ -165,8 +165,11 @@ export function cancelScheduledPost(id: string): Promise<void> {
   return api(`/clips/schedule/${id}`, { method: "DELETE" });
 }
 
-export function clipsToProject(jobId: string): Promise<{ workflow_id: string }> {
-  return api(`/clips/jobs/${jobId}/to-project`, { method: "POST" });
+export function clipsToProject(jobId: string, clipId?: string): Promise<{ workflow_id: string }> {
+  return api(`/clips/jobs/${jobId}/to-project`, {
+    method: "POST",
+    body: JSON.stringify({ clip_id: clipId ?? null }),
+  });
 }
 
 // Authorized binary download (zip / srt need the JWT header, so no plain <a href>).

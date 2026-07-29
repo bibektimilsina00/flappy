@@ -610,6 +610,7 @@ function ClipGallery({ job, onJobUpdate }: { job: ClipsJob; onJobUpdate: (j: Cli
               onDownload={() => void download(clip, i)}
               onSrt={() => void authDownload(`/clips/jobs/${job.id}/clips/${clip.id}/srt`, `${title}-clip-${i + 1}.srt`)}
               onEdit={() => setEditing(clip)}
+              onOpenEditor={() => clipsToProject(job.id, clip.id)}
             />
           ))}
         </div>
@@ -632,6 +633,7 @@ function ClipRow({
   onDownload,
   onSrt,
   onEdit,
+  onOpenEditor,
 }: {
   job: ClipsJob;
   clip: ClipItem;
@@ -642,8 +644,17 @@ function ClipRow({
   onDownload: () => void;
   onSrt: () => void;
   onEdit: () => void;
+  onOpenEditor: () => Promise<{ workflow_id: string }>;
 }) {
   const segments = (job.transcript ?? []).filter((s) => s.end > clip.start && s.start < clip.end);
+  const router = useRouter();
+  const [opening, setOpening] = useState(false);
+  const openEditor = () => {
+    setOpening(true);
+    onOpenEditor()
+      .then(({ workflow_id }) => router.push(`/video-editor?project=${workflow_id}`))
+      .catch(() => setOpening(false));
+  };
   return (
     <div id={`clip-${clip.id}`} className="scroll-mt-6 rounded-2xl border border-border bg-card p-4">
       <div className="flex flex-col gap-5 sm:flex-row">
@@ -678,6 +689,16 @@ function ClipRow({
               {clip.title}
             </h3>
             <div className="flex shrink-0">
+              <button
+                type="button"
+                aria-label="Open this clip in the editor"
+                title="Edit in editor"
+                disabled={opening || clip.status === "rendering"}
+                onClick={openEditor}
+                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
+              >
+                {opening ? <Loader2 className="size-4 animate-spin" /> : <Clapperboard className="size-4" />}
+              </button>
               <button
                 type="button"
                 aria-label="Edit clip"

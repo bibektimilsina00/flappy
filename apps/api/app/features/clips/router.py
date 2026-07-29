@@ -333,7 +333,7 @@ def job_zip(
     )
 
 
-def _editor_doc_from_job(job: ClipsJob) -> dict:
+def _editor_doc_from_job(job: ClipsJob, clips: list[dict] | None = None) -> dict:
     """Timeline doc for the editor: clips laid out sequentially on a video
     track, with their captions as SEPARATE text clips (linked to the video clip
     via parentClipId) so users edit video and captions individually."""
@@ -359,7 +359,7 @@ def _editor_doc_from_job(job: ClipsJob) -> dict:
     video_clips: list[dict] = []
     text_clips: list[dict] = []
     t = 0.0
-    for clip in job.clips:
+    for clip in (clips if clips is not None else job.clips):
         if not clip.get("key"):
             continue
         dur = float(clip["end"]) - float(clip["start"])
@@ -401,23 +401,30 @@ def _editor_doc_from_job(job: ClipsJob) -> dict:
     }
 
 
+class ToProjectRequest(BaseModel):
+    clip_id: str | None = None  # open just one clip in the editor
+
+
 @router.post("/jobs/{job_id}/to-project", status_code=201)
 def to_project(
     job_id: uuid.UUID,
+    body: ToProjectRequest | None = None,
     session: Session = Depends(get_session),
     workspace_id: uuid.UUID = Depends(current_workspace_id),
     _user: User = Depends(get_current_user),
 ) -> dict:
-    """Create a workflow + seeded timeline from this job's clips. Clip video
-    and captions arrive as separate timeline items (text clips), individually
-    editable in the editor."""
+    """Create a workflow + seeded timeline from this job's clips (or a single
+    clip). Clip video and captions arrive as separate timeline items (text
+    clips), individually editable in the editor."""
     from apps.api.app.features.video_editor import repository as editor_repo
     from apps.api.app.features.video_editor.models import VideoEditorProject
     from apps.api.app.features.workflows import repository as workflows_repo
     from apps.api.app.features.workflows.models import Workflow
 
     job = repository.get(session, workspace_id, job_id)
-    if job is None or not job.clips:
+    clip_id = body.clip_id if body else None
+    selected = [c for c in (job.clips if job else []) or [] if c.get("key") and (clip_id is None or c.get("id") == clip_id)]
+    if job is None or not selected:
         raise HTTPException(status_code=404, detail="No clips to open")
     nodes = [
         {
@@ -431,14 +438,13 @@ def to_project(
                 "label": clip.get("title") or f"Clip {i + 1}",
             },
         }
-        for i, clip in enumerate(job.clips)
-        if clip.get("key")
+        for i, clip in enumerate(selected)
     ]
     workflow = workflows_repo.add(
         session,
         Workflow(
             workspace_id=workspace_id,
-            name=(job.source_title or "Clips")[:80],
+            name=((selected[0].get("title") if clip_id else job.source_title) or "Clips")[:80],
             graph={"nodes": nodes, "edges": []},
         ),
     )
@@ -450,7 +456,7 @@ def to_project(
             workspace_id=workspace_id,
             workflow_id=workflow.id,
             title=workflow.name,
-            doc=_editor_doc_from_job(job),
+            doc=_editor_doc_from_job(job, selected),
         ),
     )
     return {"workflow_id": str(workflow.id)}
