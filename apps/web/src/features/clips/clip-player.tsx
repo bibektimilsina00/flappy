@@ -120,6 +120,18 @@ export function ClipPlayer({
         <CaptionOverlay line={line} t={t} style={cc.style} custom={customStyle} />
       ) : null}
 
+      {/* headline banner (custom templates) */}
+      {cc.on && cc.style === "custom" && customStyle?.headline?.enabled && clip.title ? (
+        <div className="pointer-events-none absolute inset-x-3 top-[5%] flex justify-center">
+          <span
+            className="max-w-full rounded px-2 py-1 text-center text-[10px] font-extrabold uppercase leading-tight"
+            style={{ background: customStyle.headline.bg, color: customStyle.headline.color }}
+          >
+            {clip.title}
+          </span>
+        </div>
+      ) : null}
+
       {/* center play affordance when paused */}
       {!playing ? (
         <button

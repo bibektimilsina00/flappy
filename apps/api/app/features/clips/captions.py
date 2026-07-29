@@ -115,13 +115,17 @@ def build_ass(
     width: int,
     height: int,
     edits: list[dict] | None = None,
+    headline_text: str | None = None,
 ) -> str | None:
     """ASS subtitle document for one clip; None when there's nothing to show.
-    `style` is a preset name or a custom template dict.
+    `style` is a preset name or a custom template dict. A custom dict with
+    headline.enabled burns `headline_text` as a top banner for the whole clip.
     `edits` (absolute-time [{start,end,text}]) replaces the transcript slice."""
     segments = edits if edits else _clip_segments(transcript, start, end)
     lines = _lines(segments, start, end)
-    if not lines:
+    headline = (style.get("headline") if isinstance(style, dict) else None) or {}
+    show_headline = bool(headline.get("enabled")) and bool((headline_text or "").strip())
+    if not lines and not show_headline:
         return None
 
     p = resolve_style(style)
@@ -137,11 +141,23 @@ def build_ass(
         "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
         "Alignment, MarginL, MarginR, MarginV, Encoding\n"
         f"Style: Cap,{FONT_NAME},{fontsize},{p['primary']},{p['secondary']},{p['outline_c']},{p['back']},"
-        f"{-1 if p['bold'] else 0},0,0,0,100,100,0,0,{p['border']},{p['outline']},0,{alignment},40,40,{margin_v},1\n\n"
-        "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+        f"{-1 if p['bold'] else 0},0,0,0,100,100,0,0,{p['border']},{p['outline']},0,{alignment},40,40,{margin_v},1\n"
     )
+    if show_headline:
+        head_size = round(height * 15 / 400)
+        head_fg = hex_to_ass(str(headline.get("color") or "#000000"))
+        head_bg = hex_to_ass(str(headline.get("bg") or "#FFFFFF"))
+        # BorderStyle 4 = opaque box behind the line; alignment 8 = top-center.
+        header += (
+            f"Style: Head,{FONT_NAME},{head_size},{head_fg},{head_fg},{head_bg},{head_bg},"
+            f"-1,0,0,0,100,100,0,0,4,3,0,8,60,60,{round(height * 0.06)},1\n"
+        )
+    header += "\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
 
     events = []
+    if show_headline:
+        text = str(headline_text).strip().upper().replace("{", "").replace("}", "").replace("\n", " ")
+        events.append(f"Dialogue: 0,{_ass_time(0)},{_ass_time(max(0.5, end - start))},Head,,0,0,0,,{text}")
     for s, e, group in lines:
         parts = []
         for w in group:

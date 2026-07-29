@@ -50,6 +50,8 @@ export interface CustomCaptionStyle {
   uppercase: boolean;
   box: boolean;
   position: "bottom" | "middle";
+  // top banner with the clip title, burned for the whole clip
+  headline?: { enabled: boolean; bg: string; color: string };
 }
 
 export interface ScheduleConfig {
