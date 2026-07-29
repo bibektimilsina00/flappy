@@ -105,6 +105,8 @@ export interface ClipsParams {
   add_emojis: boolean;
   highlight_keywords: boolean;
   censor: boolean;
+  // title banner burned at the top of every clip (text empty = each clip's AI title)
+  headline?: { enabled: boolean; bg: string; color: string; text?: string };
   schedule?: ScheduleConfig;
 }
 

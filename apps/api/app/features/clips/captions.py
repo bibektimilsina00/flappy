@@ -130,6 +130,7 @@ def build_ass(
     height: int,
     edits: list[dict] | None = None,
     headline_text: str | None = None,
+    headline_cfg: dict | None = None,
 ) -> str | None:
     """ASS subtitle document for one clip; None when there's nothing to show.
     `style` is a preset name or a custom template dict. A custom dict with
@@ -139,7 +140,7 @@ def build_ass(
     sub_enabled = not (isinstance(style, dict) and style.get("subtitles") is False)
     segments = (edits if edits else _clip_segments(transcript, start, end)) if sub_enabled else []
     lines = _lines(segments, start, end, p.get("words_per_line", MAX_WORDS_PER_LINE)) if sub_enabled else []
-    headline = (style.get("headline") if isinstance(style, dict) else None) or {}
+    headline = (style.get("headline") if isinstance(style, dict) else None) or headline_cfg or {}
     show_headline = bool(headline.get("enabled")) and bool((headline_text or "").strip())
     if not lines and not show_headline:
         return None

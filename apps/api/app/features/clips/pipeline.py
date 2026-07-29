@@ -411,6 +411,9 @@ def render_clip_file(job: ClipsJob, source: str, seg: dict, workdir: str, storag
     return key
 
 
+BURN_VERSION = 2  # bump to invalidate cached caption burns (font/style engine changes)
+
+
 def burn_clip_captions(job: ClipsJob, clip: dict, style: str, storage) -> str | None:
     """Burn captions onto a clip's clean master and cache the result on the
     clip ({burned: {style: key}}). Returns the burned key, or None when the
@@ -418,15 +421,18 @@ def burn_clip_captions(job: ClipsJob, clip: dict, style: str, storage) -> str | 
     from apps.api.app.features.clips.captions import FONTS_DIR, build_ass
 
     burned = clip.get("burned") or {}
-    if style in burned:
-        return burned[style]
+    cache_key = f"{style}#v{BURN_VERSION}"
+    if cache_key in burned:
+        return burned[cache_key]
 
     w, h = RATIO_SIZES.get((job.params or {}).get("ratio") or "9:16", RATIO_SIZES["9:16"])
     # "custom" resolves to the job's saved template definition.
     style_def = ((job.params or {}).get("caption_custom") or "clean") if style == "custom" else style
+    headline_cfg = (job.params or {}).get("headline")
+    headline_text = (headline_cfg or {}).get("text") or clip.get("title")
     ass = build_ass(
         job.transcript or [], clip["start"], clip["end"], style_def, w, h,
-        clip.get("caption_edits"), headline_text=clip.get("title"),
+        clip.get("caption_edits"), headline_text=headline_text, headline_cfg=headline_cfg,
     )
     logo_b64 = None
     if isinstance(style_def, dict):
@@ -472,7 +478,7 @@ def burn_clip_captions(job: ClipsJob, clip: dict, style: str, storage) -> str | 
         key = f"{job.workspace_id}/clips/{job.id}/clip-{clip['id']}-{style}.mp4"
         with open(out, "rb") as f:
             storage.put(key, f.read(), "video/mp4")
-    clip["burned"] = {**burned, style: key}
+    clip["burned"] = {**burned, cache_key: key}
     return key
 
 

@@ -164,11 +164,13 @@ export function CaptionStylePicker({
   captions,
   style,
   custom,
+  headline,
   onChange,
 }: {
   captions: boolean;
   style: string;
   custom: CustomCaptionStyle | null;
+  headline?: { bg: string; color: string; text?: string } | null;
   onChange: (patch: { captions: boolean; caption_style?: string; caption_custom?: CustomCaptionStyle | null }) => void;
 }) {
   const [tab, setTab] = useState<"featured" | "mine">("featured");
@@ -232,6 +234,17 @@ export function CaptionStylePicker({
       {active ? (
         <span className="absolute left-2 top-2 z-10 grid size-6 place-items-center rounded-full bg-teal-400 text-black">
           <Check className="size-3.5" />
+        </span>
+      ) : null}
+      {headline ? (
+        <span
+          className={cn(
+            "absolute inset-x-2 top-2.5 z-[5] mx-auto w-fit max-w-full truncate rounded px-1.5 py-0.5 text-center text-[8px] font-extrabold uppercase",
+            headline.bg === "none" && "[text-shadow:0_1px_2px_rgba(0,0,0,0.9)]",
+          )}
+          style={{ background: headline.bg === "none" ? "transparent" : headline.bg, color: headline.color }}
+        >
+          {headline.text?.trim() || "Your clip title"}
         </span>
       ) : null}
       {css ? (

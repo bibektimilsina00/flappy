@@ -60,12 +60,14 @@ export function ClipPlayer({
   cc,
   onCcChange,
   customStyle,
+  headline,
 }: {
   clip: ClipItem;
   transcript: TranscriptSegment[];
   cc: CcState;
   onCcChange: (cc: CcState) => void;
   customStyle?: CustomCaptionStyle | null;
+  headline?: { enabled: boolean; bg: string; color: string; text?: string } | null;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -132,17 +134,29 @@ export function ClipPlayer({
         <img src={customStyle.logo} className="pointer-events-none absolute right-[4%] top-[3%] w-1/6" />
       ) : null}
 
-      {/* headline banner (custom templates) */}
-      {cc.on && cc.style === "custom" && customStyle?.headline?.enabled && clip.title ? (
-        <div className="pointer-events-none absolute inset-x-3 top-[5%] flex justify-center">
-          <span
-            className="max-w-full rounded px-2 py-1 text-center text-[10px] font-extrabold uppercase leading-tight"
-            style={{ background: customStyle.headline.bg, color: customStyle.headline.color }}
-          >
-            {clip.title}
-          </span>
-        </div>
-      ) : null}
+      {/* headline banner — job-level option or the custom template's own */}
+      {(() => {
+        const h =
+          cc.style === "custom" && customStyle?.headline?.enabled
+            ? customStyle.headline
+            : headline?.enabled
+              ? headline
+              : null;
+        const text = (h && "text" in h ? h.text?.trim() : "") || clip.title;
+        return cc.on && h && text ? (
+          <div className="pointer-events-none absolute inset-x-3 top-[5%] flex justify-center">
+            <span
+              className={cn(
+                "max-w-full rounded px-2 py-1 text-center text-[10px] font-extrabold uppercase leading-tight",
+                h.bg === "none" && "[text-shadow:0_1px_2px_rgba(0,0,0,0.9)]",
+              )}
+              style={{ background: h.bg === "none" ? "transparent" : h.bg, color: h.color }}
+            >
+              {text}
+            </span>
+          </div>
+        ) : null;
+      })()}
 
       {/* center play affordance when paused */}
       {!playing ? (

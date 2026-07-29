@@ -574,10 +574,61 @@ function ConfigPanel({
 
       {/* group 1: templates + caption extras */}
       <div className="space-y-6 rounded-3xl border border-white/[0.05] bg-white/[0.02] p-6">
+        {/* clip title banner */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+          <label className="flex cursor-pointer items-center gap-3 text-[15px]">
+            <Checkbox
+              checked={Boolean(params.headline?.enabled)}
+              onCheckedChange={(v) =>
+                setParams((p) => ({
+                  ...p,
+                  headline: { bg: "#FFFFFF", color: "#000000", ...p.headline, enabled: v === true },
+                }))
+              }
+            />
+            Show clip title on video
+          </label>
+          {params.headline?.enabled ? (
+            <>
+              <div className="flex gap-1.5">
+                {(
+                  [
+                    { bg: "#000000", color: "#FFFFFF" },
+                    { bg: "#FFFFFF", color: "#000000" },
+                    { bg: "none", color: "#FFD700" },
+                  ] as const
+                ).map((v) => (
+                  <button
+                    key={v.bg}
+                    type="button"
+                    aria-label={`Title style ${v.bg}`}
+                    onClick={() => setParams((p) => ({ ...p, headline: { ...p.headline!, bg: v.bg, color: v.color } }))}
+                    className={cn(
+                      "rounded-md border px-2.5 py-1 text-[10px] font-extrabold uppercase transition-all",
+                      params.headline?.bg === v.bg ? "border-teal-400 ring-1 ring-teal-400" : "border-white/15 hover:border-white/35",
+                      v.bg === "none" && "[text-shadow:0_1px_2px_rgba(0,0,0,0.9)]",
+                    )}
+                    style={{ background: v.bg === "none" ? "transparent" : v.bg, color: v.color }}
+                  >
+                    Abc
+                  </button>
+                ))}
+              </div>
+              <input
+                value={params.headline?.text ?? ""}
+                onChange={(e) => setParams((p) => ({ ...p, headline: { ...p.headline!, text: e.target.value } }))}
+                placeholder="Uses each clip's AI title — or type your own"
+                className="min-w-64 flex-1 rounded-xl border border-white/10 bg-[#161616] px-3.5 py-2 text-sm outline-none placeholder:text-muted-foreground/50 focus:border-teal-400/50"
+              />
+            </>
+          ) : null}
+        </div>
+
         <CaptionStylePicker
           captions={params.captions}
           style={params.caption_style}
           custom={params.caption_custom ?? null}
+          headline={params.headline?.enabled ? params.headline : null}
           onChange={(patch) => setParams((p) => ({ ...p, ...patch }))}
         />
 

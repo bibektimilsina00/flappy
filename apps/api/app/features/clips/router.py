@@ -257,7 +257,9 @@ def download_clip(
     # Legacy clips (pre clean-master) already have captions burned in.
     if body.style == "none" or not clip.get("clean"):
         return {"url": storage.url(clip["key"])}
-    cached = (clip.get("burned") or {}).get(body.style)
+    from apps.api.app.features.clips.pipeline import BURN_VERSION
+
+    cached = (clip.get("burned") or {}).get(f"{body.style}#v{BURN_VERSION}")
     key = cached or burn_clip_captions(job, clip, body.style, storage)
     if key is None:
         return {"url": storage.url(clip["key"])}  # no speech -> master
