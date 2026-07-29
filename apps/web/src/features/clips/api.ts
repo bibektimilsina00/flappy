@@ -33,6 +33,7 @@ export interface ClipsJob {
   source_url: string | null;
   source_title: string | null;
   source_thumb_url: string | null;
+  workflow_id: string | null; // linked editor/canvas project (set by Open in editor)
   params: Record<string, unknown>;
   duration: number | null;
   created_at: string;
@@ -155,6 +156,21 @@ export function getClipDownloadUrl(
   return api(`/clips/jobs/${jobId}/clips/${clipId}/download`, {
     method: "POST",
     body: JSON.stringify({ style }),
+  });
+}
+
+export function jobByWorkflow(workflowId: string): Promise<{ job_id: string }> {
+  return api(`/clips/by-workflow/${workflowId}`);
+}
+
+export function bulkSchedule(
+  jobId: string,
+  clipIds: string[],
+  config: ScheduleConfig,
+): Promise<{ id: string; clip_id: string; post_at: string }[]> {
+  return api(`/clips/jobs/${jobId}/schedule`, {
+    method: "POST",
+    body: JSON.stringify({ clip_ids: clipIds, config }),
   });
 }
 

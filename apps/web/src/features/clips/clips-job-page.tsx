@@ -15,6 +15,7 @@ import {
   Loader2,
   RotateCcw,
   Scissors,
+  SendHorizontal,
   Sparkles,
   XCircle,
 } from "lucide-react";
@@ -23,6 +24,7 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 import {
   authDownload,
+  bulkSchedule,
   cancelScheduledPost,
   type ClipItem,
   type ClipsJob,
@@ -33,7 +35,11 @@ import {
   listSchedule,
   type ScheduledPost,
 } from "./api";
+import { Checkbox } from "@/components/ui/checkbox";
+import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
 import { ClipEditModal } from "./clip-edit-modal";
+import { PublishPanel } from "./publish-panel";
+import { defaultSchedule, ScheduleModal } from "./schedule-modal";
 import { type CcState, ClipPlayer } from "./clip-player";
 
 const PHASES = [
@@ -101,6 +107,7 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0); // bump to restart polling (after a re-render)
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [queueNonce, setQueueNonce] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -134,7 +141,7 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
   };
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-6 py-8">
+    <div className="mx-auto w-full max-w-7xl px-6 py-8">
       <button
         type="button"
         onClick={() => router.push("/clips")}
@@ -151,6 +158,11 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
         </div>
       ) : (
         <>
+          {job.workflow_id ? (
+            <div className="mb-5 inline-flex overflow-hidden rounded-lg border border-border">
+              <EditorModeTabs projectId={job.workflow_id} mode="clips" />
+            </div>
+          ) : null}
           <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
             <div className="flex min-w-0 items-center gap-4">
               {job.source_thumb_url && job.status !== "running" && job.status !== "queued" ? (
@@ -228,10 +240,9 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
                   setJob(j);
                   setNonce((n) => n + 1);
                 }}
+                onScheduled={() => setQueueNonce((n) => n + 1)}
               />
-              {(job.params as { schedule?: { enabled?: boolean } }).schedule?.enabled ? (
-                <PostingQueue jobId={job.id} />
-              ) : null}
+              <PostingQueue jobId={job.id} refresh={queueNonce} />
             </>
           )}
         </>
@@ -412,14 +423,14 @@ function TranscriptFeed({ segments }: { segments: NonNullable<ClipsJob["transcri
 }
 
 // The job's auto-scheduled posting calendar. "Due" posts are ready to publish.
-function PostingQueue({ jobId }: { jobId: string }) {
+function PostingQueue({ jobId, refresh = 0 }: { jobId: string; refresh?: number }) {
   const [posts, setPosts] = useState<ScheduledPost[] | null>(null);
 
   useEffect(() => {
     listSchedule()
       .then((all) => setPosts(all.filter((p) => p.job_id === jobId)))
       .catch(() => setPosts([]));
-  }, [jobId]);
+  }, [jobId, refresh]);
 
   if (!posts || posts.length === 0) return null;
   return (
@@ -520,7 +531,7 @@ function RenderingGallery({ job }: { job: ClipsJob }) {
   );
 }
 
-function ClipGallery({ job, onJobUpdate }: { job: ClipsJob; onJobUpdate: (j: ClipsJob) => void }) {
+function ClipGallery({ job, onJobUpdate, onScheduled }: { job: ClipsJob; onJobUpdate: (j: ClipsJob) => void; onScheduled: () => void }) {
   const [editing, setEditing] = useState<ClipItem | null>(null);
   // Per-clip caption state (overlay + what Download burns). Defaults from job settings.
   const jobCc: CcState = {
@@ -530,6 +541,32 @@ function ClipGallery({ job, onJobUpdate }: { job: ClipsJob; onJobUpdate: (j: Cli
   const [ccMap, setCcMap] = useState<Record<string, CcState>>({});
   const [downloading, setDownloading] = useState<string | null>(null);
   const [sort, setSort] = useState<"score" | "time">("score");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [publishClip, setPublishClip] = useState<ClipItem | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState<string | null>(null);
+
+  const toggleSelect = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const bulkDownload = async () => {
+    setBulkBusy("download");
+    try {
+      const jc: CcState = jobCc;
+      for (const clip of job.clips.filter((c) => selected.has(c.id))) {
+        const cc = ccMap[clip.id] ?? jc;
+        const { url } = await getClipDownloadUrl(job.id, clip.id, cc.on ? cc.style : "none");
+        triggerDownload(url, `${job.source_title ?? "clip"}-${clip.title ?? clip.id.slice(0, 6)}.mp4`);
+      }
+    } finally {
+      setBulkBusy(null);
+    }
+  };
   const title = job.source_title ?? "clip";
 
   const download = async (clip: ClipItem, index: number) => {
@@ -551,8 +588,45 @@ function ClipGallery({ job, onJobUpdate }: { job: ClipsJob; onJobUpdate: (j: Cli
 
   return (
     <>
+      {selected.size > 0 ? (
+        <div className="sticky top-3 z-40 mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-teal-400/25 bg-[#12211f]/95 px-4 py-2.5 shadow-2xl backdrop-blur">
+          <span className="text-sm font-medium">{selected.size} selected</span>
+          <span className="flex-1" />
+          <button
+            type="button"
+            disabled={bulkBusy !== null}
+            onClick={() => setBulkOpen(true)}
+            className="flex items-center gap-2 rounded-xl bg-teal-400 px-3.5 py-2 text-sm font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-60"
+          >
+            <CalendarClock className="size-4" /> Bulk schedule
+          </button>
+          <button
+            type="button"
+            disabled={bulkBusy !== null}
+            onClick={() => void bulkDownload()}
+            className="flex items-center gap-2 rounded-xl border border-white/15 px-3.5 py-2 text-sm transition-colors hover:bg-white/5 disabled:opacity-60"
+          >
+            {bulkBusy === "download" ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+            Download
+          </button>
+          <button
+            type="button"
+            aria-label="Clear selection"
+            onClick={() => setSelected(new Set())}
+            className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+          >
+            <XCircle className="size-4" />
+          </button>
+        </div>
+      ) : null}
       <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">{clips.length} clips</p>
+        <label className="flex cursor-pointer items-center gap-2.5 text-sm text-muted-foreground">
+          <Checkbox
+            checked={selected.size === clips.length && clips.length > 0}
+            onCheckedChange={(v) => setSelected(v === true ? new Set(clips.map((c) => c.id)) : new Set())}
+          />
+          Select all · {clips.length} clips
+        </label>
         <div className="flex gap-1 rounded-lg border border-white/10 p-0.5 text-xs">
           {(["score", "time"] as const).map((s) => (
             <button
@@ -611,6 +685,9 @@ function ClipGallery({ job, onJobUpdate }: { job: ClipsJob; onJobUpdate: (j: Cli
               onSrt={() => void authDownload(`/clips/jobs/${job.id}/clips/${clip.id}/srt`, `${title}-clip-${i + 1}.srt`)}
               onEdit={() => setEditing(clip)}
               onOpenEditor={() => clipsToProject(job.id, clip.id)}
+              selected={selected.has(clip.id)}
+              onToggleSelect={() => toggleSelect(clip.id)}
+              onPublish={() => setPublishClip(clip)}
             />
           ))}
         </div>
@@ -618,6 +695,19 @@ function ClipGallery({ job, onJobUpdate }: { job: ClipsJob; onJobUpdate: (j: Cli
 
       {editing ? (
         <ClipEditModal job={job} clip={editing} onClose={() => setEditing(null)} onSaved={onJobUpdate} />
+      ) : null}
+      {publishClip ? <PublishPanel clipTitle={publishClip.title} onClose={() => setPublishClip(null)} /> : null}
+      {bulkOpen ? (
+        <ScheduleModal
+          value={defaultSchedule()}
+          onSave={(cfg) => {
+            void bulkSchedule(job.id, [...selected], cfg).then(() => {
+              setSelected(new Set());
+              onScheduled();
+            });
+          }}
+          onClose={() => setBulkOpen(false)}
+        />
       ) : null}
     </>
   );
@@ -634,6 +724,9 @@ function ClipRow({
   onSrt,
   onEdit,
   onOpenEditor,
+  selected,
+  onToggleSelect,
+  onPublish,
 }: {
   job: ClipsJob;
   clip: ClipItem;
@@ -645,6 +738,9 @@ function ClipRow({
   onSrt: () => void;
   onEdit: () => void;
   onOpenEditor: () => Promise<{ workflow_id: string }>;
+  selected: boolean;
+  onToggleSelect: () => void;
+  onPublish: () => void;
 }) {
   const segments = (job.transcript ?? []).filter((s) => s.end > clip.start && s.start < clip.end);
   const router = useRouter();
@@ -656,10 +752,19 @@ function ClipRow({
       .catch(() => setOpening(false));
   };
   return (
-    <div id={`clip-${clip.id}`} className="scroll-mt-6 rounded-2xl border border-border bg-card p-4">
+    <div
+      id={`clip-${clip.id}`}
+      className={cn(
+        "scroll-mt-6 rounded-2xl border bg-card p-4 transition-colors",
+        selected ? "border-teal-400/60" : "border-border",
+      )}
+    >
       <div className="flex flex-col gap-5 sm:flex-row">
         {/* player */}
         <div className="relative w-full shrink-0 overflow-hidden rounded-xl sm:w-[240px]">
+          <span className="absolute left-2 top-2 z-20">
+            <Checkbox checked={selected} onCheckedChange={onToggleSelect} className="bg-black/50" />
+          </span>
           <ClipPlayer
             clip={clip}
             transcript={job.transcript ?? []}
@@ -732,6 +837,14 @@ function ClipRow({
               {fmt(clip.start)}–{fmt(clip.end)} · {Math.round(clip.end - clip.start)}s
             </span>
             <span className="flex-1" />
+            <button
+              type="button"
+              onClick={onPublish}
+              className="flex items-center gap-2 rounded-xl border border-teal-400/40 px-4 py-2 text-sm font-semibold text-teal-300 transition-colors hover:bg-teal-400/10"
+            >
+              <SendHorizontal className="size-4" />
+              Publish
+            </button>
             <button
               type="button"
               disabled={downloading}

@@ -15,6 +15,7 @@ class ClipsJob(TimestampMixin, table=True):
     __tablename__ = "clips_job"
 
     workspace_id: uuid.UUID = Field(index=True, nullable=False)
+    workflow_id: uuid.UUID | None = Field(default=None, index=True)  # editor project link
     source_url: str | None = Field(default=None)
     source_key: str | None = Field(default=None)  # uploaded file in storage
     source_title: str | None = Field(default=None)

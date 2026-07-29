@@ -461,7 +461,78 @@ def to_project(
             doc=_editor_doc_from_job(job, selected),
         ),
     )
+    if clip_id is None:
+        job.workflow_id = workflow.id
+        repository.save(session, job)
     return {"workflow_id": str(workflow.id)}
+
+
+@router.get("/by-workflow/{workflow_id}")
+def job_by_workflow(
+    workflow_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """The clips job linked to an editor/canvas project (for the mode tabs)."""
+    from sqlmodel import select
+
+    job = session.exec(
+        select(ClipsJob).where(ClipsJob.workspace_id == workspace_id, ClipsJob.workflow_id == workflow_id)
+    ).first()
+    if job is None:
+        raise HTTPException(status_code=404, detail="No clips job for this project")
+    return {"job_id": str(job.id)}
+
+
+class BulkScheduleRequest(BaseModel):
+    clip_ids: list[str]
+    config: dict
+
+
+@router.post("/jobs/{job_id}/schedule", status_code=201)
+def bulk_schedule(
+    job_id: uuid.UUID,
+    body: BulkScheduleRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> list[dict]:
+    """Queue the selected clips for posting. Replaces any not-yet-due posts
+    for the same clips."""
+    from sqlmodel import select
+
+    from apps.api.app.features.clips.models import ScheduledPost
+    from apps.api.app.features.clips.schedule import compute_schedule
+
+    job = repository.get(session, workspace_id, job_id)
+    clips = [c for c in (job.clips if job else []) or [] if c.get("key") and c.get("id") in set(body.clip_ids)]
+    if job is None or not clips:
+        raise HTTPException(status_code=404, detail="No clips selected")
+
+    stale = session.exec(
+        select(ScheduledPost).where(
+            ScheduledPost.job_id == job.id,
+            ScheduledPost.status == "scheduled",
+            ScheduledPost.clip_id.in_(body.clip_ids),  # type: ignore[attr-defined]
+        )
+    ).all()
+    for p in stale:
+        session.delete(p)
+
+    created = []
+    for clip, when in compute_schedule(clips, {**body.config, "min_score": None}):
+        post = ScheduledPost(
+            workspace_id=workspace_id,
+            job_id=job.id,
+            clip_id=clip["id"],
+            title=clip.get("title"),
+            post_at=when.replace(tzinfo=None),
+        )
+        session.add(post)
+        created.append(post)
+    session.commit()
+    return [{"id": str(p.id), "clip_id": p.clip_id, "post_at": p.post_at.isoformat() + "Z"} for p in created]
 
 
 @router.get("/schedule")

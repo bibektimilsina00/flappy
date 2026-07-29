@@ -1,28 +1,44 @@
-import { Clapperboard, Component } from "lucide-react";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { Clapperboard, Component, Scissors } from "lucide-react";
 import Link from "next/link";
+import { jobByWorkflow } from "@/features/clips/api";
 import { cn } from "@/lib/cn";
 
 const ACCENT = "#14b8a6";
 
 /**
- * Workflow ⇄ Video switcher — VSCode-style editor tabs: the active tab shares the
- * content background (they merge) while inactive tabs sit on the darker tab-bar
- * surface. Both editors key on the same project id, so it flips client-side, cached.
+ * Workflow ⇄ Video (⇄ Clips) switcher — VSCode-style editor tabs. The Clips tab
+ * appears only when this project is linked to a clips job.
  */
 const TABS = [
   { id: "canvas", label: "Canvas", Icon: Component, to: (id: string) => `/canvas?project=${id}` },
   { id: "video", label: "Editor", Icon: Clapperboard, to: (id: string) => `/video-editor?project=${id}` },
 ] as const;
 
-export function EditorModeTabs({ projectId, mode }: { projectId: string; mode: "canvas" | "video" }) {
+export function EditorModeTabs({ projectId, mode }: { projectId: string; mode: "canvas" | "video" | "clips" }) {
+  const { data: clipsLink } = useQuery({
+    queryKey: ["clips-by-workflow", projectId],
+    queryFn: () => jobByWorkflow(projectId).catch(() => null),
+    staleTime: 5 * 60_000,
+  });
+
+  const tabs = [
+    ...TABS.map((t) => ({ ...t, href: t.to(projectId) })),
+    ...(clipsLink?.job_id
+      ? [{ id: "clips" as const, label: "Clips", Icon: Scissors, href: `/clips/${clipsLink.job_id}` }]
+      : []),
+  ];
+
   return (
     <div className="flex w-full shrink-0 items-stretch bg-card text-[13px]">
-      {TABS.map(({ id, label, Icon, to }) => {
+      {tabs.map(({ id, label, Icon, href }) => {
         const active = id === mode;
         return (
           <Link
             key={id}
-            href={to(projectId)}
+            href={href}
             prefetch
             aria-current={active ? "page" : undefined}
             className={cn(
