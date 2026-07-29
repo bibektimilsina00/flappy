@@ -2,7 +2,6 @@
 
 import { ChevronsLeft, ChevronsRight, Loader2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/cn";
 import { type ClipItem, type ClipsJob, rerenderClip } from "./api";
 
@@ -176,28 +175,20 @@ export function ClipEditModal({
           </div>
         </div>
 
-        {/* footer: range timeline + actions */}
+        {/* footer: waveform timeline + actions */}
         <div className="border-t border-white/[0.07] px-5 py-4">
-          <div className="relative">
-            {/* playhead marker */}
-            <span
-              className="pointer-events-none absolute -top-1 h-6 w-px bg-white/60"
-              style={{ left: `${Math.min(100, Math.max(0, (t / sourceDur) * 100))}%` }}
-            />
-            <Slider
-              min={0}
-              max={Math.max(1, Math.round(sourceDur * 10) / 10)}
-              step={0.1}
-              value={[start, end]}
-              onValueChange={([a, b]) => {
-                if (b - a >= 3) {
-                  setStart(a);
-                  setEnd(b);
-                }
-              }}
-              className="py-1"
-            />
-          </div>
+          <WaveStrip
+            segments={segments}
+            duration={sourceDur}
+            start={start}
+            end={end}
+            playhead={t}
+            onSeek={seek}
+            onChange={(a, b) => {
+              setStart(a);
+              setEnd(b);
+            }}
+          />
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <span className="rounded-xl border border-white/10 px-3 py-2 text-sm tabular-nums">{fmt(start)}</span>
             <span className="text-muted-foreground">–</span>
@@ -224,6 +215,124 @@ export function ClipEditModal({
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Speech-density waveform (from word timings — no audio decoding needed) with
+// a draggable selection window: edge handles resize, the middle moves it.
+function WaveStrip({
+  segments,
+  duration,
+  start,
+  end,
+  playhead,
+  onSeek,
+  onChange,
+}: {
+  segments: { start: number; end: number; text: string; words?: { w: string; s: number; e: number }[] }[];
+  duration: number;
+  start: number;
+  end: number;
+  playhead: number;
+  onSeek: (t: number) => void;
+  onChange: (start: number, end: number) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ mode: "start" | "end" | "move"; grabOffset: number } | null>(null);
+
+  const bars = useMemo(() => {
+    const N = 160;
+    const buckets = new Array<number>(N).fill(0);
+    for (const seg of segments) {
+      const words = seg.words?.length ? seg.words : [{ w: seg.text, s: seg.start, e: seg.end }];
+      for (const w of words) {
+        const from = Math.max(0, Math.min(N - 1, Math.floor((w.s / duration) * N)));
+        const to = Math.max(0, Math.min(N - 1, Math.floor((w.e / duration) * N)));
+        for (let i = from; i <= to; i++) buckets[i] += w.w.length;
+      }
+    }
+    const max = Math.max(1, ...buckets);
+    // deterministic jitter so flat speech still looks organic
+    return buckets.map((v, i) => (v === 0 ? 0.08 : 0.25 + 0.75 * (v / max) * (0.82 + 0.18 * Math.abs(Math.sin(i * 7.13)))));
+  }, [segments, duration]);
+
+  const timeAt = (clientX: number) => {
+    const rect = ref.current?.getBoundingClientRect();
+    if (!rect) return 0;
+    return Math.max(0, Math.min(duration, ((clientX - rect.left) / rect.width) * duration));
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (!d) return;
+    const time = timeAt(e.clientX);
+    if (d.mode === "start") onChange(Math.min(time, end - 3), end);
+    else if (d.mode === "end") onChange(start, Math.max(time, start + 3));
+    else {
+      const len = end - start;
+      const a = Math.max(0, Math.min(duration - len, time - d.grabOffset));
+      onChange(a, a + len);
+    }
+  };
+
+  const grab = (mode: "start" | "end" | "move") => (e: React.PointerEvent) => {
+    e.stopPropagation();
+    drag.current = { mode, grabOffset: timeAt(e.clientX) - start };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const pct = (v: number) => `${Math.min(100, Math.max(0, (v / duration) * 100))}%`;
+
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: custom timeline widget
+    <div
+      ref={ref}
+      onPointerMove={onPointerMove}
+      onPointerUp={() => {
+        drag.current = null;
+      }}
+      onPointerDown={(e) => onSeek(timeAt(e.clientX))}
+      className="relative h-16 cursor-pointer touch-none select-none overflow-hidden rounded-xl bg-white/[0.04]"
+    >
+      {/* bars */}
+      <div className="pointer-events-none absolute inset-x-1 inset-y-2 flex items-center gap-[1.5px]">
+        {bars.map((h, i) => {
+          const tMid = ((i + 0.5) / bars.length) * duration;
+          const inSel = tMid >= start && tMid <= end;
+          return (
+            <span
+              key={`bar-${i}`}
+              className={cn("flex-1 rounded-full", inSel ? "bg-teal-300/80" : "bg-white/20")}
+              style={{ height: `${Math.round(h * 100)}%` }}
+            />
+          );
+        })}
+      </div>
+
+      {/* playhead */}
+      <span className="pointer-events-none absolute inset-y-0 w-px bg-white/80" style={{ left: pct(playhead) }} />
+
+      {/* selection window */}
+      <div
+        className="absolute inset-y-0 rounded-lg border-2 border-teal-400 bg-teal-400/[0.07]"
+        style={{ left: pct(start), width: `calc(${pct(end)} - ${pct(start)})` }}
+      >
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: drag surface */}
+        <div className="absolute inset-y-0 left-2 right-2 cursor-grab active:cursor-grabbing" onPointerDown={grab("move")} />
+        <button
+          type="button"
+          aria-label="Adjust start"
+          onPointerDown={grab("start")}
+          className="absolute -left-[3px] top-1/2 h-9 w-[7px] -translate-y-1/2 cursor-ew-resize rounded-full bg-teal-400 shadow"
+        />
+        <button
+          type="button"
+          aria-label="Adjust end"
+          onPointerDown={grab("end")}
+          className="absolute -right-[3px] top-1/2 h-9 w-[7px] -translate-y-1/2 cursor-ew-resize rounded-full bg-teal-400 shadow"
+        />
       </div>
     </div>
   );
