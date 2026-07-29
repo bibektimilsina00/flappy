@@ -91,6 +91,12 @@ def run_pipeline(session: Session, job: ClipsJob, charge) -> None:
 
     _set(session, job, status="completed", progress=1.0)
     schedule_posts(session, job)
+    try:
+        from apps.api.app.features.clips.project_link import populate_project
+
+        populate_project(session, job)
+    except Exception:  # noqa: BLE001 — the project link never fails a job
+        log.exception("populate_project failed for job %s", job.id)
 
 
 def _storage():

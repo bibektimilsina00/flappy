@@ -151,6 +151,11 @@ def create_job(
             params=params,
         ),
     )
+    # Every clips job is a project from the start (shows in Projects/recents).
+    from apps.api.app.features.clips.project_link import create_project_for_job
+
+    create_project_for_job(session, job)
+    job = repository.save(session, job)
     celery_app.send_task("run_clips_job", args=[str(job.id)])
     return _job_out(job, get_storage())
 
@@ -338,71 +343,9 @@ def job_zip(
 
 
 def _editor_doc_from_job(job: ClipsJob, clips: list[dict] | None = None) -> dict:
-    """Timeline doc for the editor: clips laid out sequentially on a video
-    track, with their captions as SEPARATE text clips (linked to the video clip
-    via parentClipId) so users edit video and captions individually."""
-    from apps.api.app.features.clips.pipeline import RATIO_SIZES
+    from apps.api.app.features.clips.project_link import editor_doc_from_job
 
-    w, h = RATIO_SIZES.get((job.params or {}).get("ratio") or "9:16", RATIO_SIZES["9:16"])
-
-    def _base(kind: str, start: float, dur: float) -> dict:
-        return {
-            "id": uuid.uuid4().hex,
-            "kind": kind,
-            "start": round(start, 2),
-            "duration": round(dur, 2),
-            "in": 0.0,
-            "out": round(dur, 2),
-            "speed": 1.0,
-            "volume": 1.0,
-            "transform": {"x": 0, "y": 0, "scale": 1, "rotation": 0, "opacity": 1},
-            "keyframes": [],
-            "effects": [],
-        }
-
-    video_clips: list[dict] = []
-    text_clips: list[dict] = []
-    t = 0.0
-    for clip in (clips if clips is not None else job.clips):
-        if not clip.get("key"):
-            continue
-        dur = float(clip["end"]) - float(clip["start"])
-        vc = {**_base("video", t, dur), "assetId": clip["key"]}
-        video_clips.append(vc)
-        segments = clip.get("caption_edits") or [
-            s for s in (job.transcript or []) if s["end"] > clip["start"] and s["start"] < clip["end"]
-        ]
-        for seg in segments:
-            s = max(float(seg["start"]), float(clip["start"]))
-            e = min(float(seg["end"]), float(clip["end"]))
-            text = (seg.get("text") or "").strip()
-            if e - s < 0.2 or not text:
-                continue
-            tc = {
-                **_base("text", t + (s - float(clip["start"])), e - s),
-                "text": {"content": text},
-                "parentClipId": vc["id"],  # moves/deletes with its video clip
-            }
-            text_clips.append(tc)
-        t += dur
-
-    def _track(kind: str, name: str, clips: list[dict]) -> dict:
-        return {"id": uuid.uuid4().hex, "kind": kind, "name": name, "locked": False, "hidden": False, "muted": False, "clips": clips}
-
-    tracks = [_track("video", "V1", video_clips)]
-    if text_clips:
-        tracks.append(_track("text", "Captions", text_clips))
-    tracks.append(_track("video", "Track", []))
-    return {
-        "version": 1,
-        "fps": 30,
-        "width": w,
-        "height": h,
-        "duration": t,
-        "background": "#000000",
-        "tracks": tracks,
-        "markers": [],
-    }
+    return editor_doc_from_job(job, clips)
 
 
 class ToProjectRequest(BaseModel):
