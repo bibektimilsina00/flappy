@@ -32,3 +32,38 @@ def run_clips_job(job_id: str) -> None:
             job.status = "failed"
             job.error = str(exc)[:500]
             repository.save(session, job)
+
+
+@celery_app.task(name="rerender_clip")
+def rerender_clip(job_id: str, clip_id: str) -> None:
+    """Re-render one clip after trim/caption edits. The endpoint already updated
+    the clip's start/end/caption_edits and set status='rendering'."""
+    import os
+    import tempfile
+    import uuid as uuid_mod
+
+    from apps.api.app.features.clips.pipeline import render_clip_file
+    from apps.api.app.storage.factory import get_storage
+
+    with Session(engine) as session:
+        job = repository.get_any(session, uuid.UUID(job_id))
+        if job is None or not job.source_key:
+            return
+        clips = list(job.clips or [])
+        clip = next((c for c in clips if c.get("id") == clip_id), None)
+        if clip is None:
+            return
+        storage = get_storage()
+        try:
+            with tempfile.TemporaryDirectory() as workdir:
+                src = os.path.join(workdir, "source.mp4")
+                with open(src, "wb") as f:
+                    f.write(storage.get(job.source_key))
+                key = f"{job.workspace_id}/clips/{job.id}/clip-{clip_id}-{uuid_mod.uuid4().hex[:8]}.mp4"
+                render_clip_file(job, src, clip, workdir, storage, key)
+            clip.update({"key": key, "status": "ready", "duration": round(clip["end"] - clip["start"], 2)})
+        except Exception as exc:  # noqa: BLE001 — surface on the clip, keep the job alive
+            log.warning("clip rerender %s/%s failed: %s", job_id, clip_id, exc)
+            clip.update({"status": "failed", "error": str(exc)[:300]})
+        job.clips = clips
+        repository.save(session, job)

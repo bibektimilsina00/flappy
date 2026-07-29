@@ -3,16 +3,28 @@
 import {
   ArrowLeft,
   Check,
+  Clapperboard,
   Download,
+  FileText,
   Flame,
+  FolderArchive,
   Loader2,
+  Pencil,
   RotateCcw,
   XCircle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
-import { type ClipItem, type ClipsJob, createClipsJob, getClipsJob } from "./api";
+import {
+  authDownload,
+  type ClipItem,
+  type ClipsJob,
+  clipsToProject,
+  createClipsJob,
+  getClipsJob,
+} from "./api";
+import { ClipEditModal } from "./clip-edit-modal";
 
 const PHASES = [
   { key: "ingest", label: "Fetch" },
@@ -45,6 +57,8 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
   const router = useRouter();
   const [job, setJob] = useState<ClipsJob | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [nonce, setNonce] = useState(0); // bump to restart polling (after a re-render)
+  const [busyAction, setBusyAction] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -54,7 +68,8 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
         const j = await getClipsJob(jobId);
         if (!alive) return;
         setJob(j);
-        if (j.status === "queued" || j.status === "running") timer = setTimeout(poll, 2000);
+        const rerendering = j.clips.some((c) => c.status === "rendering");
+        if (j.status === "queued" || j.status === "running" || rerendering) timer = setTimeout(poll, 2000);
       } catch (e) {
         if (alive) setError(e instanceof Error ? e.message : "Job not found");
       }
@@ -64,7 +79,7 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
       alive = false;
       clearTimeout(timer);
     };
-  }, [jobId]);
+  }, [jobId, nonce]);
 
   const retry = async () => {
     if (!job) return;
@@ -94,13 +109,47 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
         </div>
       ) : (
         <>
-          <h1 className="mb-1 truncate text-xl font-bold">
-            {job.source_title ?? job.source_url ?? "Uploaded video"}
-          </h1>
-          <p className="mb-8 text-sm text-muted-foreground">
-            {job.duration ? `${fmt(job.duration)} source · ` : ""}
-            {job.status === "completed" ? `${job.clips.length} clips` : job.status}
-          </p>
+          <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="mb-1 truncate text-xl font-bold">
+                {job.source_title ?? job.source_url ?? "Uploaded video"}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                {job.duration ? `${fmt(job.duration)} source · ` : ""}
+                {job.status === "completed" ? `${job.clips.length} clips` : job.status}
+              </p>
+            </div>
+            {job.status === "completed" && job.clips.length > 0 ? (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={busyAction !== null}
+                  onClick={() => {
+                    setBusyAction("editor");
+                    clipsToProject(job.id)
+                      .then(({ workflow_id }) => router.push(`/video-editor?project=${workflow_id}`))
+                      .catch(() => setBusyAction(null));
+                  }}
+                  className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm transition-colors hover:bg-accent disabled:opacity-60"
+                >
+                  {busyAction === "editor" ? <Loader2 className="size-4 animate-spin" /> : <Clapperboard className="size-4" />}
+                  Open in editor
+                </button>
+                <button
+                  type="button"
+                  disabled={busyAction !== null}
+                  onClick={() => {
+                    setBusyAction("zip");
+                    void authDownload(`/clips/jobs/${job.id}/zip`, "clips.zip").finally(() => setBusyAction(null));
+                  }}
+                  className="flex items-center gap-2 rounded-lg bg-teal-500 px-3 py-2 text-sm font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-60"
+                >
+                  {busyAction === "zip" ? <Loader2 className="size-4 animate-spin" /> : <FolderArchive className="size-4" />}
+                  Download all
+                </button>
+              </div>
+            ) : null}
+          </div>
 
           {job.status === "failed" ? (
             <div className="rounded-xl border border-red-400/20 bg-red-400/5 p-6">
@@ -121,7 +170,13 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
           ) : job.status !== "completed" ? (
             <PhaseTracker job={job} />
           ) : (
-            <ClipGallery clips={job.clips} title={job.source_title ?? "clip"} />
+            <ClipGallery
+              job={job}
+              onJobUpdate={(j) => {
+                setJob(j);
+                setNonce((n) => n + 1);
+              }}
+            />
           )}
         </>
       )}
@@ -170,47 +225,96 @@ function PhaseTracker({ job }: { job: ClipsJob }) {
   );
 }
 
-function ClipGallery({ clips, title }: { clips: ClipItem[]; title: string }) {
-  if (clips.length === 0) {
+function ClipGallery({ job, onJobUpdate }: { job: ClipsJob; onJobUpdate: (j: ClipsJob) => void }) {
+  const [editing, setEditing] = useState<ClipItem | null>(null);
+  const title = job.source_title ?? "clip";
+  if (job.clips.length === 0) {
     return <p className="text-sm text-muted-foreground">No clips were produced from this source.</p>;
   }
   return (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-      {clips.map((clip, i) => (
-        <div key={clip.id} className="overflow-hidden rounded-xl border border-border bg-card">
-          <div className="relative bg-black">
-            {clip.url ? (
-              // biome-ignore lint/a11y/useMediaCaption: generated clip preview
-              <video src={clip.url} controls preload="metadata" className="aspect-[9/16] w-full object-contain" />
-            ) : null}
-            <span
-              className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-semibold text-white"
-              title={clip.reason}
-            >
-              <Flame className="size-3 text-orange-400" />
-              {clip.score}
-            </span>
-          </div>
-          <div className="p-3">
-            <p className="truncate text-sm font-medium" title={clip.title}>
-              {clip.title}
-            </p>
-            <div className="mt-1.5 flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">
-                {fmt(clip.start)}–{fmt(clip.end)} · {Math.round(clip.duration)}s
-              </span>
-              <button
-                type="button"
-                aria-label="Download clip"
-                onClick={() => clip.url && triggerDownload(clip.url, `${title}-clip-${i + 1}.mp4`)}
-                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+    <>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+        {job.clips.map((clip, i) => (
+          <div key={clip.id} className="overflow-hidden rounded-xl border border-border bg-card">
+            <div className="relative bg-black">
+              {clip.url ? (
+                // biome-ignore lint/a11y/useMediaCaption: generated clip preview
+                <video
+                  key={clip.key}
+                  src={clip.url}
+                  controls
+                  preload="metadata"
+                  className="aspect-[9/16] w-full object-contain"
+                />
+              ) : null}
+              <span
+                className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-semibold text-white"
+                title={clip.reason}
               >
-                <Download className="size-4" />
-              </button>
+                <Flame className="size-3 text-orange-400" />
+                {clip.score}
+              </span>
+              {clip.status === "rendering" ? (
+                <div className="absolute inset-0 grid place-items-center bg-black/70 text-xs text-white">
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="size-4 animate-spin" /> Re-rendering…
+                  </span>
+                </div>
+              ) : null}
+              {clip.status === "failed" ? (
+                <div className="absolute inset-x-0 bottom-0 bg-red-500/80 px-2 py-1 text-[11px] text-white" title={clip.error}>
+                  Re-render failed
+                </div>
+              ) : null}
+            </div>
+            <div className="p-3">
+              <p className="truncate text-sm font-medium" title={clip.title}>
+                {clip.title}
+              </p>
+              <div className="mt-1.5 flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">
+                  {fmt(clip.start)}–{fmt(clip.end)} · {Math.round(clip.end - clip.start)}s
+                </span>
+                <div className="flex">
+                  <button
+                    type="button"
+                    aria-label="Edit clip"
+                    title="Trim & captions"
+                    disabled={clip.status === "rendering"}
+                    onClick={() => setEditing(clip)}
+                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
+                  >
+                    <Pencil className="size-4" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Download captions (SRT)"
+                    title="Captions (.srt)"
+                    onClick={() =>
+                      void authDownload(`/clips/jobs/${job.id}/clips/${clip.id}/srt`, `${title}-clip-${i + 1}.srt`)
+                    }
+                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    <FileText className="size-4" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Download clip"
+                    title="Download MP4"
+                    onClick={() => clip.url && triggerDownload(clip.url, `${title}-clip-${i + 1}.mp4`)}
+                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    <Download className="size-4" />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+      {editing ? (
+        <ClipEditModal job={job} clip={editing} onClose={() => setEditing(null)} onSaved={onJobUpdate} />
+      ) : null}
+    </>
   );
 }

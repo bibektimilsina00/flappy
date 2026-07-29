@@ -101,10 +101,14 @@ def _ingest(session: Session, job: ClipsJob, storage, workdir: str) -> str:
     except Exception as exc:
         raise ValueError(f"Could not fetch that link: {exc}") from exc
     title = (info or {}).get("title")
-    if title:
-        _set(session, job, source_title=str(title)[:200])
     if not os.path.exists(path):
         raise ValueError("Download produced no video file.")
+    # Persist the source so per-clip re-renders (trim/caption edits) never
+    # need to re-download.
+    key = f"{job.workspace_id}/clips/{job.id}/source.mp4"
+    with open(path, "rb") as f:
+        storage.put(key, f.read(), "video/mp4")
+    _set(session, job, source_key=key, **({"source_title": str(title)[:200]} if title else {}))
     return path
 
 
@@ -117,7 +121,16 @@ def _transcribe(path: str) -> tuple[list[dict], float]:
         _whisper_model = WhisperModel(settings.clips_whisper_model, compute_type="int8")
     segments, info = _whisper_model.transcribe(path, word_timestamps=True, vad_filter=True)
     out = [
-        {"text": seg.text.strip(), "start": round(seg.start, 2), "end": round(seg.end, 2)}
+        {
+            "text": seg.text.strip(),
+            "start": round(seg.start, 2),
+            "end": round(seg.end, 2),
+            "words": [
+                {"w": w.word.strip(), "s": round(w.start, 2), "e": round(w.end, 2)}
+                for w in (seg.words or [])
+                if w.word.strip()
+            ],
+        }
         for seg in segments
         if seg.text.strip()
     ]
@@ -227,13 +240,39 @@ def fallback_selection(transcript: list[dict], duration: float, band: tuple[int,
     return out
 
 
-# ── phase 4: render (cut + cover-crop to the target aspect) ─────────────────
+# ── phase 4: render (cut + cover-crop + optional caption burn) ──────────────
 def _render_clip(job: ClipsJob, source: str, seg: dict, index: int, workdir: str, storage) -> str:
-    w, h = RATIO_SIZES.get((job.params or {}).get("ratio") or "9:16", RATIO_SIZES["9:16"])
-    out = os.path.join(workdir, f"clip{index}.mp4")
+    return render_clip_file(
+        job, source, seg, workdir, storage,
+        key=f"{job.workspace_id}/clips/{job.id}/clip-{index}.mp4",
+    )
+
+
+def render_clip_file(job: ClipsJob, source: str, seg: dict, workdir: str, storage, key: str) -> str:
+    """Cut [start,end] from source, crop to the target aspect, burn captions
+    (unless params.captions is false), store at `key`. Shared by the pipeline
+    and single-clip re-renders."""
+    from apps.api.app.features.clips.captions import FONTS_DIR, build_ass
+
+    params = job.params or {}
+    w, h = RATIO_SIZES.get(params.get("ratio") or "9:16", RATIO_SIZES["9:16"])
+    out = os.path.join(workdir, "render.mp4")
     exe = imageio_ffmpeg.get_ffmpeg_exe()
     # ponytail: center cover-crop; face-aware framing is M3 (CLIPS-PLAN.md)
     vf = f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},fps=30"
+
+    if params.get("captions", True):
+        ass = build_ass(
+            job.transcript or [], seg["start"], seg["end"],
+            style=params.get("caption_style") or "clean",
+            width=w, height=h, edits=seg.get("caption_edits"),
+        )
+        if ass:
+            ass_path = os.path.join(workdir, "captions.ass")
+            with open(ass_path, "w", encoding="utf-8") as f:
+                f.write(ass)
+            vf += f",ass={ass_path}:fontsdir={FONTS_DIR}"
+
     cmd = [
         exe, "-y", "-ss", f"{seg['start']:.2f}", "-to", f"{seg['end']:.2f}", "-i", source,
         "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
@@ -242,7 +281,6 @@ def _render_clip(job: ClipsJob, source: str, seg: dict, index: int, workdir: str
     proc = subprocess.run(cmd, capture_output=True, timeout=600)
     if proc.returncode != 0 or not os.path.exists(out) or os.path.getsize(out) == 0:
         raise RuntimeError(f"Clip render failed: {proc.stderr.decode(errors='ignore')[-300:]}")
-    key = f"{job.workspace_id}/clips/{job.id}/clip-{index}.mp4"
     with open(out, "rb") as f:
         storage.put(key, f.read(), "video/mp4")
     return key

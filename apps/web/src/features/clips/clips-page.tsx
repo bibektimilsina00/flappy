@@ -23,7 +23,14 @@ import {
   uploadClipsSource,
 } from "./api";
 
-const DEFAULTS: ClipsParams = { count: "auto", duration: "auto", ratio: "9:16", focus: "" };
+const DEFAULTS: ClipsParams = {
+  count: "auto",
+  duration: "auto",
+  ratio: "9:16",
+  focus: "",
+  captions: true,
+  caption_style: "clean",
+};
 
 const PHASE_LABEL: Record<string, string> = {
   ingest: "Fetching video",
@@ -153,7 +160,7 @@ export function ClipsPage() {
           Options
           {!optionsOpen ? (
             <span className="text-muted-foreground/60">
-              · Auto clips · Auto length · {params.ratio} vertical
+              · Auto clips · Auto length · {params.ratio} · Captions {params.captions ? "on" : "off"}
             </span>
           ) : null}
         </button>
@@ -182,6 +189,19 @@ export function ClipsPage() {
                 options={["9:16", "1:1", "16:9"]}
                 display={(v) => v}
                 onChange={(v) => setParams((p) => ({ ...p, ratio: v as ClipsParams["ratio"] }))}
+              />
+              <PillSelect
+                label="Captions"
+                value={params.captions ? params.caption_style : "off"}
+                options={["clean", "bold", "highlight", "off"]}
+                display={(v) => (v === "off" ? "Off" : v[0].toUpperCase() + v.slice(1))}
+                onChange={(v) =>
+                  setParams((p) =>
+                    v === "off"
+                      ? { ...p, captions: false }
+                      : { ...p, captions: true, caption_style: v as ClipsParams["caption_style"] },
+                  )
+                }
               />
             </div>
             <input

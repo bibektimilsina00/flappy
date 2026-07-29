@@ -11,6 +11,15 @@ export interface ClipItem {
   duration: number;
   key: string;
   url: string | null;
+  status?: "ready" | "rendering" | "failed";
+  error?: string;
+  caption_edits?: { start: number; end: number; text: string }[] | null;
+}
+
+export interface TranscriptSegment {
+  text: string;
+  start: number;
+  end: number;
 }
 
 export interface ClipsJob {
@@ -25,6 +34,7 @@ export interface ClipsJob {
   duration: number | null;
   created_at: string;
   clips: ClipItem[];
+  transcript?: TranscriptSegment[]; // only on single-job GET
 }
 
 export interface ClipsParams {
@@ -32,6 +42,8 @@ export interface ClipsParams {
   duration: "auto" | "short" | "medium" | "long";
   ratio: "9:16" | "1:1" | "16:9";
   focus?: string;
+  captions: boolean;
+  caption_style: "clean" | "bold" | "highlight";
 }
 
 export function createClipsJob(body: {
@@ -52,6 +64,35 @@ export function getClipsJob(id: string): Promise<ClipsJob> {
 
 export function deleteClipsJob(id: string): Promise<void> {
   return api(`/clips/jobs/${id}`, { method: "DELETE" });
+}
+
+export function rerenderClip(
+  jobId: string,
+  clipId: string,
+  body: { start?: number; end?: number; caption_edits?: { start: number; end: number; text: string }[] },
+): Promise<ClipsJob> {
+  return api(`/clips/jobs/${jobId}/clips/${clipId}/rerender`, { method: "POST", body: JSON.stringify(body) });
+}
+
+export function clipsToProject(jobId: string): Promise<{ workflow_id: string }> {
+  return api(`/clips/jobs/${jobId}/to-project`, { method: "POST" });
+}
+
+// Authorized binary download (zip / srt need the JWT header, so no plain <a href>).
+export async function authDownload(path: string, filename: string): Promise<void> {
+  const token = useSession.getState().token;
+  const res = await fetch(`/api/v1${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+  if (!res.ok) throw new Error(`Download failed (${res.status})`);
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 // Multipart, so it bypasses the JSON api helper (same pattern as editor uploads).
