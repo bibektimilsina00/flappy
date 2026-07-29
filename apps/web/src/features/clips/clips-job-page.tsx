@@ -329,7 +329,7 @@ function ClipsModeTabs({ job, onLinked }: { job: ClipsJob; onLinked: (workflowId
   ] as const;
 
   return (
-    <div className="flex w-full shrink-0 items-stretch border-t border-border bg-card text-[13px]">
+    <div className="flex w-full shrink-0 items-stretch bg-card text-[13px]">
       {tabs.map(({ id, label, Icon, onClick }) => {
         const active = id === "clips";
         return (
