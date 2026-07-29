@@ -107,8 +107,7 @@ export function ClipsPage() {
     <div className="relative mx-auto w-full max-w-4xl px-6 py-12">
       {/* ambient glow */}
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 -z-10 overflow-hidden">
-        <div className="absolute left-1/2 top-[-120px] h-[340px] w-[640px] -translate-x-1/2 rounded-full bg-teal-500/15 blur-[110px]" />
-        <div className="absolute left-[12%] top-[60px] h-[220px] w-[320px] rounded-full bg-violet-500/10 blur-[100px]" />
+        <div className="absolute left-1/2 top-[-120px] h-[340px] w-[640px] -translate-x-1/2 rounded-full bg-teal-500/10 blur-[110px]" />
       </div>
 
       <div className="mb-10 text-center">
@@ -117,7 +116,7 @@ export function ClipsPage() {
         </p>
         <h1 className="text-4xl font-bold tracking-tight">
           One long video.{" "}
-          <span className="bg-gradient-to-r from-teal-300 via-emerald-300 to-violet-300 bg-clip-text text-transparent">
+          <span className="text-teal-300">
             Ten viral clips.
           </span>
         </h1>
@@ -140,13 +139,11 @@ export function ClipsPage() {
           void onFile(e.dataTransfer.files?.[0]);
         }}
         className={cn(
-          "rounded-2xl bg-gradient-to-r p-[1.5px] transition-all",
-          dragging
-            ? "from-teal-300 via-emerald-300 to-violet-400 shadow-[0_0_50px_-8px_rgba(45,212,191,0.45)]"
-            : "from-teal-500/50 via-white/10 to-violet-500/40 shadow-[0_0_40px_-12px_rgba(45,212,191,0.25)]",
+          "rounded-2xl border transition-colors",
+          dragging ? "border-teal-400 bg-teal-400/5" : "border-white/10",
         )}
       >
-        <div className="rounded-[15px] bg-[#141414] p-6">
+        <div className="rounded-2xl bg-[#141414] p-6">
         <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 px-4 py-2 transition-colors focus-within:border-teal-400/50">
           <Link2 className="size-4 shrink-0 text-muted-foreground" />
           <input
@@ -251,7 +248,7 @@ export function ClipsPage() {
           type="button"
           disabled={busy !== null}
           onClick={submit}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-teal-400 to-emerald-400 py-3 text-sm font-semibold text-black shadow-lg shadow-teal-500/25 transition-all hover:shadow-teal-400/40 hover:brightness-105 disabled:opacity-60"
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-teal-400 py-3 text-sm font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-60"
         >
           {busy ? <Loader2 className="size-4 animate-spin" /> : <Scissors className="size-4" />}
           {busy ?? (value.trim() ? "Get clips" : "Get clips — paste a link or pick a file")}
