@@ -53,7 +53,7 @@ export interface CustomCaptionStyle {
   // top banner with the clip title, burned for the whole clip ("none" bg = outlined text)
   headline?: { enabled: boolean; bg: string; color: string };
   layout?: "auto" | "fill" | "fit"; // fit letterboxes onto `bg`
-  font?: "inter" | "anton" | "bangers";
+  font?: "inter" | "poppins" | "anton" | "bangers"; // inter = legacy alias of poppins
   size_px?: number; // overrides size when set (ASS units per 400px height)
   align?: "left" | "center" | "right";
   italic?: boolean;

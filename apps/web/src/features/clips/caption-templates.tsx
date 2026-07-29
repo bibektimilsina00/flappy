@@ -32,7 +32,7 @@ export interface ResolvedCaptionCss {
 export function captionCss(style: string, custom?: CustomCaptionStyle | null, scale = 1): ResolvedCaptionCss {
   const px = (n: number) => `${Math.round(n * scale)}px`;
   if (style === "custom" && custom) {
-    const fonts = { inter: "InterCap, Inter, sans-serif", anton: "Anton, sans-serif", bangers: "Bangers, cursive" };
+    const fonts = { inter: "PoppinsCap, sans-serif", poppins: "PoppinsCap, sans-serif", anton: "Anton, sans-serif", bangers: "Bangers, cursive" };
     const strokeW = custom.stroke?.width ?? 0;
     const shadows = [
       custom.shadow ? "2px 2px 4px rgba(0,0,0,0.85)" : null,
@@ -781,12 +781,12 @@ function AdvancedPanel({
       {/* basic */}
       <p className="mb-2.5 text-sm font-medium text-muted-foreground">Basic</p>
       <select
-        value={def.font ?? "inter"}
+        value={def.font === "inter" || !def.font ? "poppins" : def.font}
         onChange={(e) => set({ font: e.target.value as CustomCaptionStyle["font"] })}
         className="mb-2.5 w-full rounded-xl border border-white/10 bg-[#161616] px-4 py-3 text-sm font-semibold outline-none"
-        style={{ fontFamily: { inter: "InterCap", anton: "Anton", bangers: "Bangers" }[def.font ?? "inter"] }}
+        style={{ fontFamily: { inter: "PoppinsCap", poppins: "PoppinsCap", anton: "Anton", bangers: "Bangers" }[def.font ?? "poppins"] }}
       >
-        <option value="inter">Inter</option>
+        <option value="poppins">Poppins</option>
         <option value="anton">Anton</option>
         <option value="bangers">Bangers</option>
       </select>

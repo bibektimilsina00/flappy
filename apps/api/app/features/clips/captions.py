@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 
 FONTS_DIR = os.path.join(os.path.dirname(__file__), "fonts")
-FONT_NAME = "Inter"
+FONT_NAME = "Poppins"  # static SemiBold; variable fonts render hairline-thin in libass
 MAX_WORDS_PER_LINE = 4
 
 def hex_to_ass(color: str) -> str:
@@ -42,7 +42,8 @@ PRESETS: dict[str, dict] = {
 SIZE_MAP = {"s": 13, "m": 16, "l": 20}
 
 
-FONT_ASS = {"inter": "Inter", "anton": "Anton", "bangers": "Bangers"}
+# "inter" is a legacy alias — the old variable Inter rendered hairline-thin in libass
+FONT_ASS = {"inter": "Poppins", "poppins": "Poppins", "anton": "Anton", "bangers": "Bangers"}
 
 
 def resolve_style(style: "str | dict | None") -> dict:

@@ -179,4 +179,4 @@
 /* Caption fonts (also bundled server-side for burning) */
 @font-face { font-family: "Anton"; src: url("/fonts/Anton.ttf"); font-display: swap; }
 @font-face { font-family: "Bangers"; src: url("/fonts/Bangers.ttf"); font-display: swap; }
-@font-face { font-family: "InterCap"; src: url("/fonts/Inter.ttf"); font-display: swap; }
+@font-face { font-family: "PoppinsCap"; src: url("/fonts/Poppins.ttf"); font-display: swap; }
