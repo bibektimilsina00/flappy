@@ -145,6 +145,17 @@ def create_job(
     return _job_out(job, get_storage())
 
 
+@router.get("/estimate")
+def estimate_cost(
+    count: str = "auto",
+    _workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Credits a job with this clip count will charge (select + per-clip)."""
+    est_clips = DEFAULT_COUNT if count in ("auto", "", None) else max(1, min(10, int(count)))
+    return {"credits": settings.clips_credits_select + settings.clips_credits_per_clip * est_clips}
+
+
 @router.get("/jobs")
 def list_jobs(
     session: Session = Depends(get_session),

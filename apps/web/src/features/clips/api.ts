@@ -129,6 +129,10 @@ export function createClipsJob(body: {
   return api("/clips/jobs", { method: "POST", body: JSON.stringify(body) });
 }
 
+export function estimateClipsCost(count: number | "auto"): Promise<{ credits: number }> {
+  return api(`/clips/estimate?count=${count}`);
+}
+
 export function listClipsJobs(): Promise<ClipsJob[]> {
   return api("/clips/jobs");
 }

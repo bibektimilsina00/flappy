@@ -23,6 +23,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useBalance } from "@/features/billing";
 import { CaptionStylePicker } from "./caption-templates";
 import { defaultSchedule, ScheduleModal } from "./schedule-modal";
 import {
@@ -31,6 +32,7 @@ import {
   createClipsJob,
   deleteClipsJob,
   listClipsJobs,
+  estimateClipsCost,
   probeClipsSource,
   uploadClipsSource,
 } from "./api";
@@ -506,6 +508,15 @@ function ConfigPanel({
 }) {
   const tooLong = (meta?.duration ?? 0) > 30 * 60;
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [cost, setCost] = useState<number | null>(null);
+  const { data: balance } = useBalance();
+
+  useEffect(() => {
+    estimateClipsCost(params.count)
+      .then(({ credits }) => setCost(credits))
+      .catch(() => setCost(null));
+  }, [params.count]);
+  const insufficient = cost !== null && balance !== undefined && balance.balance < cost;
   return (
     <div className="space-y-5">
       {/* source chip */}
@@ -720,13 +731,23 @@ function ConfigPanel({
 
       <button
         type="button"
-        disabled={busy !== null || tooLong}
+        disabled={busy !== null || tooLong || insufficient}
         onClick={onStart}
         className="flex w-full items-center justify-center gap-2 rounded-xl bg-teal-400 py-3.5 text-sm font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-60"
       >
         {busy ? <Loader2 className="size-4 animate-spin" /> : <Scissors className="size-4" />}
         {busy ? "Starting…" : params.schedule?.enabled ? "Get AI clips & Schedule" : "Get AI clips"}
+        {!busy && cost !== null ? (
+          <span className="rounded-full bg-black/15 px-2 py-0.5 text-xs font-bold">
+            ~{Math.round(cost)} credits
+          </span>
+        ) : null}
       </button>
+      {insufficient ? (
+        <p className="text-center text-xs text-amber-300">
+          Not enough credits — you have {Math.floor(balance?.balance ?? 0)}, this needs about {Math.round(cost ?? 0)}.
+        </p>
+      ) : null}
       {scheduleOpen && params.schedule ? (
         <ScheduleModal
           value={params.schedule}
