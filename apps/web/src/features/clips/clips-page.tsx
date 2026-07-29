@@ -331,65 +331,8 @@ export function ClipsPage() {
         </p>
       </div>
 
-      {/* How it works — the transformation, illustrated */}
-      <div className="mt-14 grid items-center gap-6 md:grid-cols-[1fr_auto_1fr]">
-        {/* source */}
-        <div className="mx-auto w-full max-w-[300px]">
-          <div className="relative aspect-video overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-slate-800 to-slate-900">
-            <div className="absolute inset-0 grid place-items-center">
-              <span className="grid size-10 place-items-center rounded-full bg-white/10 backdrop-blur">
-                <Play className="ml-0.5 size-4 fill-white text-white" />
-              </span>
-            </div>
-            <div className="absolute inset-x-3 bottom-2.5">
-              <div className="h-1 rounded-full bg-white/20">
-                <div className="h-full w-1/3 rounded-full bg-teal-400" />
-              </div>
-            </div>
-          </div>
-          <p className="mt-2 text-center text-xs text-muted-foreground">Your 20-minute video</p>
-        </div>
-
-        {/* arrow */}
-        <div className="flex flex-col items-center gap-1 text-teal-300">
-          <ArrowRight className="hidden size-5 md:block" />
-          <ArrowDown className="size-5 md:hidden" />
-          <p className="w-24 text-center text-[11px] leading-tight text-muted-foreground">
-            AI finds the moments
-          </p>
-        </div>
-
-        {/* clips fan */}
-        <div className="mx-auto flex items-end justify-center gap-3">
-          {[
-            { hue: "from-fuchsia-500/70 to-violet-600/70", score: 92, caption: "the wild part is…", tilt: "-6deg", lift: "" },
-            { hue: "from-teal-400/70 to-emerald-600/70", score: 88, caption: "nobody talks about", tilt: "0deg", lift: "-translate-y-3" },
-            { hue: "from-amber-400/70 to-orange-600/70", score: 81, caption: "here's the secret", tilt: "6deg", lift: "" },
-          ].map((c, i) => (
-            <div
-              key={c.score}
-              style={{ "--tilt": c.tilt, animationDelay: `${i * 0.6}s` } as React.CSSProperties}
-              className={cn(
-                "relative h-40 w-24 overflow-hidden rounded-xl border border-white/15 bg-gradient-to-br shadow-xl animate-[clip-float_5s_ease-in-out_infinite]",
-                c.hue,
-                c.lift,
-              )}
-            >
-              <span className="absolute left-1.5 top-1.5 flex items-center gap-0.5 rounded-full bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-white">
-                <Flame className="size-2.5 text-orange-400" />
-                {c.score}
-              </span>
-              <span className="absolute inset-x-1.5 bottom-2 rounded-md bg-black/60 px-1.5 py-1 text-center text-[9px] font-semibold leading-tight text-white">
-                {c.caption.split(" ").map((w, j) => (
-                  <span key={w} className={j === 1 ? "text-teal-300" : ""}>
-                    {w}{" "}
-                  </span>
-                ))}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* How it works — with the user's own latest result once one exists */}
+      <Showcase demo={jobs?.find((j) => j.status === "completed" && j.clips.some((c) => c.url)) ?? null} />
 
       {/* Recents */}
       {jobs && jobs.length > 0 ? (
@@ -416,6 +359,94 @@ export function ClipsPage() {
 }
 
 const fmtDur = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+// "Source -> AI -> clips" strip. With a completed job, it shows the user's own
+// poster and top clips; otherwise a neutral placeholder mock.
+function Showcase({ demo }: { demo: ClipsJob | null }) {
+  const top = demo ? [...demo.clips].filter((c) => c.url).sort((a, b) => b.score - a.score).slice(0, 3) : [];
+  // middle card lifted, side cards tilted — same fan for real and mock media
+  const fan = [
+    { tilt: "-6deg", lift: "" },
+    { tilt: "0deg", lift: "-translate-y-3" },
+    { tilt: "6deg", lift: "" },
+  ];
+  const mock = [
+    { hue: "from-fuchsia-500/70 to-violet-600/70", score: 92, caption: "the wild part is…" },
+    { hue: "from-teal-400/70 to-emerald-600/70", score: 88, caption: "nobody talks about" },
+    { hue: "from-amber-400/70 to-orange-600/70", score: 81, caption: "here's the secret" },
+  ];
+
+  return (
+    <div className="mt-14 grid items-center gap-6 md:grid-cols-[1fr_auto_1fr]">
+      {/* source */}
+      <div className="mx-auto w-full max-w-[300px]">
+        <div className="relative aspect-video overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-slate-800 to-slate-900">
+          {demo?.source_thumb_url ? (
+            // biome-ignore lint/a11y/useAltText: showcase poster
+            <img src={demo.source_thumb_url} className="absolute inset-0 size-full object-cover" />
+          ) : null}
+          <div className="absolute inset-0 grid place-items-center bg-black/20">
+            <span className="grid size-10 place-items-center rounded-full bg-white/10 backdrop-blur">
+              <Play className="ml-0.5 size-4 fill-white text-white" />
+            </span>
+          </div>
+          <div className="absolute inset-x-3 bottom-2.5">
+            <div className="h-1 rounded-full bg-white/20">
+              <div className="h-full w-1/3 rounded-full bg-teal-400" />
+            </div>
+          </div>
+        </div>
+        <p className="mt-2 truncate text-center text-xs text-muted-foreground">
+          {demo
+            ? (demo.source_title ?? "Your latest video") +
+              (demo.duration ? ` · ${Math.max(1, Math.round(demo.duration / 60))} min` : "")
+            : "Your 20-minute video"}
+        </p>
+      </div>
+
+      {/* arrow */}
+      <div className="flex flex-col items-center gap-1 text-teal-300">
+        <ArrowRight className="hidden size-5 md:block" />
+        <ArrowDown className="size-5 md:hidden" />
+        <p className="w-24 text-center text-[11px] leading-tight text-muted-foreground">AI finds the moments</p>
+      </div>
+
+      {/* clips fan */}
+      <div className="mx-auto flex items-end justify-center gap-3">
+        {fan.map((f, i) => {
+          const clip = top[i];
+          return (
+            <div
+              key={clip?.id ?? i}
+              style={{ "--tilt": f.tilt, animationDelay: `${i * 0.6}s` } as React.CSSProperties}
+              className={cn(
+                "relative h-40 w-24 overflow-hidden rounded-xl border border-white/15 shadow-xl animate-[clip-float_5s_ease-in-out_infinite]",
+                clip ? "bg-black" : cn("bg-gradient-to-br", mock[i].hue),
+                f.lift,
+              )}
+            >
+              {clip?.url ? (
+                // biome-ignore lint/a11y/useMediaCaption: showcase thumbnail
+                <video src={clip.url} muted playsInline preload="metadata" className="absolute inset-0 size-full object-cover" />
+              ) : null}
+              <span className="absolute left-1.5 top-1.5 flex items-center gap-0.5 rounded-full bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                <Flame className="size-2.5 text-orange-400" />
+                {clip?.score ?? mock[i].score}
+              </span>
+              <span className="absolute inset-x-1.5 bottom-2 line-clamp-2 rounded-md bg-black/60 px-1.5 py-1 text-center text-[9px] font-semibold leading-tight text-white">
+                {(clip?.title ?? mock[i].caption).split(" ").map((w, j) => (
+                  <span key={`${w}-${j}`} className={j === 1 ? "text-teal-300" : ""}>
+                    {w}{" "}
+                  </span>
+                ))}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 // Step 2: configure the job (OpusClip-style) before it starts.
 function ConfigPanel({
