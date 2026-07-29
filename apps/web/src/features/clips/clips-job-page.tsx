@@ -2,15 +2,19 @@
 
 import {
   ArrowLeft,
+  AudioLines,
   Check,
   Clapperboard,
   Download,
+  DownloadCloud,
   FileText,
+  Film,
   Flame,
   FolderArchive,
   Loader2,
   Pencil,
   RotateCcw,
+  Sparkles,
   XCircle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -27,18 +31,35 @@ import {
 import { ClipEditModal } from "./clip-edit-modal";
 
 const PHASES = [
-  { key: "ingest", label: "Fetch", hint: "usually under a minute" },
-  { key: "transcribe", label: "Transcribe", hint: "the long one — roughly the video's length" },
-  { key: "select", label: "Pick moments", hint: "about 15 seconds" },
-  { key: "render", label: "Render", hint: "a few seconds per clip" },
+  {
+    key: "ingest",
+    label: "Fetch the video",
+    icon: DownloadCloud,
+    hint: "Usually under a minute",
+    caption: "Downloading and preparing the source…",
+  },
+  {
+    key: "transcribe",
+    label: "Transcribe every word",
+    icon: AudioLines,
+    hint: "The long one — roughly the video's length",
+    caption: "Listening to the audio, word by word…",
+  },
+  {
+    key: "select",
+    label: "Pick the best moments",
+    icon: Sparkles,
+    hint: "About 15 seconds",
+    caption: "Reading the transcript for hooks and complete ideas…",
+  },
+  {
+    key: "render",
+    label: "Cut, frame & caption",
+    icon: Clapperboard,
+    hint: "A few seconds per clip",
+    caption: "Rendering your clips with captions and face framing…",
+  },
 ] as const;
-
-const PHASE_CAPTION: Record<string, string> = {
-  ingest: "Fetching and preparing the source video…",
-  transcribe: "Listening to the audio and writing the transcript…",
-  select: "Reading the transcript to find the strongest moments…",
-  render: "Cutting, framing, and captioning your clips…",
-};
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
@@ -49,6 +70,12 @@ const eta = (startedAt: string | null, progress: number): string | null => {
   if (!Number.isFinite(left) || left < 0) return null;
   if (left < 60) return `~${Math.max(5, Math.round(left / 5) * 5)}s left`;
   return `~${Math.round(left / 60)}m left`;
+};
+
+const elapsedLabel = (startedAt: string | null): string | null => {
+  if (!startedAt) return null;
+  const s = Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000));
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`;
 };
 
 function triggerDownload(href: string, name: string) {
@@ -120,7 +147,7 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
         <>
           <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
             <div className="flex min-w-0 items-center gap-4">
-              {job.source_thumb_url ? (
+              {job.source_thumb_url && job.status !== "running" && job.status !== "queued" ? (
                 // biome-ignore lint/a11y/useAltText: source poster
                 <img src={job.source_thumb_url} className="h-16 w-28 shrink-0 rounded-lg border border-border object-cover" />
               ) : null}
@@ -204,67 +231,140 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
 
 function PhaseTracker({ job }: { job: ClipsJob }) {
   const current = PHASES.findIndex((p) => p.key === job.phase);
-  const hasBar = (job.phase === "transcribe" || job.phase === "render") && job.progress > 0;
-  // 1s tick keeps the ETA breathing between 2s polls.
+  // 1s tick keeps the elapsed/ETA labels breathing between 2s polls.
   const [, setTick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setTick((n) => n + 1), 1000);
     return () => clearInterval(t);
   }, []);
-  const left = eta(job.phase_started_at, job.progress);
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-border bg-card p-8">
-        <div className="mb-6 flex items-center">
-          {PHASES.map((phase, i) => (
-            <div key={phase.key} className={cn("flex items-center", i > 0 && "flex-1")}>
-              {i > 0 ? (
-                <div className={cn("mx-2 h-px flex-1", i <= current ? "bg-teal-400" : "bg-border")} />
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,380px)_1fr]">
+        {/* preview panel */}
+        <div className="overflow-hidden rounded-2xl border border-border bg-card">
+          {job.source_thumb_url ? (
+            <div className="relative">
+              {/* biome-ignore lint/a11y/useAltText: source poster */}
+              <img src={job.source_thumb_url} className="aspect-video w-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+              {job.duration ? (
+                <span className="absolute bottom-2 right-2 rounded bg-black/70 px-1.5 py-0.5 text-[11px] tabular-nums text-white">
+                  {fmt(job.duration)}
+                </span>
               ) : null}
-              <div className="flex flex-col items-center gap-1.5">
-                <span
-                  className={cn(
-                    "grid size-8 place-items-center rounded-full text-xs font-semibold",
-                    i < current
-                      ? "bg-teal-400 text-black"
-                      : i === current
-                        ? "border-2 border-teal-400 text-teal-400"
-                        : "border border-border text-muted-foreground",
-                  )}
-                >
-                  {i < current ? <Check className="size-4" /> : i === current ? <Loader2 className="size-4 animate-spin" /> : i + 1}
-                </span>
-                <span className={cn("text-xs", i <= current ? "text-foreground" : "text-muted-foreground")}>
-                  {phase.label}
-                </span>
-                <span className={cn("text-[10px]", i === current ? "text-muted-foreground" : "text-transparent")}>
-                  {i === current ? ((hasBar && left) || phase.hint) : "·"}
-                </span>
+            </div>
+          ) : (
+            <div className="relative grid aspect-video w-full place-items-center overflow-hidden bg-[#101010]">
+              <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-white/[0.04] to-transparent" />
+              <div className="flex flex-col items-center gap-2 text-muted-foreground/60">
+                <Film className="size-8" strokeWidth={1.25} />
+                <span className="text-xs">Preparing preview…</span>
               </div>
             </div>
-          ))}
+          )}
+          <div className="space-y-2.5 p-4">
+            <p className="truncate text-sm font-medium" title={job.source_title ?? job.source_url ?? ""}>
+              {job.source_title ?? job.source_url ?? "Uploaded video"}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                String((job.params as { ratio?: string }).ratio ?? "9:16"),
+                (job.params as { captions?: boolean }).captions !== false
+                  ? `Captions · ${String((job.params as { caption_style?: string }).caption_style ?? "clean")}`
+                  : "No captions",
+                (job.params as { framing?: boolean }).framing !== false ? "Face framing" : null,
+                (job.params as { focus?: string }).focus?.trim() ? "Focused" : null,
+              ]
+                .filter(Boolean)
+                .map((chip) => (
+                  <span key={String(chip)} className="rounded-full bg-white/5 px-2 py-0.5 text-[11px] text-muted-foreground">
+                    {chip}
+                  </span>
+                ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground/60">
+              You can leave this page — the job keeps running and shows up under Recent.
+            </p>
+          </div>
         </div>
 
-        {hasBar ? (
-          <div className="mx-auto mb-4 max-w-xl">
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-              <div
-                className="h-full rounded-full bg-teal-400 transition-[width] duration-700"
-                style={{ width: `${Math.round(job.progress * 100)}%` }}
-              />
-            </div>
-            <div className="mt-1.5 flex justify-between text-[11px] text-muted-foreground">
-              <span>{Math.round(job.progress * 100)}%</span>
-              {left ? <span>{left}</span> : null}
-            </div>
-          </div>
-        ) : null}
+        {/* vertical step list */}
+        <div className="rounded-2xl border border-border bg-card p-5">
+          {PHASES.map((phase, i) => {
+            const state = i < current ? "done" : i === current ? "active" : "pending";
+            const isLast = i === PHASES.length - 1;
+            const showBar = state === "active" && job.progress > 0;
+            const left = state === "active" ? eta(job.phase_started_at, job.progress) : null;
+            const elapsed = state === "active" ? elapsedLabel(job.phase_started_at) : null;
+            const Icon = phase.icon;
+            return (
+              <div key={phase.key} className="flex gap-4">
+                {/* rail */}
+                <div className="flex flex-col items-center">
+                  <span
+                    className={cn(
+                      "grid size-9 shrink-0 place-items-center rounded-full border transition-colors",
+                      state === "done"
+                        ? "border-teal-400/40 bg-teal-400/15 text-teal-300"
+                        : state === "active"
+                          ? "border-teal-400 text-teal-300 shadow-[0_0_16px_-4px_rgba(45,212,191,0.6)]"
+                          : "border-border text-muted-foreground/50",
+                    )}
+                  >
+                    {state === "done" ? <Check className="size-4" /> : <Icon className={cn("size-4", state === "active" && "animate-pulse")} />}
+                  </span>
+                  {!isLast ? (
+                    <span className={cn("w-px flex-1", state === "done" ? "bg-teal-400/40" : "bg-border")} />
+                  ) : null}
+                </div>
 
-        <p className="text-center text-sm text-muted-foreground">{PHASE_CAPTION[job.phase]}</p>
-        <p className="mt-1 text-center text-xs text-muted-foreground/60">
-          You can leave this page — the job keeps running and shows up under Recent.
-        </p>
+                {/* content */}
+                <div className={cn("min-w-0 flex-1", !isLast && "pb-6")}>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <p
+                      className={cn(
+                        "text-sm font-semibold",
+                        state === "pending" ? "text-muted-foreground/60" : "text-foreground",
+                      )}
+                    >
+                      {phase.label}
+                    </p>
+                    <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                      {state === "done" ? "Done" : state === "active" ? (elapsed ?? "") : ""}
+                    </span>
+                  </div>
+
+                  {state === "active" ? (
+                    <>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{phase.caption}</p>
+                      {showBar ? (
+                        <div className="mt-2.5">
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                            <div
+                              className="h-full rounded-full bg-teal-400 transition-[width] duration-700"
+                              style={{ width: `${Math.round(job.progress * 100)}%` }}
+                            />
+                          </div>
+                          <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
+                            <span>{Math.round(job.progress * 100)}%</span>
+                            {left ? <span>{left}</span> : null}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                          <div className="h-full w-1/3 animate-[clip-indeterminate_1.4s_ease-in-out_infinite] rounded-full bg-teal-400/70" />
+                        </div>
+                      )}
+                    </>
+                  ) : state === "pending" ? (
+                    <p className="mt-0.5 text-xs text-muted-foreground/50">{phase.hint}</p>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {job.phase === "transcribe" && job.transcript && job.transcript.length > 0 ? (
