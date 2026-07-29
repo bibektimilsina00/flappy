@@ -141,8 +141,11 @@ def create_job(
     from apps.api.app.features.clips.project_link import create_project_for_job
     from apps.api.app.features.workflows import repository as workflows_repo
 
-    if body.workflow_id and workflows_repo.get(session, workspace_id, body.workflow_id):
+    if body.workflow_id and (wf := workflows_repo.get(session, workspace_id, body.workflow_id)):
         job.workflow_id = body.workflow_id
+        if job.source_title:  # project carries the video's title
+            wf.name = job.source_title[:80]
+            session.add(wf)
     else:
         create_project_for_job(session, job)
     job = repository.save(session, job)

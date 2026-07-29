@@ -20,6 +20,7 @@ import {
   XCircle,
   Zap,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
@@ -126,6 +127,7 @@ interface SourceMeta {
 
 export function ClipsPage() {
   const router = useRouter();
+  const qc = useQueryClient();
   const [value, setValue] = useState("");
   const [params, setParams] = useState<ClipsParams>(DEFAULTS);
   const [busy, setBusy] = useState<string | null>(null); // "upload: name" | "start"
@@ -144,8 +146,25 @@ export function ClipsPage() {
   const search = useSearchParams();
   const [projectId, setProjectId] = useState<string | null>(search.get("project"));
 
+  // Poll the list while anything is running so Recent shows live progress.
   useEffect(() => {
-    listClipsJobs().then(setJobs).catch(() => setJobs([]));
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try {
+        const list = await listClipsJobs();
+        if (!alive) return;
+        setJobs(list);
+        if (list.some((j) => j.status === "queued" || j.status === "running")) timer = setTimeout(poll, 3000);
+      } catch {
+        if (alive) setJobs((l) => l ?? []);
+      }
+    };
+    void poll();
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
   }, []);
 
   // Coming back to a project's Clips tab: a started job wins (progress page);
@@ -181,12 +200,13 @@ export function ClipsPage() {
       try {
         const wf = await createWorkflow((name || "Clips project").slice(0, 80));
         setProjectId(wf.id);
+        void qc.invalidateQueries({ queryKey: ["workflows"] });
         router.replace(`/clips?project=${wf.id}`);
       } catch {
         /* ponytail: draft just won't survive navigation; the job still links on start */
       }
     },
-    [projectId, router],
+    [projectId, router, qc],
   );
 
   const start = useCallback(async () => {
@@ -201,12 +221,15 @@ export function ClipsPage() {
         params,
       });
       if (projectId) localStorage.removeItem(`flappy-clips-draft-${projectId}`);
+      // The project (created or renamed server-side) and its clips link changed.
+      void qc.invalidateQueries({ queryKey: ["workflows"] });
+      void qc.invalidateQueries({ queryKey: ["clips-by-workflow"] });
       router.push(`/clips/${job.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not start the job");
       setBusy(null);
     }
-  }, [source, title, params, projectId, router]);
+  }, [source, title, params, projectId, router, qc]);
 
   const onFile = useCallback(async (file: File | undefined) => {
     if (!file) return;
@@ -1009,6 +1032,14 @@ function JobRow({ job, onOpen, onDelete }: { job: ClipsJob; onOpen: () => void; 
           {" · "}
           {new Date(job.created_at).toLocaleDateString()}
         </span>
+        {running ? (
+          <span className="mt-1.5 block h-1 w-full overflow-hidden rounded-full bg-white/10">
+            <span
+              className="block h-full rounded-full bg-teal-400 transition-[width] duration-700"
+              style={{ width: `${Math.max(4, Math.round((job.progress ?? 0) * 100))}%` }}
+            />
+          </span>
+        ) : null}
       </button>
       <button
         type="button"
