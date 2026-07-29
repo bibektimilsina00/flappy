@@ -270,7 +270,7 @@ export function ClipsPage() {
 
           {/* supported-platforms hint — shows on hover/focus of the link bar */}
           {hint && !dragging ? (
-            <div className="pointer-events-none absolute left-0 top-full z-20 mt-2 rounded-xl bg-[#3a4150] px-4 py-3 text-sm text-white/90 shadow-2xl animate-in fade-in-0 slide-in-from-top-1 duration-150">
+            <div className="pointer-events-none absolute bottom-full left-0 z-20 mb-2 rounded-xl border border-white/10 bg-[#1e1e1e] px-4 py-3 text-sm text-foreground/90 shadow-2xl animate-in fade-in-0 slide-in-from-bottom-1 duration-150">
               <span className="mr-1">Drop a video link from</span>
               {PLATFORMS.map((p, i) => (
                 <span key={p.name} className="inline-flex items-center gap-1 whitespace-nowrap">
