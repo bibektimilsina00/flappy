@@ -1,7 +1,17 @@
 "use client";
 
-import { Calendar, CalendarClock, Minus, Plus, X } from "lucide-react";
+import { Calendar, Globe, Minus, Plus, X } from "lucide-react";
 import { useState } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/cn";
 import type { ScheduleConfig } from "./api";
 
@@ -26,16 +36,6 @@ export function defaultSchedule(): ScheduleConfig {
   };
 }
 
-function Section({ title, sub, children }: { title: string; sub?: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4">
-      <p className="text-sm font-semibold">{title}</p>
-      {sub ? <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p> : null}
-      <div className="mt-3">{children}</div>
-    </div>
-  );
-}
-
 export function ScheduleModal({
   value,
   onSave,
@@ -49,187 +49,189 @@ export function ScheduleModal({
   const set = (patch: Partial<ScheduleConfig>) => setCfg((c) => ({ ...c, ...patch }));
   const windowInvalid = cfg.window_end <= cfg.window_start;
 
-  // preview: the next 7 days with their post slots
-  const start = new Date(`${cfg.start_date}T00:00`);
-  const previewDays = Array.from({ length: 7 }, (_, i) => new Date(start.getTime() + i * 86400000));
-
   return (
     <div className="dark fixed inset-0 z-[200] grid place-items-center bg-black/80 p-4" onClick={onClose}>
       <div
-        className="flex max-h-[92vh] w-full max-w-lg flex-col rounded-2xl border border-white/10 bg-[#1a1a1a] text-foreground"
+        className="flex max-h-[92vh] w-full max-w-2xl flex-col rounded-2xl border border-white/10 bg-[#191919] text-foreground shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-          <h3 className="flex items-center gap-2 text-lg font-bold">
-            <CalendarClock className="size-5 text-teal-300" /> Auto schedule
-          </h3>
-          <button type="button" aria-label="Close" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/10 hover:text-foreground">
-            <X className="size-4" />
+        <div className="flex items-center justify-between px-7 pt-6">
+          <h3 className="text-xl font-bold">Auto schedule settings</h3>
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+          >
+            <X className="size-5" />
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 [scrollbar-width:thin]">
-          <Section title="Which clips" sub="Only queue clips scoring at least…">
-            <div className="flex gap-1.5">
-              {([null, 60, 70, 80, 90] as const).map((v) => (
-                <button
-                  key={String(v)}
-                  type="button"
-                  onClick={() => set({ min_score: v })}
-                  className={cn(
-                    "flex-1 rounded-xl border py-2 text-sm font-medium transition-colors",
-                    cfg.min_score === v
-                      ? "border-teal-400 bg-teal-400/10 text-teal-300"
-                      : "border-white/10 text-muted-foreground hover:border-white/25 hover:text-foreground",
-                  )}
-                >
-                  {v === null ? "All" : `${v}+`}
-                </button>
-              ))}
-            </div>
-          </Section>
-
-          <Section title="Posts per day">
-            <div className="flex items-center gap-4">
-              <input
-                type="range"
-                min={1}
-                max={10}
-                value={cfg.per_day}
-                onChange={(e) => set({ per_day: Number(e.target.value) })}
-                className="h-1.5 flex-1 cursor-pointer accent-teal-400"
+        <div className="min-h-0 flex-1 space-y-7 overflow-y-auto px-7 py-6 [scrollbar-width:thin]">
+          {/* clips selection */}
+          <section>
+            <p className="mb-3 text-sm font-medium text-muted-foreground">Clips selection</p>
+            <label className="flex items-center gap-3 text-[15px]">
+              <Checkbox
+                checked={cfg.min_score !== null}
+                onCheckedChange={(v) => set({ min_score: v === true ? 70 : null })}
               />
-              <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-black/30 px-1 py-0.5">
-                <button type="button" aria-label="Fewer" onClick={() => set({ per_day: Math.max(1, cfg.per_day - 1) })} className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-white/10 hover:text-foreground">
-                  <Minus className="size-3.5" />
-                </button>
-                <span className="w-7 text-center text-base font-bold tabular-nums text-teal-300">{cfg.per_day}</span>
-                <button type="button" aria-label="More" onClick={() => set({ per_day: Math.min(10, cfg.per_day + 1) })} className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-white/10 hover:text-foreground">
-                  <Plus className="size-3.5" />
-                </button>
-              </div>
-            </div>
-          </Section>
-
-          <Section title="How long">
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => set({ mode: "all" })}
-                className={cn(
-                  "rounded-xl border px-3 py-3 text-left text-sm transition-colors",
-                  cfg.mode === "all"
-                    ? "border-teal-400 bg-teal-400/10"
-                    : "border-white/10 hover:border-white/25",
-                )}
+              Only schedule clips with a score above
+              <Select
+                value={String(cfg.min_score ?? 70)}
+                onValueChange={(v) => set({ min_score: Number(v) })}
+                disabled={cfg.min_score === null}
               >
-                <span className={cn("block font-medium", cfg.mode === "all" ? "text-teal-300" : "text-foreground")}>
-                  Until done
-                </span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">Every clip gets posted</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => set({ mode: "days" })}
-                className={cn(
-                  "rounded-xl border px-3 py-3 text-left text-sm transition-colors",
-                  cfg.mode === "days"
-                    ? "border-teal-400 bg-teal-400/10"
-                    : "border-white/10 hover:border-white/25",
-                )}
-              >
-                <span className={cn("flex items-center gap-1.5 font-medium", cfg.mode === "days" ? "text-teal-300" : "text-foreground")}>
-                  For
-                  <input
-                    type="number"
-                    min={1}
-                    max={60}
-                    value={cfg.days}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => set({ mode: "days", days: Math.max(1, Math.min(60, Number(e.target.value) || 1)) })}
-                    className="w-12 rounded-lg border border-white/15 bg-black/30 px-1.5 py-0.5 text-center text-sm outline-none focus:border-teal-400/60"
-                  />
-                  days
-                </span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">Best clips first, then stop</span>
-              </button>
-            </div>
-          </Section>
+                <SelectTrigger className="w-20 border-white/10 bg-transparent">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="dark">
+                  {[60, 70, 80, 90].map((v) => (
+                    <SelectItem key={v} value={String(v)}>
+                      {v}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+          </section>
 
-          <Section title="When">
-            <div className="space-y-2.5">
-              <label className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-black/30 px-3.5 py-2.5">
-                <Calendar className="size-4 shrink-0 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">Starts</span>
-                <input
-                  type="date"
-                  value={cfg.start_date}
-                  min={new Date().toISOString().slice(0, 10)}
-                  onChange={(e) => set({ start_date: e.target.value })}
-                  className="flex-1 bg-transparent text-sm outline-none [color-scheme:dark]"
+          {/* frequency */}
+          <section>
+            <p className="mb-3 text-sm font-medium text-muted-foreground">Post frequency per day</p>
+            <div className="flex items-center gap-6">
+              <div className="relative flex-1">
+                <Slider
+                  min={1}
+                  max={10}
+                  step={1}
+                  value={[cfg.per_day]}
+                  onValueChange={([v]) => set({ per_day: v })}
                 />
-              </label>
-              <div className="flex flex-wrap items-center gap-2 text-sm">
-                <select
-                  value={cfg.window_start}
-                  onChange={(e) => set({ window_start: e.target.value })}
-                  className="flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 outline-none"
-                >
-                  {HOURS.map((h) => (
-                    <option key={h} value={h}>
-                      {hourLabel(h)}
-                    </option>
+                {/* tick dots */}
+                <div className="pointer-events-none absolute inset-x-[9px] top-1/2 -translate-y-1/2">
+                  {Array.from({ length: 10 }, (_, i) => (
+                    <span
+                      key={`tick-${i + 1}`}
+                      className={cn("absolute size-1 -translate-x-1/2 rounded-full", i + 1 <= cfg.per_day ? "bg-black/30" : "bg-white/25")}
+                      style={{ left: `${(i / 9) * 100}%` }}
+                    />
                   ))}
-                </select>
-                <span className="text-muted-foreground">→</span>
-                <select
-                  value={cfg.window_end}
-                  onChange={(e) => set({ window_end: e.target.value })}
-                  className="flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 outline-none"
-                >
-                  {HOURS.map((h) => (
-                    <option key={h} value={h}>
-                      {hourLabel(h)}
-                    </option>
-                  ))}
-                </select>
-                <span className="shrink-0 rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-xs text-muted-foreground">
-                  {cfg.tz.split("/").pop()?.replace("_", " ")}
-                </span>
-              </div>
-              {windowInvalid ? (
-                <p className="text-xs text-amber-300">End time must be after the start time.</p>
-              ) : null}
-            </div>
-          </Section>
-
-          {/* week preview */}
-          <div className="rounded-2xl border border-teal-400/15 bg-teal-400/[0.04] p-4">
-            <p className="mb-2.5 text-xs font-medium text-teal-300">
-              {cfg.per_day} {cfg.per_day === 1 ? "post" : "posts"}/day · {hourLabel(cfg.window_start)}–{hourLabel(cfg.window_end)}
-            </p>
-            <div className="grid grid-cols-7 gap-1.5">
-              {previewDays.map((d, i) => (
-                <div key={d.toISOString()} className={cn("rounded-lg py-1.5 text-center", i === 0 ? "bg-teal-400/15" : "bg-white/[0.04]")}>
-                  <p className="text-[10px] text-muted-foreground">{d.toLocaleDateString(undefined, { weekday: "short" })}</p>
-                  <p className="text-xs font-semibold tabular-nums">{d.getDate()}</p>
-                  <div className="mt-1 flex justify-center gap-0.5">
-                    {Array.from({ length: Math.min(cfg.per_day, 5) }, (_, j) => (
-                      <span key={`${d.toISOString()}-${j}`} className="size-1 rounded-full bg-teal-400/80" />
-                    ))}
-                    {cfg.per_day > 5 ? <span className="text-[8px] leading-none text-teal-300">+</span> : null}
-                  </div>
                 </div>
-              ))}
+              </div>
+              <div className="flex items-center gap-1 rounded-xl border border-white/10 px-1.5 py-1">
+                <button
+                  type="button"
+                  aria-label="Fewer posts"
+                  onClick={() => set({ per_day: Math.max(1, cfg.per_day - 1) })}
+                  className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+                >
+                  <Minus className="size-4" />
+                </button>
+                <span className="w-7 text-center text-base font-semibold tabular-nums">{cfg.per_day}</span>
+                <button
+                  type="button"
+                  aria-label="More posts"
+                  onClick={() => set({ per_day: Math.min(10, cfg.per_day + 1) })}
+                  className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+                >
+                  <Plus className="size-4" />
+                </button>
+              </div>
             </div>
-            <p className="mt-2.5 text-[11px] leading-relaxed text-muted-foreground">
-              Each post turns <span className="text-teal-300">ready to post</span> at its time. Direct auto-posting
-              arrives with connected accounts.
-            </p>
-          </div>
+            <div className="mt-2 flex justify-between pr-[120px] text-sm text-muted-foreground">
+              <span>1 clip</span>
+              <span>10 clips</span>
+            </div>
+          </section>
+
+          {/* schedule mode */}
+          <section>
+            <p className="mb-3 text-sm font-medium text-muted-foreground">Post schedule</p>
+            <RadioGroup
+              value={cfg.mode}
+              onValueChange={(v) => set({ mode: v as ScheduleConfig["mode"] })}
+              className="gap-4"
+            >
+              <label className="flex cursor-pointer items-center gap-3 text-[15px]">
+                <RadioGroupItem value="all" />
+                Until all clips are posted
+              </label>
+              <label className="flex cursor-pointer items-center gap-3 text-[15px]">
+                <RadioGroupItem value="days" />
+                Post for
+                <input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={cfg.days}
+                  onChange={(e) => set({ mode: "days", days: Math.max(1, Math.min(60, Number(e.target.value) || 1)) })}
+                  className="w-16 rounded-lg border border-white/15 bg-transparent px-2 py-1.5 text-center text-sm outline-none transition-colors focus:border-teal-400/60"
+                />
+                days
+              </label>
+            </RadioGroup>
+          </section>
+
+          {/* start date */}
+          <section>
+            <p className="mb-3 text-sm font-medium text-muted-foreground">Post start date</p>
+            <label className="flex items-center gap-3 rounded-xl border border-white/10 px-4 py-3 transition-colors focus-within:border-teal-400/50">
+              <Calendar className="size-4 shrink-0 text-muted-foreground" />
+              <input
+                type="date"
+                value={cfg.start_date}
+                min={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => set({ start_date: e.target.value })}
+                className="flex-1 bg-transparent text-[15px] outline-none [color-scheme:dark]"
+              />
+            </label>
+          </section>
+
+          {/* time window */}
+          <section>
+            <p className="mb-3 text-sm font-medium text-muted-foreground">Time to post</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <Select value={cfg.window_start} onValueChange={(v) => set({ window_start: v })}>
+                <SelectTrigger className="w-36 border-white/10 bg-transparent py-5">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="dark max-h-64">
+                  {HOURS.map((h) => (
+                    <SelectItem key={h} value={h}>
+                      {hourLabel(h)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="text-muted-foreground">to</span>
+              <Select value={cfg.window_end} onValueChange={(v) => set({ window_end: v })}>
+                <SelectTrigger className="w-36 border-white/10 bg-transparent py-5">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="dark max-h-64">
+                  {HOURS.map((h) => (
+                    <SelectItem key={h} value={h}>
+                      {hourLabel(h)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2.5 text-[15px] text-muted-foreground">
+                <Globe className="size-4" />
+                {cfg.tz.split("/").pop()?.replace("_", " ")}
+              </span>
+            </div>
+            {windowInvalid ? <p className="mt-2 text-sm text-amber-300">End time must be after the start time.</p> : null}
+          </section>
+
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            At each post's time it becomes <span className="text-teal-300">ready to post</span> in your queue. Direct
+            auto-posting to TikTok/YouTube arrives with connected accounts.
+          </p>
         </div>
 
-        <div className="border-t border-white/10 p-4">
+        <div className="px-7 pb-6">
           <button
             type="button"
             disabled={windowInvalid}
@@ -237,9 +239,9 @@ export function ScheduleModal({
               onSave({ ...cfg, enabled: true });
               onClose();
             }}
-            className="w-full rounded-xl bg-teal-400 py-3 text-sm font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-50"
+            className="w-full rounded-xl bg-teal-400 py-3.5 text-[15px] font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-50"
           >
-            Save schedule
+            Save
           </button>
         </div>
       </div>
