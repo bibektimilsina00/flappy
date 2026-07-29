@@ -13,8 +13,8 @@ import {
   Flame,
   FolderArchive,
   Loader2,
-  Pencil,
   RotateCcw,
+  Scissors,
   Sparkles,
   XCircle,
 } from "lucide-react";
@@ -701,13 +701,13 @@ function ClipRow({
               </button>
               <button
                 type="button"
-                aria-label="Edit clip"
+                aria-label="Trim clip"
                 title="Trim & captions"
                 disabled={clip.status === "rendering"}
                 onClick={onEdit}
                 className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
               >
-                <Pencil className="size-4" />
+                <Scissors className="size-4" />
               </button>
               <button
                 type="button"
