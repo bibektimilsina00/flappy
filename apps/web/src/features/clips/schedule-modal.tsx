@@ -100,25 +100,15 @@ export function ScheduleModal({
           <section>
             <p className="mb-3 text-sm font-medium text-muted-foreground">Post frequency per day</p>
             <div className="flex items-center gap-6">
-              <div className="relative flex-1">
-                <Slider
-                  min={1}
-                  max={10}
-                  step={1}
-                  value={[cfg.per_day]}
-                  onValueChange={([v]) => set({ per_day: v })}
-                />
-                {/* tick dots */}
-                <div className="pointer-events-none absolute inset-x-[9px] top-1/2 -translate-y-1/2">
-                  {Array.from({ length: 10 }, (_, i) => (
-                    <span
-                      key={`tick-${i + 1}`}
-                      className={cn("absolute size-1 -translate-x-1/2 rounded-full", i + 1 <= cfg.per_day ? "bg-black/30" : "bg-white/25")}
-                      style={{ left: `${(i / 9) * 100}%` }}
-                    />
-                  ))}
-                </div>
-              </div>
+              <Slider
+                min={1}
+                max={10}
+                step={1}
+                ticks={10}
+                value={[cfg.per_day]}
+                onValueChange={([v]) => set({ per_day: v })}
+                className="flex-1"
+              />
               <div className="flex items-center gap-1 rounded-xl border border-white/10 px-1.5 py-1">
                 <button
                   type="button"
