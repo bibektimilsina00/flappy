@@ -261,7 +261,7 @@ export function CaptionStylePicker({
         >
           <ChevronRight className="size-4" />
         </button>
-        <div ref={rowRef} className="flex snap-x gap-3 overflow-x-auto rounded-2xl border border-white/10 bg-[#161616] p-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div ref={rowRef} className="flex snap-x gap-3 overflow-x-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {tab === "featured" ? (
           <>
             {PRESET_META.map((p) =>

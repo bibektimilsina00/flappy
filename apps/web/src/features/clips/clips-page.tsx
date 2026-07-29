@@ -22,6 +22,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
+import { Checkbox } from "@/components/ui/checkbox";
 import { CaptionStylePicker } from "./caption-templates";
 import { defaultSchedule, ScheduleModal } from "./schedule-modal";
 import {
@@ -542,92 +543,87 @@ function ConfigPanel({
         </p>
       ) : null}
 
-      {/* fields */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <FieldSelect
-          label="Ratio"
-          value={params.ratio}
-          options={["9:16", "1:1", "16:9"]}
-          display={(v) => v}
-          onChange={(v) => setParams((p) => ({ ...p, ratio: v as ClipsParams["ratio"] }))}
-        />
-        <FieldSelect
-          label="Clip length"
-          value={params.duration}
-          options={["auto", "short", "medium", "long"]}
-          display={(v) =>
-            v === "auto" ? "Auto" : v === "short" ? "15–30s" : v === "medium" ? "30–60s" : "60–90s"
-          }
-          onChange={(v) => setParams((p) => ({ ...p, duration: v as ClipsParams["duration"] }))}
-        />
-        <FieldSelect
-          label="Clips"
-          value={String(params.count)}
-          options={["auto", "1", "2", "3", "5", "8", "10"]}
-          display={(v) => (v === "auto" ? "Auto" : v)}
-          onChange={(v) => setParams((p) => ({ ...p, count: v === "auto" ? "auto" : Number(v) }))}
-        />
-        <FieldSelect
-          label="Face framing"
-          value={params.framing ? "on" : "off"}
-          options={["on", "off"]}
-          display={(v) => (v === "on" ? "Auto" : "Off")}
-          onChange={(v) => setParams((p) => ({ ...p, framing: v === "on" }))}
-        />
-      </div>
+      {/* group 1: format + templates + caption extras — one clean surface */}
+      <div className="space-y-6 rounded-3xl border border-white/[0.05] bg-white/[0.02] p-6">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <FieldSelect
+            label="Ratio"
+            value={params.ratio}
+            options={["9:16", "1:1", "16:9"]}
+            display={(v) => v}
+            onChange={(v) => setParams((p) => ({ ...p, ratio: v as ClipsParams["ratio"] }))}
+          />
+          <FieldSelect
+            label="Clip length"
+            value={params.duration}
+            options={["auto", "short", "medium", "long"]}
+            display={(v) =>
+              v === "auto" ? "Auto" : v === "short" ? "15–30s" : v === "medium" ? "30–60s" : "60–90s"
+            }
+            onChange={(v) => setParams((p) => ({ ...p, duration: v as ClipsParams["duration"] }))}
+          />
+          <FieldSelect
+            label="Clips"
+            value={String(params.count)}
+            options={["auto", "1", "2", "3", "5", "8", "10"]}
+            display={(v) => (v === "auto" ? "Auto" : v)}
+            onChange={(v) => setParams((p) => ({ ...p, count: v === "auto" ? "auto" : Number(v) }))}
+          />
+          <FieldSelect
+            label="Face framing"
+            value={params.framing ? "on" : "off"}
+            options={["on", "off"]}
+            display={(v) => (v === "on" ? "Auto" : "Off")}
+            onChange={(v) => setParams((p) => ({ ...p, framing: v === "on" }))}
+          />
+        </div>
 
-      {/* caption templates */}
-      <div>
-        <p className="mb-2 text-sm font-medium">Caption style</p>
         <CaptionStylePicker
           captions={params.captions}
           style={params.caption_style}
           custom={params.caption_custom ?? null}
           onChange={(patch) => setParams((p) => ({ ...p, ...patch }))}
         />
+
+        <div className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-white/[0.06] pt-5 sm:grid-cols-3">
+          {(
+            [
+              ["add_emojis", "Add emojis", "AI drops a fitting emoji into key lines"],
+              ["highlight_keywords", "Highlight keywords", "AI colors the 1–2 words that matter"],
+              ["censor", "Auto-censor", "Masks profanity in captions"],
+            ] as const
+          ).map(([key, label, hint]) => (
+            <label key={key} className="flex cursor-pointer items-center gap-3 text-[15px]" title={hint}>
+              <Checkbox
+                checked={Boolean(params[key])}
+                onCheckedChange={(v) => setParams((p) => ({ ...p, [key]: v === true }))}
+              />
+              {label}
+            </label>
+          ))}
+        </div>
       </div>
 
-      {/* caption extras */}
-      <div className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 sm:grid-cols-3">
-        {(
-          [
-            ["add_emojis", "Add emojis", "AI drops a fitting emoji into key lines"],
-            ["highlight_keywords", "Highlight keywords", "AI colors the 1–2 words that matter"],
-            ["censor", "Auto-censor", "Masks profanity in captions"],
-          ] as const
-        ).map(([key, label, hint]) => (
-          <label key={key} className="flex cursor-pointer items-start gap-2.5" title={hint}>
-            <input
-              type="checkbox"
-              checked={Boolean(params[key])}
-              onChange={(e) => setParams((p) => ({ ...p, [key]: e.target.checked }))}
-              className="mt-0.5 size-4 shrink-0 accent-teal-400"
-            />
-            <span className="text-sm">{label}</span>
-          </label>
-        ))}
-      </div>
-
-      {/* focus */}
-      <div>
-        <p className="mb-1.5 text-sm font-medium">
-          Find clip moment <span className="font-normal text-muted-foreground">Optional</span>
+      {/* group 2: focus */}
+      <div className="rounded-3xl border border-white/[0.05] bg-white/[0.02] p-6">
+        <p className="mb-3 text-[15px] font-semibold">
+          Find clip moment <span className="ml-1 text-sm font-normal text-muted-foreground">Optional</span>
         </p>
         <input
           value={params.focus ?? ""}
           onChange={(e) => setParams((p) => ({ ...p, focus: e.target.value }))}
           placeholder="For example: when they talk about pricing strategy."
-          className="w-full rounded-xl border border-white/10 bg-[#161616] px-4 py-3 text-sm outline-none placeholder:text-muted-foreground/50 focus:border-teal-400/50"
+          className="w-full rounded-xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none placeholder:text-muted-foreground/50 focus:border-teal-400/50"
         />
       </div>
 
-      {/* auto-schedule */}
-      <div className="rounded-2xl border border-white/10 bg-[#161616] p-4">
+      {/* group 3: auto-schedule */}
+      <div className="rounded-3xl border border-white/[0.05] bg-white/[0.02] p-6">
         <div className="flex items-center justify-between">
           <span>
-            <span className="block text-sm font-medium">Schedule clips</span>
-            <span className="block text-xs text-muted-foreground">
-              Queue clips for posting automatically when they're ready. Save 1 step.
+            <span className="block text-[15px] font-semibold">Schedule clips</span>
+            <span className="mt-0.5 block text-sm text-muted-foreground">
+              Schedule automatically when clips are ready. Save 1 step.
             </span>
           </span>
           <Switch
@@ -641,22 +637,24 @@ function ConfigPanel({
           />
         </div>
         {params.schedule?.enabled ? (
-          <div className="mt-3 flex items-center gap-2">
-            <p className="flex-1 rounded-xl border border-white/10 bg-black/30 px-4 py-2.5 text-sm">
-              All clips will be scheduled from{" "}
-              <span className="font-semibold">
-                {new Date(`${params.schedule.start_date}T00:00`).toLocaleDateString()}
+          <div className="mt-4 flex items-stretch gap-3">
+            <p className="flex flex-1 items-center rounded-xl border border-white/10 px-4 py-3 text-[15px]">
+              <span>
+                All clips will be scheduled from{" "}
+                <span className="font-semibold">
+                  {new Date(`${params.schedule.start_date}T00:00`).toLocaleDateString()}
+                </span>
+                , at <span className="font-semibold">{params.schedule.per_day} clips/day</span>
+                {params.schedule.min_score ? (
+                  <span className="text-muted-foreground"> · score ≥ {params.schedule.min_score}</span>
+                ) : null}
+                .
               </span>
-              , at <span className="font-semibold">{params.schedule.per_day} clips/day</span>
-              {params.schedule.min_score ? (
-                <span className="text-muted-foreground"> · score ≥ {params.schedule.min_score}</span>
-              ) : null}
-              .
             </p>
             <button
               type="button"
               onClick={() => setScheduleOpen(true)}
-              className="flex shrink-0 items-center gap-1.5 rounded-xl border border-white/10 px-3.5 py-2.5 text-sm transition-colors hover:bg-white/5"
+              className="flex shrink-0 items-center gap-2 rounded-xl border border-white/10 px-4 text-sm transition-colors hover:bg-white/5"
             >
               <SlidersHorizontal className="size-4" />
               Settings
@@ -720,7 +718,7 @@ function FieldSelect({
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "flex w-full items-center justify-between gap-2 rounded-xl border bg-[#161616] px-4 py-3 text-sm transition-colors",
+          "flex w-full items-center justify-between gap-2 rounded-xl border bg-transparent px-4 py-3 text-sm transition-colors",
           open ? "border-teal-400/50" : "border-white/10 hover:border-white/20",
         )}
       >
