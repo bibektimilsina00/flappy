@@ -182,10 +182,10 @@ export function cancelScheduledPost(id: string): Promise<void> {
   return api(`/clips/schedule/${id}`, { method: "DELETE" });
 }
 
-export function clipsToProject(jobId: string, clipId?: string): Promise<{ workflow_id: string }> {
+export function clipsToProject(jobId: string, clipIds?: string[]): Promise<{ workflow_id: string }> {
   return api(`/clips/jobs/${jobId}/to-project`, {
     method: "POST",
-    body: JSON.stringify({ clip_id: clipId ?? null }),
+    body: JSON.stringify({ clip_ids: clipIds && clipIds.length ? clipIds : null }),
   });
 }
 

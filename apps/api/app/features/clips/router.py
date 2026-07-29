@@ -405,6 +405,7 @@ def _editor_doc_from_job(job: ClipsJob, clips: list[dict] | None = None) -> dict
 
 class ToProjectRequest(BaseModel):
     clip_id: str | None = None  # open just one clip in the editor
+    clip_ids: list[str] | None = None  # or a selection of clips
 
 
 @router.post("/jobs/{job_id}/to-project", status_code=201)
@@ -424,10 +425,13 @@ def to_project(
     from apps.api.app.features.workflows.models import Workflow
 
     job = repository.get(session, workspace_id, job_id)
-    clip_id = body.clip_id if body else None
-    selected = [c for c in (job.clips if job else []) or [] if c.get("key") and (clip_id is None or c.get("id") == clip_id)]
+    ids = (body.clip_ids if body and body.clip_ids else None) or ([body.clip_id] if body and body.clip_id else None)
+    selected = [c for c in (job.clips if job else []) or [] if c.get("key") and (ids is None or c.get("id") in ids)]
     if job is None or not selected:
         raise HTTPException(status_code=404, detail="No clips to open")
+    # Full-job opens reuse the linked project instead of creating duplicates.
+    if ids is None and job.workflow_id and workflows_repo.get(session, workspace_id, job.workflow_id):
+        return {"workflow_id": str(job.workflow_id)}
     nodes = [
         {
             "id": f"node-{uuid.uuid4()}",
@@ -446,7 +450,7 @@ def to_project(
         session,
         Workflow(
             workspace_id=workspace_id,
-            name=((selected[0].get("title") if clip_id else job.source_title) or "Clips")[:80],
+            name=((selected[0].get("title") if ids and len(selected) == 1 else job.source_title) or "Clips")[:80],
             graph={"nodes": nodes, "edges": []},
         ),
     )
@@ -461,7 +465,7 @@ def to_project(
             doc=_editor_doc_from_job(job, selected),
         ),
     )
-    if clip_id is None:
+    if ids is None:
         job.workflow_id = workflow.id
         repository.save(session, job)
     return {"workflow_id": str(workflow.id)}
