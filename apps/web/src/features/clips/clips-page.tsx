@@ -718,7 +718,7 @@ function FieldSelect({
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "flex w-full items-center justify-between gap-2 rounded-xl border bg-transparent px-4 py-3 text-sm transition-colors",
+          "flex w-full items-center justify-between gap-2 rounded-xl border bg-[#161616] px-4 py-3 text-sm transition-colors",
           open ? "border-teal-400/50" : "border-white/10 hover:border-white/20",
         )}
       >
