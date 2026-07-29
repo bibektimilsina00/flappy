@@ -42,21 +42,34 @@ PRESETS: dict[str, dict] = {
 SIZE_MAP = {"s": 13, "m": 16, "l": 20}
 
 
+FONT_ASS = {"inter": "Inter", "anton": "Anton", "bangers": "Bangers"}
+
+
 def resolve_style(style: "str | dict | None") -> dict:
     """Preset name or a custom template dict -> ASS parameters."""
     if isinstance(style, dict):
         base = hex_to_ass(str(style.get("color") or "#FFFFFF"))
+        stroke = style.get("stroke") or {}
+        box_color = str(style.get("box_color") or "#000000").lstrip("#")[:6] or "000000"
+        bb, gg, rr = box_color[4:6], box_color[2:4], box_color[0:2]
         return dict(
-            size=SIZE_MAP.get(str(style.get("size") or "m"), 16),
+            font=FONT_ASS.get(str(style.get("font") or "inter"), "Inter"),
+            size=int(style.get("size_px") or SIZE_MAP.get(str(style.get("size") or "m"), 16)),
             primary=hex_to_ass(str(style.get("highlight") or style.get("color") or "#14B8A6")),
             secondary=base,
-            outline_c="&H00000000",
-            back="&H60000000" if style.get("box") else "&H00000000",
+            outline_c=hex_to_ass(str(stroke.get("color") or "#000000")),
+            back=f"&H60{bb}{gg}{rr}".upper() if style.get("box") else "&H00000000",
             bold=1 if style.get("bold", True) else 0,
+            italic=1 if style.get("italic") else 0,
+            underline=1 if style.get("underline") else 0,
+            spacing=int(style.get("spacing") or 0),
+            shadow=2 if style.get("shadow") else 0,
             border=4 if style.get("box") else 1,
-            outline=1 if style.get("box") else 2,
+            outline=1 if style.get("box") else max(0, min(4, int(stroke.get("width", 2)))),
             upper=bool(style.get("uppercase")),
             middle=style.get("position") == "middle",
+            align=str(style.get("align") or "center"),
+            words_per_line=max(1, min(8, int(style.get("words_per_line") or 4))),
         )
     return PRESETS.get(str(style or "clean"), PRESETS["clean"])
 
@@ -87,13 +100,13 @@ def _words_or_even(seg: dict) -> list[dict]:
     ]
 
 
-def _lines(segments: list[dict], clip_start: float, clip_end: float) -> list[tuple[float, float, list[dict]]]:
+def _lines(segments: list[dict], clip_start: float, clip_end: float, max_words: int = MAX_WORDS_PER_LINE) -> list[tuple[float, float, list[dict]]]:
     """Short-form line groups (<= MAX_WORDS_PER_LINE words), times clip-relative."""
     out = []
     for seg in segments:
         words = _words_or_even(seg)
-        for i in range(0, len(words), MAX_WORDS_PER_LINE):
-            group = words[i : i + MAX_WORDS_PER_LINE]
+        for i in range(0, len(words), max_words):
+            group = words[i : i + max_words]
             s = max(0.0, group[0]["s"] - clip_start)
             e = min(clip_end - clip_start, group[-1]["e"] - clip_start)
             if e <= s:
@@ -121,17 +134,18 @@ def build_ass(
     `style` is a preset name or a custom template dict. A custom dict with
     headline.enabled burns `headline_text` as a top banner for the whole clip.
     `edits` (absolute-time [{start,end,text}]) replaces the transcript slice."""
+    p = resolve_style(style)
     sub_enabled = not (isinstance(style, dict) and style.get("subtitles") is False)
     segments = (edits if edits else _clip_segments(transcript, start, end)) if sub_enabled else []
-    lines = _lines(segments, start, end) if sub_enabled else []
+    lines = _lines(segments, start, end, p.get("words_per_line", MAX_WORDS_PER_LINE)) if sub_enabled else []
     headline = (style.get("headline") if isinstance(style, dict) else None) or {}
     show_headline = bool(headline.get("enabled")) and bool((headline_text or "").strip())
     if not lines and not show_headline:
         return None
 
-    p = resolve_style(style)
     fontsize = round(height * p["size"] / 400)  # style sizes are per 400px of height
-    alignment = 5 if p.get("middle") else 2  # middle-center vs bottom-center
+    align_base = {"left": 1, "center": 2, "right": 3}.get(p.get("align", "center"), 2)
+    alignment = align_base + 3 if p.get("middle") else align_base  # middle row vs bottom row
     margin_v = 0 if p.get("middle") else round(height * 0.16)
 
     header = (
@@ -141,8 +155,9 @@ def build_ass(
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
         "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
         "Alignment, MarginL, MarginR, MarginV, Encoding\n"
-        f"Style: Cap,{FONT_NAME},{fontsize},{p['primary']},{p['secondary']},{p['outline_c']},{p['back']},"
-        f"{-1 if p['bold'] else 0},0,0,0,100,100,0,0,{p['border']},{p['outline']},0,{alignment},40,40,{margin_v},1\n"
+        f"Style: Cap,{p.get('font', FONT_NAME)},{fontsize},{p['primary']},{p['secondary']},{p['outline_c']},{p['back']},"
+        f"{-1 if p['bold'] else 0},{-1 if p.get('italic') else 0},{-1 if p.get('underline') else 0},0,100,100,"
+        f"{p.get('spacing', 0)},0,{p['border']},{p['outline']},{p.get('shadow', 0)},{alignment},40,40,{margin_v},1\n"
     )
     if show_headline:
         head_size = round(height * 15 / 400)

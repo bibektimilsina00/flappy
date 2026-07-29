@@ -25,7 +25,7 @@ interface Line {
 
 // Mirror of the server ASS builder: 4-word lines, evenly spread when a
 // segment was hand-edited (word timings lost).
-function buildLines(transcript: TranscriptSegment[], clip: ClipItem): Line[] {
+function buildLines(transcript: TranscriptSegment[], clip: ClipItem, maxWords = 4): Line[] {
   const segments = clip.caption_edits?.length
     ? clip.caption_edits.map((s) => ({ ...s, words: [] as Word[] }))
     : transcript.filter((s) => s.end > clip.start && s.start < clip.end);
@@ -42,8 +42,8 @@ function buildLines(transcript: TranscriptSegment[], clip: ClipItem): Line[] {
       const span = (e0 - s0) / tokens.length;
       words = tokens.map((t, i) => ({ w: t, s: s0 + i * span, e: s0 + (i + 1) * span }));
     }
-    for (let i = 0; i < words.length; i += 4) {
-      const group = words.slice(i, i + 4).map((w) => ({ ...w, s: w.s - clip.start, e: w.e - clip.start }));
+    for (let i = 0; i < words.length; i += maxWords) {
+      const group = words.slice(i, i + maxWords).map((w) => ({ ...w, s: w.s - clip.start, e: w.e - clip.start }));
       const s = Math.max(0, group[0].s);
       const e = Math.min(clip.end - clip.start, group[group.length - 1].e);
       if (e > s) lines.push({ s, e, words: group });
@@ -79,9 +79,10 @@ export function ClipPlayer({
   // overlaying would show them twice, so the caption layer is clean-only.
   const captionable = clip.clean === true;
   const subtitlesOff = cc.style === "custom" && customStyle?.subtitles === false;
+  const wpl = cc.style === "custom" ? (customStyle?.words_per_line ?? 4) : 4;
   const lines = useMemo(
-    () => (captionable && !subtitlesOff ? buildLines(transcript, clip) : []),
-    [captionable, subtitlesOff, transcript, clip],
+    () => (captionable && !subtitlesOff ? buildLines(transcript, clip, wpl) : []),
+    [captionable, subtitlesOff, transcript, clip, wpl],
   );
   const line = captionable && cc.on ? lines.find((l) => t >= l.s && t <= l.e) : undefined;
 

@@ -175,3 +175,8 @@
   0% { transform: translateX(-120%); }
   100% { transform: translateX(320%); }
 }
+
+/* Caption fonts (also bundled server-side for burning) */
+@font-face { font-family: "Anton"; src: url("/fonts/Anton.ttf"); font-display: swap; }
+@font-face { font-family: "Bangers"; src: url("/fonts/Bangers.ttf"); font-display: swap; }
+@font-face { font-family: "InterCap"; src: url("/fonts/Inter.ttf"); font-display: swap; }

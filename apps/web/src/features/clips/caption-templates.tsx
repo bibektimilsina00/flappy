@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, X } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, ArrowLeft, Bold, Check, ChevronLeft, ChevronRight, Italic, Minus, Pencil, Plus, Trash2, Underline, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/cn";
@@ -32,13 +32,26 @@ export interface ResolvedCaptionCss {
 export function captionCss(style: string, custom?: CustomCaptionStyle | null, scale = 1): ResolvedCaptionCss {
   const px = (n: number) => `${Math.round(n * scale)}px`;
   if (style === "custom" && custom) {
+    const fonts = { inter: "InterCap, Inter, sans-serif", anton: "Anton, sans-serif", bangers: "Bangers, cursive" };
+    const strokeW = custom.stroke?.width ?? 0;
+    const shadows = [
+      custom.shadow ? "2px 2px 4px rgba(0,0,0,0.85)" : null,
+      !custom.box && !custom.shadow && strokeW === 0 ? "0 1px 3px rgba(0,0,0,0.9)" : null,
+    ].filter(Boolean);
     return {
       base: {
         color: custom.color,
-        fontSize: px(SIZE_PX[custom.size] ?? 12),
+        fontFamily: fonts[custom.font ?? "inter"],
+        fontSize: px(custom.size_px ? custom.size_px * 0.72 : (SIZE_PX[custom.size] ?? 12)),
         fontWeight: custom.bold ? 700 : 500,
+        fontStyle: custom.italic ? "italic" : "normal",
+        textDecoration: custom.underline ? "underline" : "none",
+        letterSpacing: custom.spacing ? `${custom.spacing * 0.5}px` : undefined,
+        textAlign: custom.align ?? "center",
         textTransform: custom.uppercase ? "uppercase" : "none",
-        textShadow: custom.box ? "none" : "0 1px 3px rgba(0,0,0,0.9)",
+        textShadow: shadows.length ? shadows.join(", ") : undefined,
+        WebkitTextStroke: strokeW > 0 && !custom.box ? `${strokeW * 0.35}px ${custom.stroke?.color ?? "#000"}` : undefined,
+        background: custom.box ? `${custom.box_color ?? "#000000"}99` : undefined,
       },
       active: { color: custom.highlight },
       className: "",
@@ -133,7 +146,7 @@ export function CaptionSample({
   const words = text.split(" ");
   return (
     <span
-      className={cn("max-w-full text-center leading-snug", css.boxed && "rounded bg-black/60 px-1.5 py-0.5")}
+      className={cn("max-w-full text-center leading-snug", css.boxed && "rounded px-1.5 py-0.5", css.boxed && !css.base.background && "bg-black/60")}
       style={css.base}
     >
       {words.map((w, i) => (
@@ -460,6 +473,10 @@ function TemplateEditor({
         <div className="grid min-h-0 flex-1 md:grid-cols-[1fr_280px]">
           {/* controls */}
           <div className="min-h-0 space-y-6 overflow-y-auto p-6 [scrollbar-width:thin]">
+            {advanced ? (
+              <AdvancedPanel def={def} set={set} onBack={() => setAdvanced(false)} />
+            ) : (
+            <>
             <input
               value={def.name}
               onChange={(e) => set({ name: e.target.value })}
@@ -542,53 +559,12 @@ function TemplateEditor({
                   </div>
                   <button
                     type="button"
-                    onClick={() => setAdvanced((v) => !v)}
+                    onClick={() => setAdvanced(true)}
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/5 py-2.5 text-sm text-foreground/90 transition-colors hover:bg-white/10"
                   >
                     <Pencil className="size-3.5" />
                     Advanced settings
                   </button>
-                  {advanced ? (
-                    <div className="space-y-3 rounded-xl border border-white/10 p-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <label className="block text-xs">
-                          <span className="mb-1 block text-muted-foreground">Text color</span>
-                          <input type="color" value={def.color} onChange={(e) => set({ color: e.target.value })} className="h-9 w-full cursor-pointer rounded-lg border border-white/10 bg-[#161616] p-1" />
-                        </label>
-                        <label className="block text-xs">
-                          <span className="mb-1 block text-muted-foreground">Active word</span>
-                          <input type="color" value={def.highlight} onChange={(e) => set({ highlight: e.target.value })} className="h-9 w-full cursor-pointer rounded-lg border border-white/10 bg-[#161616] p-1" />
-                        </label>
-                        <label className="block text-xs">
-                          <span className="mb-1 block text-muted-foreground">Size</span>
-                          <select value={def.size} onChange={(e) => set({ size: e.target.value as CustomCaptionStyle["size"] })} className="w-full rounded-lg border border-white/10 bg-[#161616] px-2 py-2 outline-none">
-                            <option value="s">Small</option>
-                            <option value="m">Medium</option>
-                            <option value="l">Large</option>
-                          </select>
-                        </label>
-                        <div className="flex flex-col justify-end gap-2 pb-1 text-xs">
-                          {(
-                            [
-                              ["bold", "Bold"],
-                              ["uppercase", "UPPERCASE"],
-                              ["box", "Background box"],
-                            ] as const
-                          ).map(([key, label]) => (
-                            <label key={key} className="flex cursor-pointer items-center gap-1.5">
-                              <input
-                                type="checkbox"
-                                checked={Boolean(def[key])}
-                                onChange={(e) => set({ [key]: e.target.checked } as Partial<CustomCaptionStyle>)}
-                                className="size-3.5 accent-teal-400"
-                              />
-                              {label}
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -674,6 +650,8 @@ function TemplateEditor({
               )}
               {logoError ? <p className="mt-1.5 text-xs text-amber-300">{logoError}</p> : null}
             </div>
+            </>
+            )}
           </div>
 
           {/* phone preview */}
@@ -738,6 +716,259 @@ function TemplateEditor({
             Save & use
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+
+// Vizard-style advanced typography panel (sub-view of the template editor).
+function AdvancedPanel({
+  def,
+  set,
+  onBack,
+}: {
+  def: CustomCaptionStyle;
+  set: (patch: Partial<CustomCaptionStyle>) => void;
+  onBack: () => void;
+}) {
+  const strokeOn = (def.stroke?.width ?? 0) > 0;
+  const highlightOn = def.highlight !== def.color;
+  const Tool = ({
+    active,
+    label,
+    onClick,
+    children,
+  }: {
+    active?: boolean;
+    label: string;
+    onClick: () => void;
+    children: React.ReactNode;
+  }) => (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      onClick={onClick}
+      className={cn(
+        "grid size-9 place-items-center rounded-lg text-sm transition-colors",
+        active ? "bg-white/15 text-foreground" : "text-muted-foreground hover:bg-white/5 hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
+  );
+  const Row = ({ label, action, children }: { label: string; action: React.ReactNode; children?: React.ReactNode }) => (
+    <div className="border-t border-white/[0.07] py-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium">{label}</p>
+        {action}
+      </div>
+      {children}
+    </div>
+  );
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onBack}
+        className="mb-5 flex items-center gap-2 text-[15px] font-semibold transition-colors hover:text-teal-300"
+      >
+        <ArrowLeft className="size-4" /> Advanced settings
+      </button>
+
+      {/* basic */}
+      <p className="mb-2.5 text-sm font-medium text-muted-foreground">Basic</p>
+      <select
+        value={def.font ?? "inter"}
+        onChange={(e) => set({ font: e.target.value as CustomCaptionStyle["font"] })}
+        className="mb-2.5 w-full rounded-xl border border-white/10 bg-[#161616] px-4 py-3 text-sm font-semibold outline-none"
+        style={{ fontFamily: { inter: "InterCap", anton: "Anton", bangers: "Bangers" }[def.font ?? "inter"] }}
+      >
+        <option value="inter">Inter</option>
+        <option value="anton">Anton</option>
+        <option value="bangers">Bangers</option>
+      </select>
+
+      <div className="mb-2.5 flex flex-wrap items-center gap-2">
+        <select
+          value={String(def.size_px ?? 16)}
+          onChange={(e) => set({ size_px: Number(e.target.value) })}
+          className="rounded-xl border border-white/10 bg-[#161616] px-3 py-2 text-sm outline-none"
+        >
+          {[13, 15, 17, 19, 22, 25, 28].map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+        <span className="flex rounded-xl border border-white/10 bg-[#161616] p-0.5">
+          <Tool active={(def.align ?? "center") === "left"} label="Align left" onClick={() => set({ align: "left" })}>
+            <AlignLeft className="size-4" />
+          </Tool>
+          <Tool active={(def.align ?? "center") === "center"} label="Align center" onClick={() => set({ align: "center" })}>
+            <AlignCenter className="size-4" />
+          </Tool>
+          <Tool active={(def.align ?? "center") === "right"} label="Align right" onClick={() => set({ align: "right" })}>
+            <AlignRight className="size-4" />
+          </Tool>
+        </span>
+        <span className="flex rounded-xl border border-white/10 bg-[#161616] p-0.5">
+          <Tool active={def.bold} label="Bold" onClick={() => set({ bold: !def.bold })}>
+            <Bold className="size-4" />
+          </Tool>
+          <Tool active={def.italic} label="Italic" onClick={() => set({ italic: !def.italic })}>
+            <Italic className="size-4" />
+          </Tool>
+          <Tool active={def.underline} label="Underline" onClick={() => set({ underline: !def.underline })}>
+            <Underline className="size-4" />
+          </Tool>
+        </span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="flex rounded-xl border border-white/10 bg-[#161616] p-0.5">
+          <Tool active={!def.uppercase} label="Normal case" onClick={() => set({ uppercase: false })}>
+            Aa
+          </Tool>
+          <Tool active={def.uppercase} label="Uppercase" onClick={() => set({ uppercase: true })}>
+            AB
+          </Tool>
+        </span>
+        <label className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#161616] px-3 py-2 text-sm text-muted-foreground">
+          <span className="underline">A</span>
+          <select
+            value={String(def.spacing ?? 0)}
+            onChange={(e) => set({ spacing: Number(e.target.value) })}
+            className="bg-transparent text-foreground outline-none"
+          >
+            {[0, 1, 2, 4].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="grid size-9 cursor-pointer place-items-center rounded-full border border-white/15">
+          <input
+            type="color"
+            value={def.color}
+            onChange={(e) => set({ color: e.target.value })}
+            className="size-6 cursor-pointer rounded-full border-none bg-transparent p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-none"
+          />
+        </label>
+      </div>
+
+      <div className="mt-4 border-t border-white/[0.07] pt-4">
+        <select
+          value={String(def.words_per_line ?? 4)}
+          onChange={(e) => set({ words_per_line: Number(e.target.value) })}
+          className="w-full rounded-xl border border-white/10 bg-[#161616] px-4 py-3 text-sm outline-none"
+        >
+          <option value="2">Short lines — 2 words per screen</option>
+          <option value="3">3 words per screen</option>
+          <option value="4">1 line per screen</option>
+          <option value="8">2 lines per screen</option>
+        </select>
+      </div>
+
+      <div className="mt-2">
+        <Row
+          label="Shadow"
+          action={
+            <button
+              type="button"
+              aria-label={def.shadow ? "Remove shadow" : "Add shadow"}
+              onClick={() => set({ shadow: !def.shadow })}
+              className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+            >
+              {def.shadow ? <Minus className="size-4" /> : <Plus className="size-4" />}
+            </button>
+          }
+        />
+        <Row
+          label="Stroke"
+          action={
+            <div className="flex items-center gap-2">
+              {strokeOn ? (
+                <>
+                  <select
+                    value={String(def.stroke?.width ?? 2)}
+                    onChange={(e) => set({ stroke: { color: def.stroke?.color ?? "#000000", width: Number(e.target.value) } })}
+                    className="rounded-lg border border-white/10 bg-[#161616] px-2 py-1.5 text-sm outline-none"
+                  >
+                    {[1, 2, 3, 4].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="color"
+                    value={def.stroke?.color ?? "#000000"}
+                    onChange={(e) => set({ stroke: { width: def.stroke?.width ?? 2, color: e.target.value } })}
+                    className="size-8 cursor-pointer rounded-full border border-white/15 bg-transparent p-0.5 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-none"
+                  />
+                </>
+              ) : null}
+              <button
+                type="button"
+                aria-label={strokeOn ? "Remove stroke" : "Add stroke"}
+                onClick={() => set({ stroke: strokeOn ? { width: 0, color: def.stroke?.color ?? "#000000" } : { width: 2, color: "#000000" } })}
+                className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+              >
+                {strokeOn ? <Minus className="size-4" /> : <Plus className="size-4" />}
+              </button>
+            </div>
+          }
+        />
+        <Row
+          label="Highlight"
+          action={
+            <div className="flex items-center gap-2">
+              {highlightOn ? (
+                <input
+                  type="color"
+                  value={def.highlight}
+                  onChange={(e) => set({ highlight: e.target.value })}
+                  className="size-8 cursor-pointer rounded-full border border-white/15 bg-transparent p-0.5 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-none"
+                />
+              ) : null}
+              <button
+                type="button"
+                aria-label={highlightOn ? "Remove highlight" : "Add highlight"}
+                onClick={() => set({ highlight: highlightOn ? def.color : "#2DD4BF" })}
+                className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+              >
+                {highlightOn ? <Minus className="size-4" /> : <Plus className="size-4" />}
+              </button>
+            </div>
+          }
+        />
+        <Row
+          label="Background"
+          action={
+            <div className="flex items-center gap-2">
+              {def.box ? (
+                <input
+                  type="color"
+                  value={def.box_color ?? "#000000"}
+                  onChange={(e) => set({ box_color: e.target.value })}
+                  className="size-8 cursor-pointer rounded-full border border-white/15 bg-transparent p-0.5 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-none"
+                />
+              ) : null}
+              <button
+                type="button"
+                aria-label={def.box ? "Remove background" : "Add background"}
+                onClick={() => set({ box: !def.box })}
+                className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+              >
+                {def.box ? <Minus className="size-4" /> : <Plus className="size-4" />}
+              </button>
+            </div>
+          }
+        />
       </div>
     </div>
   );

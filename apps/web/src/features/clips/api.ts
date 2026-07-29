@@ -53,6 +53,16 @@ export interface CustomCaptionStyle {
   // top banner with the clip title, burned for the whole clip ("none" bg = outlined text)
   headline?: { enabled: boolean; bg: string; color: string };
   layout?: "auto" | "fill" | "fit"; // fit letterboxes onto `bg`
+  font?: "inter" | "anton" | "bangers";
+  size_px?: number; // overrides size when set (ASS units per 400px height)
+  align?: "left" | "center" | "right";
+  italic?: boolean;
+  underline?: boolean;
+  spacing?: number; // letter spacing (ASS units)
+  words_per_line?: number; // caption line density (2-8)
+  shadow?: boolean;
+  stroke?: { width: number; color: string }; // outline; width 0 = off
+  box_color?: string; // background box colour
   bg?: string; // letterbox colour for fit layout
   logo?: string | null; // data URL, overlaid top-right on burns + player
   subtitles?: boolean; // false = headline/logo only
