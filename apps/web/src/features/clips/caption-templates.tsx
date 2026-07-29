@@ -192,7 +192,7 @@ export function CaptionStylePicker({
       type="button"
       onClick={onClick}
       className={cn(
-        "group relative h-[250px] w-[148px] shrink-0 overflow-hidden rounded-2xl border-2 text-left transition-all",
+        "group relative h-[250px] w-[148px] shrink-0 snap-start overflow-hidden rounded-2xl border-2 text-left transition-all",
         active ? "border-teal-400 shadow-[0_0_20px_-6px_rgba(45,212,191,0.5)]" : "border-white/10 hover:border-white/30",
       )}
     >
@@ -232,10 +232,10 @@ export function CaptionStylePicker({
             type="button"
             onClick={() => setTab(t.id)}
             className={cn(
-              "-mb-px rounded-t-xl border px-4 py-2.5 text-sm transition-colors",
+              "-mb-px rounded-t-2xl border px-5 py-3 text-sm transition-all",
               tab === t.id
-                ? "relative z-10 border-white/10 border-b-transparent bg-[#161616] font-medium text-foreground"
-                : "border-white/10 bg-white/[0.02] text-muted-foreground hover:text-foreground",
+                ? "relative z-10 border-white/15 border-b-transparent bg-[#161616] font-semibold text-foreground"
+                : "translate-y-[3px] border-white/[0.07] bg-white/[0.015] pb-2 text-muted-foreground/70 hover:bg-white/[0.05] hover:text-foreground",
             )}
           >
             {t.label}
@@ -243,7 +243,7 @@ export function CaptionStylePicker({
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-3 rounded-xl rounded-tl-none border border-white/10 bg-[#161616] p-4">
+      <div className="flex snap-x gap-3 overflow-x-auto rounded-xl rounded-tl-none border border-white/15 bg-[#161616] p-4 [scrollbar-width:thin]">
         {tab === "featured" ? (
           <>
             {PRESET_META.map((p) =>
@@ -285,7 +285,7 @@ export function CaptionStylePicker({
             <button
               type="button"
               onClick={() => setEditing("new")}
-              className="grid h-[250px] w-[148px] shrink-0 place-items-center rounded-2xl border-2 border-dashed border-white/15 text-muted-foreground transition-colors hover:border-teal-400/50 hover:text-teal-300"
+              className="grid h-[250px] w-[148px] shrink-0 snap-start place-items-center rounded-2xl border-2 border-dashed border-white/15 text-muted-foreground transition-colors hover:border-teal-400/50 hover:text-teal-300"
             >
               <span className="flex flex-col items-center gap-1.5 text-xs">
                 <Plus className="size-5" />
