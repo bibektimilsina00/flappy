@@ -40,5 +40,11 @@ class Settings(BaseSettings):
     # Assistant model (empty -> openrouter/free, which works on the free tier).
     assistant_model: str = ""
 
+    # Clips (video repurposing) — CLIPS-PLAN.md
+    clips_whisper_model: str = "small"
+    clips_select_model: str = ""  # empty -> default text model
+    clips_credits_select: float = 1.0
+    clips_credits_per_clip: float = 2.0
+
 
 settings = Settings()

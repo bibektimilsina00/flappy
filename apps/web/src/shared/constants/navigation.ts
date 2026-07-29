@@ -7,6 +7,7 @@ import {
   Images,
   LayoutTemplate,
   type LucideIcon,
+  Scissors,
   Search,
   Settings,
 } from "lucide-react";
@@ -20,6 +21,7 @@ export interface NavItemDef {
 export const PRIMARY_NAV: NavItemDef[] = [
   { label: "Home", icon: Home, href: "/dashboard" },
   { label: "Canvas", icon: Component, href: "/canvas" },
+  { label: "Clips", icon: Scissors, href: "/clips" },
   { label: "Explore", icon: Compass, href: "/explore" },
   { label: "Search", icon: Search, href: "/search" },
 ];
