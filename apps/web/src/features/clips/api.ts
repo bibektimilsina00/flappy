@@ -30,9 +30,11 @@ export interface ClipsJob {
   error: string | null;
   source_url: string | null;
   source_title: string | null;
+  source_thumb_url: string | null;
   params: Record<string, unknown>;
   duration: number | null;
   created_at: string;
+  phase_started_at: string | null;
   clips: ClipItem[];
   transcript?: TranscriptSegment[]; // only on single-job GET
 }

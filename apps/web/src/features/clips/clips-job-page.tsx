@@ -27,20 +27,29 @@ import {
 import { ClipEditModal } from "./clip-edit-modal";
 
 const PHASES = [
-  { key: "ingest", label: "Fetch" },
-  { key: "transcribe", label: "Transcribe" },
-  { key: "select", label: "Pick moments" },
-  { key: "render", label: "Render" },
+  { key: "ingest", label: "Fetch", hint: "usually under a minute" },
+  { key: "transcribe", label: "Transcribe", hint: "the long one — roughly the video's length" },
+  { key: "select", label: "Pick moments", hint: "about 15 seconds" },
+  { key: "render", label: "Render", hint: "a few seconds per clip" },
 ] as const;
 
 const PHASE_CAPTION: Record<string, string> = {
   ingest: "Fetching and preparing the source video…",
   transcribe: "Listening to the audio and writing the transcript…",
   select: "Reading the transcript to find the strongest moments…",
-  render: "Cutting and framing your clips…",
+  render: "Cutting, framing, and captioning your clips…",
 };
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+const eta = (startedAt: string | null, progress: number): string | null => {
+  if (!startedAt || progress < 0.04) return null;
+  const elapsed = (Date.now() - new Date(startedAt).getTime()) / 1000;
+  const left = elapsed * (1 - progress) / progress;
+  if (!Number.isFinite(left) || left < 0) return null;
+  if (left < 60) return `~${Math.max(5, Math.round(left / 5) * 5)}s left`;
+  return `~${Math.round(left / 60)}m left`;
+};
 
 function triggerDownload(href: string, name: string) {
   const a = document.createElement("a");
@@ -110,14 +119,23 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
       ) : (
         <>
           <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
-            <div className="min-w-0">
-              <h1 className="mb-1 truncate text-xl font-bold">
-                {job.source_title ?? job.source_url ?? "Uploaded video"}
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {job.duration ? `${fmt(job.duration)} source · ` : ""}
-                {job.status === "completed" ? `${job.clips.length} clips` : job.status}
-              </p>
+            <div className="flex min-w-0 items-center gap-4">
+              {job.source_thumb_url ? (
+                // biome-ignore lint/a11y/useAltText: source poster
+                <img src={job.source_thumb_url} className="h-16 w-28 shrink-0 rounded-lg border border-border object-cover" />
+              ) : null}
+              <div className="min-w-0">
+                <h1 className="mb-1 truncate text-xl font-bold">
+                  {job.source_title ?? job.source_url ?? "Uploaded video"}
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  {job.duration ? `${fmt(job.duration)} source · ` : ""}
+                  {job.status === "completed" ? `${job.clips.length} clips` : job.status}
+                  {" · "}
+                  {String((job.params as { ratio?: string }).ratio ?? "9:16")}
+                  {(job.params as { captions?: boolean }).captions !== false ? " · captions" : ""}
+                </p>
+              </div>
             </div>
             {job.status === "completed" && job.clips.length > 0 ? (
               <div className="flex gap-2">
@@ -186,41 +204,131 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
 
 function PhaseTracker({ job }: { job: ClipsJob }) {
   const current = PHASES.findIndex((p) => p.key === job.phase);
+  const hasBar = (job.phase === "transcribe" || job.phase === "render") && job.progress > 0;
+  // 1s tick keeps the ETA breathing between 2s polls.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const left = eta(job.phase_started_at, job.progress);
+
   return (
-    <div className="rounded-2xl border border-border bg-card p-8">
-      <div className="mb-6 flex items-center">
-        {PHASES.map((phase, i) => (
-          <div key={phase.key} className={cn("flex items-center", i > 0 && "flex-1")}>
-            {i > 0 ? (
-              <div className={cn("mx-2 h-px flex-1", i <= current ? "bg-teal-400" : "bg-border")} />
-            ) : null}
-            <div className="flex flex-col items-center gap-1.5">
-              <span
-                className={cn(
-                  "grid size-8 place-items-center rounded-full text-xs font-semibold",
-                  i < current
-                    ? "bg-teal-400 text-black"
-                    : i === current
-                      ? "border-2 border-teal-400 text-teal-400"
-                      : "border border-border text-muted-foreground",
-                )}
-              >
-                {i < current ? <Check className="size-4" /> : i === current ? <Loader2 className="size-4 animate-spin" /> : i + 1}
-              </span>
-              <span className={cn("text-xs", i <= current ? "text-foreground" : "text-muted-foreground")}>
-                {phase.label}
-              </span>
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-border bg-card p-8">
+        <div className="mb-6 flex items-center">
+          {PHASES.map((phase, i) => (
+            <div key={phase.key} className={cn("flex items-center", i > 0 && "flex-1")}>
+              {i > 0 ? (
+                <div className={cn("mx-2 h-px flex-1", i <= current ? "bg-teal-400" : "bg-border")} />
+              ) : null}
+              <div className="flex flex-col items-center gap-1.5">
+                <span
+                  className={cn(
+                    "grid size-8 place-items-center rounded-full text-xs font-semibold",
+                    i < current
+                      ? "bg-teal-400 text-black"
+                      : i === current
+                        ? "border-2 border-teal-400 text-teal-400"
+                        : "border border-border text-muted-foreground",
+                  )}
+                >
+                  {i < current ? <Check className="size-4" /> : i === current ? <Loader2 className="size-4 animate-spin" /> : i + 1}
+                </span>
+                <span className={cn("text-xs", i <= current ? "text-foreground" : "text-muted-foreground")}>
+                  {phase.label}
+                </span>
+                <span className={cn("text-[10px]", i === current ? "text-muted-foreground" : "text-transparent")}>
+                  {i === current ? ((hasBar && left) || phase.hint) : "·"}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {hasBar ? (
+          <div className="mx-auto mb-4 max-w-xl">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-teal-400 transition-[width] duration-700"
+                style={{ width: `${Math.round(job.progress * 100)}%` }}
+              />
+            </div>
+            <div className="mt-1.5 flex justify-between text-[11px] text-muted-foreground">
+              <span>{Math.round(job.progress * 100)}%</span>
+              {left ? <span>{left}</span> : null}
             </div>
           </div>
+        ) : null}
+
+        <p className="text-center text-sm text-muted-foreground">{PHASE_CAPTION[job.phase]}</p>
+        <p className="mt-1 text-center text-xs text-muted-foreground/60">
+          You can leave this page — the job keeps running and shows up under Recent.
+        </p>
+      </div>
+
+      {job.phase === "transcribe" && job.transcript && job.transcript.length > 0 ? (
+        <TranscriptFeed segments={job.transcript} />
+      ) : null}
+
+      {job.phase === "render" ? <RenderingGallery job={job} /> : null}
+    </div>
+  );
+}
+
+// Live transcript peek: the latest lines fade in as whisper works.
+function TranscriptFeed({ segments }: { segments: NonNullable<ClipsJob["transcript"]> }) {
+  const latest = segments.slice(-4);
+  const words = segments.reduce((n, s) => n + s.text.split(/\s+/).length, 0);
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <div className="mb-3 flex items-center justify-between text-xs text-muted-foreground">
+        <span className="font-medium text-foreground/80">Live transcript</span>
+        <span>
+          {segments.length} segments · ~{words} words
+        </span>
+      </div>
+      <div className="space-y-1.5">
+        {latest.map((seg) => (
+          <p key={`${seg.start}`} className="animate-in fade-in-0 text-sm text-muted-foreground duration-500">
+            <span className="mr-2 text-[11px] tabular-nums text-muted-foreground/50">{fmt(seg.start)}</span>
+            {seg.text}
+          </p>
         ))}
       </div>
-      <p className="text-center text-sm text-muted-foreground">
-        {PHASE_CAPTION[job.phase]}
-        {job.phase === "render" && job.progress > 0 ? ` (${Math.round(job.progress * 100)}%)` : ""}
-      </p>
-      <p className="mt-1 text-center text-xs text-muted-foreground/60">
-        You can leave this page — the job keeps running and shows up under Recent.
-      </p>
+    </div>
+  );
+}
+
+// During render, finished clips are playable immediately; the rest shimmer.
+function RenderingGallery({ job }: { job: ClipsJob }) {
+  const done = job.clips.length;
+  const total = job.progress > 0 ? Math.max(done, Math.round(done / job.progress)) : Math.max(done + 1, 3);
+  return (
+    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+      {job.clips.map((clip) => (
+        <div key={clip.id} className="overflow-hidden rounded-xl border border-border bg-card">
+          {clip.url ? (
+            // biome-ignore lint/a11y/useMediaCaption: clip preview
+            <video src={clip.url} controls preload="metadata" className="aspect-[9/16] w-full bg-black object-contain" />
+          ) : null}
+          <div className="p-3">
+            <p className="truncate text-sm font-medium">{clip.title}</p>
+            <p className="text-xs text-muted-foreground">{Math.round(clip.end - clip.start)}s · ready</p>
+          </div>
+        </div>
+      ))}
+      {Array.from({ length: Math.max(0, total - done) }, (_, i) => (
+        <div key={`pending-${i}`} className="overflow-hidden rounded-xl border border-border bg-card">
+          <div className="grid aspect-[9/16] w-full animate-pulse place-items-center bg-white/5">
+            <Loader2 className="size-5 animate-spin text-muted-foreground/50" />
+          </div>
+          <div className="space-y-2 p-3">
+            <div className="h-3 w-3/4 animate-pulse rounded bg-white/10" />
+            <div className="h-2.5 w-1/3 animate-pulse rounded bg-white/5" />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

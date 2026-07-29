@@ -1,6 +1,7 @@
 """Clips job: one long-form source video -> N short-form clips (CLIPS-PLAN.md)."""
 
 import uuid
+from datetime import datetime
 
 from sqlmodel import JSON, Column, Field
 
@@ -23,6 +24,8 @@ class ClipsJob(TimestampMixin, table=True):
     status: str = Field(default="queued", index=True)  # queued|running|completed|failed
     phase: str = Field(default="ingest")  # ingest|transcribe|select|render
     progress: float = Field(default=0.0)  # 0..1 within the current phase
+    source_thumb_key: str | None = Field(default=None)  # poster frame in storage
+    phase_started_at: datetime | None = Field(default=None)  # for live ETAs
     error: str | None = Field(default=None)
     duration: float | None = Field(default=None)  # source length (s)
     transcript: list | None = Field(default=None, sa_column=Column(JSON))  # [{text,start,end}]

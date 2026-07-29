@@ -31,9 +31,11 @@ def _job_out(job: ClipsJob, storage, with_transcript: bool = False) -> dict:
         "error": job.error,
         "source_url": job.source_url,
         "source_title": job.source_title,
+        "source_thumb_url": storage.url(job.source_thumb_key) if job.source_thumb_key else None,
         "params": job.params,
         "duration": job.duration,
         "created_at": job.created_at.isoformat(),
+        "phase_started_at": job.phase_started_at.isoformat() if job.phase_started_at else None,
         "clips": [
             {**c, "url": storage.url(c["key"]) if c.get("key") else None}
             for c in (job.clips or [])

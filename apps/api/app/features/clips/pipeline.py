@@ -35,6 +35,10 @@ _whisper_model = None  # loaded once per worker process
 
 
 def _set(session: Session, job: ClipsJob, **fields) -> None:
+    if "phase" in fields:  # entering a phase stamps its start (drives UI ETAs)
+        from datetime import datetime, timezone
+
+        fields.setdefault("phase_started_at", datetime.now(timezone.utc))
     for k, v in fields.items():
         setattr(job, k, v)
     repository.save(session, job)
@@ -50,9 +54,16 @@ def run_pipeline(session: Session, job: ClipsJob, charge) -> None:
         probed = _probe_duration(source)
         if probed and probed > MAX_SOURCE_MINUTES * 60:
             raise ValueError(f"Source is {probed / 60:.0f} min — the limit is {MAX_SOURCE_MINUTES} min.")
+        # Poster frame + early duration so the progress page has something to show.
+        thumb_key = _thumbnail(job, source, storage, workdir)
+        _set(session, job, **({"source_thumb_key": thumb_key} if thumb_key else {}), **({"duration": probed} if probed else {}))
 
         _set(session, job, phase="transcribe", progress=0.0)
-        transcript, duration = _transcribe(source)
+
+        def on_progress(frac: float, partial: list[dict]) -> None:
+            _set(session, job, progress=frac, transcript=partial)
+
+        transcript, duration = _transcribe(source, on_progress)
         if duration > MAX_SOURCE_MINUTES * 60:
             raise ValueError(f"Source is {duration / 60:.0f} min — the limit is {MAX_SOURCE_MINUTES} min.")
         if not transcript:
@@ -129,29 +140,54 @@ def _ingest(session: Session, job: ClipsJob, storage, workdir: str) -> str:
     return path
 
 
+def _thumbnail(job: ClipsJob, source: str, storage, workdir: str) -> str | None:
+    """One poster frame for the progress page. Best-effort — never fails a job."""
+    thumb = os.path.join(workdir, "thumb.jpg")
+    proc = subprocess.run(
+        [imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-ss", "1", "-i", source, "-frames:v", "1", "-vf", "scale=480:-2", "-q:v", "4", thumb],
+        capture_output=True,
+        timeout=60,
+    )
+    if proc.returncode != 0 or not os.path.exists(thumb) or os.path.getsize(thumb) == 0:
+        return None
+    key = f"{job.workspace_id}/clips/{job.id}/thumb.jpg"
+    with open(thumb, "rb") as f:
+        storage.put(key, f.read(), "image/jpeg")
+    return key
+
+
 # ── phase 2: transcribe (local faster-whisper, word timestamps) ─────────────
-def _transcribe(path: str) -> tuple[list[dict], float]:
+def _transcribe(path: str, on_progress=None) -> tuple[list[dict], float]:
+    """Streams whisper segments; every ~5% of the source, `on_progress(frac,
+    partial_transcript)` fires so the UI can show a live bar + transcript."""
     global _whisper_model
     if _whisper_model is None:
         from faster_whisper import WhisperModel
 
         _whisper_model = WhisperModel(settings.clips_whisper_model, compute_type="int8")
     segments, info = _whisper_model.transcribe(path, word_timestamps=True, vad_filter=True)
-    out = [
-        {
-            "text": seg.text.strip(),
-            "start": round(seg.start, 2),
-            "end": round(seg.end, 2),
-            "words": [
-                {"w": w.word.strip(), "s": round(w.start, 2), "e": round(w.end, 2)}
-                for w in (seg.words or [])
-                if w.word.strip()
-            ],
-        }
-        for seg in segments
-        if seg.text.strip()
-    ]
-    return out, float(info.duration or 0)
+    duration = float(info.duration or 0)
+    out: list[dict] = []
+    last_reported = 0.0
+    for seg in segments:
+        if not seg.text.strip():
+            continue
+        out.append(
+            {
+                "text": seg.text.strip(),
+                "start": round(seg.start, 2),
+                "end": round(seg.end, 2),
+                "words": [
+                    {"w": w.word.strip(), "s": round(w.start, 2), "e": round(w.end, 2)}
+                    for w in (seg.words or [])
+                    if w.word.strip()
+                ],
+            }
+        )
+        if on_progress and duration and (seg.end - last_reported) >= duration * 0.05:
+            last_reported = seg.end
+            on_progress(min(0.99, seg.end / duration), list(out))
+    return out, duration
 
 
 # ── phase 3: select (one text-model call via the OpenRouter adapter) ────────
