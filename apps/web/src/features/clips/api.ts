@@ -41,6 +41,29 @@ export interface ClipsJob {
   transcript?: TranscriptSegment[]; // only on single-job GET
 }
 
+export interface ScheduleConfig {
+  enabled: boolean;
+  min_score: number | null;
+  per_day: number;
+  mode: "all" | "days";
+  days: number;
+  start_date: string; // YYYY-MM-DD
+  window_start: string; // HH:MM
+  window_end: string;
+  tz: string; // IANA name
+}
+
+export interface ScheduledPost {
+  id: string;
+  job_id: string;
+  clip_id: string;
+  title: string | null;
+  post_at: string;
+  status: "scheduled" | "due";
+  score: number | null;
+  url: string | null;
+}
+
 export interface ClipsParams {
   count: number | "auto";
   duration: "auto" | "short" | "medium" | "long";
@@ -49,6 +72,7 @@ export interface ClipsParams {
   captions: boolean;
   caption_style: "clean" | "bold" | "highlight";
   framing: boolean;
+  schedule?: ScheduleConfig;
 }
 
 // Read a link's metadata (title/thumb/duration) before starting a job.
@@ -100,6 +124,14 @@ export function getClipDownloadUrl(
     method: "POST",
     body: JSON.stringify({ style }),
   });
+}
+
+export function listSchedule(): Promise<ScheduledPost[]> {
+  return api("/clips/schedule");
+}
+
+export function cancelScheduledPost(id: string): Promise<void> {
+  return api(`/clips/schedule/${id}`, { method: "DELETE" });
 }
 
 export function clipsToProject(jobId: string): Promise<{ workflow_id: string }> {

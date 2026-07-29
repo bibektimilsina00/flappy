@@ -45,3 +45,22 @@ def cleanup_stuck() -> None:
         session.commit()
     if stuck_exec or stuck_jobs:
         log.info("cleanup: failed %d stuck executions, %d stuck clips jobs", len(stuck_exec), len(stuck_jobs))
+
+
+@celery_app.task(name="promote_due_posts")
+def promote_due_posts() -> None:
+    """Flip scheduled posts to 'due' at their time. Direct auto-posting swaps in
+    here once platform accounts can be connected (OAuth)."""
+    from apps.api.app.features.clips.models import ScheduledPost
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    with Session(engine) as session:
+        due = session.exec(
+            select(ScheduledPost).where(ScheduledPost.status == "scheduled", ScheduledPost.post_at <= now)
+        ).all()
+        for p in due:
+            p.status = "due"
+            session.add(p)
+        session.commit()
+    if due:
+        log.info("schedule: %d posts became due", len(due))

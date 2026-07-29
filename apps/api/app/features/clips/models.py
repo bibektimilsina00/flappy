@@ -31,3 +31,16 @@ class ClipsJob(TimestampMixin, table=True):
     transcript: list | None = Field(default=None, sa_column=Column(JSON))  # [{text,start,end}]
     # [{id, title, score, reason, start, end, duration, key}]
     clips: list = Field(default_factory=list, sa_column=Column(JSON))
+
+
+class ScheduledPost(TimestampMixin, table=True):
+    """One clip queued for posting at a specific time (auto-schedule)."""
+
+    __tablename__ = "scheduled_post"
+
+    workspace_id: uuid.UUID = Field(index=True, nullable=False)
+    job_id: uuid.UUID = Field(index=True, nullable=False)
+    clip_id: str = Field(nullable=False)
+    title: str | None = Field(default=None)
+    post_at: datetime = Field(index=True, nullable=False)  # UTC
+    status: str = Field(default="scheduled", index=True)  # scheduled|due|canceled

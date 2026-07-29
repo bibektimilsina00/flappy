@@ -16,6 +16,7 @@ import {
   Play,
   ScanFace,
   Scissors,
+  SlidersHorizontal,
   Sparkles,
   Trash2,
   Upload,
@@ -24,6 +25,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
+import { defaultSchedule, ScheduleModal } from "./schedule-modal";
 import {
   type ClipsJob,
   type ClipsParams,
@@ -464,6 +466,7 @@ function ConfigPanel({
   onBack: () => void;
 }) {
   const tooLong = (meta?.duration ?? 0) > 30 * 60;
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   return (
     <div className="space-y-5">
       {/* source chip */}
@@ -634,6 +637,63 @@ function ConfigPanel({
         />
       </div>
 
+      {/* auto-schedule */}
+      <div className="rounded-2xl border border-white/10 bg-[#161616] p-4">
+        <div className="flex items-center justify-between">
+          <span>
+            <span className="block text-sm font-medium">Schedule clips</span>
+            <span className="block text-xs text-muted-foreground">
+              Queue clips for posting automatically when they're ready. Save 1 step.
+            </span>
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={Boolean(params.schedule?.enabled)}
+            onClick={() =>
+              setParams((p) => ({
+                ...p,
+                schedule: p.schedule?.enabled ? { ...p.schedule, enabled: false } : (p.schedule ?? defaultSchedule()),
+              }))
+            }
+            className={cn(
+              "relative h-6 w-11 shrink-0 rounded-full transition-colors",
+              params.schedule?.enabled ? "bg-teal-400" : "bg-white/15",
+            )}
+          >
+            <span
+              className={cn(
+                "absolute top-0.5 size-5 rounded-full bg-white shadow transition-transform",
+                params.schedule?.enabled ? "translate-x-[22px]" : "translate-x-0.5",
+              )}
+            />
+          </button>
+        </div>
+        {params.schedule?.enabled ? (
+          <div className="mt-3 flex items-center gap-2">
+            <p className="flex-1 rounded-xl border border-white/10 bg-black/30 px-4 py-2.5 text-sm">
+              All clips will be scheduled from{" "}
+              <span className="font-semibold">
+                {new Date(`${params.schedule.start_date}T00:00`).toLocaleDateString()}
+              </span>
+              , at <span className="font-semibold">{params.schedule.per_day} clips/day</span>
+              {params.schedule.min_score ? (
+                <span className="text-muted-foreground"> · score ≥ {params.schedule.min_score}</span>
+              ) : null}
+              .
+            </p>
+            <button
+              type="button"
+              onClick={() => setScheduleOpen(true)}
+              className="flex shrink-0 items-center gap-1.5 rounded-xl border border-white/10 px-3.5 py-2.5 text-sm transition-colors hover:bg-white/5"
+            >
+              <SlidersHorizontal className="size-4" />
+              Settings
+            </button>
+          </div>
+        ) : null}
+      </div>
+
       <button
         type="button"
         disabled={busy !== null || tooLong}
@@ -641,8 +701,15 @@ function ConfigPanel({
         className="flex w-full items-center justify-center gap-2 rounded-xl bg-teal-400 py-3.5 text-sm font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-60"
       >
         {busy ? <Loader2 className="size-4 animate-spin" /> : <Scissors className="size-4" />}
-        {busy ? "Starting…" : "Get AI clips"}
+        {busy ? "Starting…" : params.schedule?.enabled ? "Get AI clips & Schedule" : "Get AI clips"}
       </button>
+      {scheduleOpen && params.schedule ? (
+        <ScheduleModal
+          value={params.schedule}
+          onSave={(cfg) => setParams((p) => ({ ...p, schedule: cfg }))}
+          onClose={() => setScheduleOpen(false)}
+        />
+      ) : null}
       {error ? <p className="text-center text-xs text-red-400">{error}</p> : null}
     </div>
   );

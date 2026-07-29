@@ -454,6 +454,64 @@ def to_project(
     return {"workflow_id": str(workflow.id)}
 
 
+@router.get("/schedule")
+def list_schedule(
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> list[dict]:
+    """Upcoming + due posts across the workspace, soonest first."""
+    from sqlmodel import select
+
+    from apps.api.app.features.clips.models import ScheduledPost
+
+    posts = list(
+        session.exec(
+            select(ScheduledPost)
+            .where(ScheduledPost.workspace_id == workspace_id, ScheduledPost.status.in_(("scheduled", "due")))  # type: ignore[attr-defined]
+            .order_by(ScheduledPost.post_at)
+            .limit(200)
+        )
+    )
+    storage = get_storage()
+    jobs: dict[uuid.UUID, ClipsJob | None] = {}
+    out = []
+    for p in posts:
+        if p.job_id not in jobs:
+            jobs[p.job_id] = repository.get(session, workspace_id, p.job_id)
+        job = jobs[p.job_id]
+        clip = next((c for c in (job.clips if job else []) or [] if c.get("id") == p.clip_id), None)
+        out.append(
+            {
+                "id": str(p.id),
+                "job_id": str(p.job_id),
+                "clip_id": p.clip_id,
+                "title": p.title or (clip or {}).get("title"),
+                "post_at": p.post_at.isoformat() + "Z",
+                "status": p.status,
+                "score": (clip or {}).get("score"),
+                "url": storage.url(clip["key"]) if clip and clip.get("key") else None,
+            }
+        )
+    return out
+
+
+@router.delete("/schedule/{post_id}", status_code=204)
+def cancel_scheduled_post(
+    post_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> None:
+    from apps.api.app.features.clips.models import ScheduledPost
+
+    post = session.get(ScheduledPost, post_id)
+    if post is None or post.workspace_id != workspace_id:
+        raise HTTPException(status_code=404, detail="Scheduled post not found")
+    session.delete(post)
+    session.commit()
+
+
 @router.delete("/jobs/{job_id}", status_code=204)
 def delete_job(
     job_id: uuid.UUID,

@@ -13,4 +13,5 @@ celery_app.conf.task_track_started = True
 # Periodic maintenance (celery beat): sweep runs whose worker died mid-flight.
 celery_app.conf.beat_schedule = {
     "cleanup-stuck": {"task": "cleanup_stuck", "schedule": 600.0},
+    "promote-due-posts": {"task": "promote_due_posts", "schedule": 300.0},
 }

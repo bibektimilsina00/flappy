@@ -82,6 +82,7 @@ def run_pipeline(session: Session, job: ClipsJob, charge) -> None:
         charge(settings.clips_credits_per_clip * len(clips), "clips-render")
 
     _set(session, job, status="completed", progress=1.0)
+    schedule_posts(session, job)
 
 
 def _storage():
@@ -420,3 +421,29 @@ def burn_clip_captions(job: ClipsJob, clip: dict, style: str, storage) -> str | 
             storage.put(key, f.read(), "video/mp4")
     clip["burned"] = {**burned, style: key}
     return key
+
+
+def schedule_posts(session: Session, job: ClipsJob) -> None:
+    """Create the posting queue for a finished job (params.schedule.enabled).
+    Best-effort — a scheduling error never fails the job."""
+    cfg = (job.params or {}).get("schedule") or {}
+    if not cfg.get("enabled"):
+        return
+    from apps.api.app.features.clips.models import ScheduledPost
+    from apps.api.app.features.clips.schedule import compute_schedule
+
+    try:
+        for clip, when in compute_schedule(job.clips or [], cfg):
+            session.add(
+                ScheduledPost(
+                    workspace_id=job.workspace_id,
+                    job_id=job.id,
+                    clip_id=clip["id"],
+                    title=clip.get("title"),
+                    post_at=when.replace(tzinfo=None),  # stored naive-UTC like every timestamp here
+                )
+            )
+        session.commit()
+    except Exception:  # noqa: BLE001
+        log.exception("auto-schedule failed for job %s", job.id)
+        session.rollback()

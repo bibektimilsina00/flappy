@@ -3,6 +3,7 @@
 import {
   ArrowLeft,
   AudioLines,
+  CalendarClock,
   Check,
   Clapperboard,
   Download,
@@ -22,12 +23,15 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 import {
   authDownload,
+  cancelScheduledPost,
   type ClipItem,
   type ClipsJob,
   clipsToProject,
   createClipsJob,
   getClipDownloadUrl,
   getClipsJob,
+  listSchedule,
+  type ScheduledPost,
 } from "./api";
 import { ClipEditModal } from "./clip-edit-modal";
 import { type CcState, ClipPlayer } from "./clip-player";
@@ -217,13 +221,18 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
           ) : job.status !== "completed" ? (
             <PhaseTracker job={job} />
           ) : (
-            <ClipGallery
-              job={job}
-              onJobUpdate={(j) => {
-                setJob(j);
-                setNonce((n) => n + 1);
-              }}
-            />
+            <>
+              <ClipGallery
+                job={job}
+                onJobUpdate={(j) => {
+                  setJob(j);
+                  setNonce((n) => n + 1);
+                }}
+              />
+              {(job.params as { schedule?: { enabled?: boolean } }).schedule?.enabled ? (
+                <PostingQueue jobId={job.id} />
+              ) : null}
+            </>
           )}
         </>
       )}
@@ -398,6 +407,82 @@ function TranscriptFeed({ segments }: { segments: NonNullable<ClipsJob["transcri
           </p>
         ))}
       </div>
+    </div>
+  );
+}
+
+// The job's auto-scheduled posting calendar. "Due" posts are ready to publish.
+function PostingQueue({ jobId }: { jobId: string }) {
+  const [posts, setPosts] = useState<ScheduledPost[] | null>(null);
+
+  useEffect(() => {
+    listSchedule()
+      .then((all) => setPosts(all.filter((p) => p.job_id === jobId)))
+      .catch(() => setPosts([]));
+  }, [jobId]);
+
+  if (!posts || posts.length === 0) return null;
+  return (
+    <div className="mt-8">
+      <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+        <CalendarClock className="size-4 text-teal-300" /> Posting queue
+        <span className="font-normal text-muted-foreground">{posts.length} scheduled</span>
+      </h2>
+      <div className="space-y-2">
+        {posts.map((post) => {
+          const when = new Date(post.post_at);
+          return (
+            <div key={post.id} className="group flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+              <span
+                className={cn(
+                  "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                  post.status === "due" ? "bg-teal-400/15 text-teal-300" : "bg-white/5 text-muted-foreground",
+                )}
+              >
+                {post.status === "due" ? "Ready to post" : "Scheduled"}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-sm">{post.title ?? "Clip"}</span>
+              {post.score != null ? (
+                <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
+                  <Flame className="size-3 text-orange-400" />
+                  {post.score}
+                </span>
+              ) : null}
+              <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                {when.toLocaleDateString(undefined, { month: "short", day: "numeric" })}{" "}
+                {when.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+              </span>
+              {post.status === "due" && post.url ? (
+                <button
+                  type="button"
+                  aria-label="Download for posting"
+                  title="Download MP4"
+                  onClick={() => post.url && triggerDownload(post.url, `${post.title ?? "clip"}.mp4`)}
+                  className="shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <Download className="size-4" />
+                </button>
+              ) : null}
+              <button
+                type="button"
+                aria-label="Cancel scheduled post"
+                title="Remove from queue"
+                onClick={() => {
+                  void cancelScheduledPost(post.id).then(() =>
+                    setPosts((list) => (list ?? []).filter((p) => p.id !== post.id)),
+                  );
+                }}
+                className="hidden shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-red-400 group-hover:block"
+              >
+                <XCircle className="size-4" />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-[11px] text-muted-foreground/60">
+        Posts flip to “Ready to post” at their scheduled time. Direct auto-posting arrives with connected accounts.
+      </p>
     </div>
   );
 }
