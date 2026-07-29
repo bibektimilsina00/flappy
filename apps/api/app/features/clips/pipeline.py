@@ -363,16 +363,22 @@ def render_clip_file(job: ClipsJob, source: str, seg: dict, workdir: str, storag
     out = os.path.join(workdir, "render.mp4")
     exe = imageio_ffmpeg.get_ffmpeg_exe()
 
-    # Cover-scale then crop. With framing on (default), the crop window centers
-    # on the detected face instead of the frame middle.
-    x_expr = "(in_w-out_w)/2"
-    if params.get("framing", True):
-        from apps.api.app.features.clips.framing import face_center_fraction
+    # Layout: auto = cover-crop following the face; fill = center cover-crop;
+    # fit = letterbox onto the template's background colour.
+    custom = (params.get("caption_custom") or {}) if params.get("caption_style") == "custom" else {}
+    layout = custom.get("layout") or "auto"
+    if layout == "fit":
+        bgc = str(custom.get("bg") or "#000000").lstrip("#")[:6] or "000000"
+        vf = f"scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=0x{bgc},fps=30"
+    else:
+        x_expr = "(in_w-out_w)/2"
+        if layout == "auto" and params.get("framing", True):
+            from apps.api.app.features.clips.framing import face_center_fraction
 
-        center = face_center_fraction(source, seg["start"], seg["end"])
-        if center is not None:
-            x_expr = f"min(max(in_w*{center:.4f}-out_w/2\\,0)\\,in_w-out_w)"
-    vf = f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h}:x='{x_expr}':y='(in_h-out_h)/2',fps=30"
+            center = face_center_fraction(source, seg["start"], seg["end"])
+            if center is not None:
+                x_expr = f"min(max(in_w*{center:.4f}-out_w/2\\,0)\\,in_w-out_w)"
+        vf = f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h}:x='{x_expr}':y='(in_h-out_h)/2',fps=30"
 
     cmd = [
         exe, "-y", "-ss", f"{seg['start']:.2f}", "-to", f"{seg['end']:.2f}", "-i", source,
@@ -404,23 +410,44 @@ def burn_clip_captions(job: ClipsJob, clip: dict, style: str, storage) -> str | 
         job.transcript or [], clip["start"], clip["end"], style_def, w, h,
         clip.get("caption_edits"), headline_text=clip.get("title"),
     )
-    if not ass:
+    logo_b64 = None
+    if isinstance(style_def, dict):
+        logo_url = style_def.get("logo") or ""
+        if isinstance(logo_url, str) and logo_url.startswith("data:") and "base64," in logo_url:
+            logo_b64 = logo_url.split("base64,", 1)[1]
+    if not ass and not logo_b64:
         return None
+
+    import base64 as _b64
 
     exe = imageio_ffmpeg.get_ffmpeg_exe()
     with tempfile.TemporaryDirectory() as d:
         master = os.path.join(d, "master.mp4")
         with open(master, "wb") as f:
             f.write(storage.get(clip["key"]))
-        ass_path = os.path.join(d, "c.ass")
-        with open(ass_path, "w", encoding="utf-8") as f:
-            f.write(ass)
+        vf_main = "null"
+        if ass:
+            ass_path = os.path.join(d, "c.ass")
+            with open(ass_path, "w", encoding="utf-8") as f:
+                f.write(ass)
+            vf_main = f"ass={ass_path}:fontsdir={FONTS_DIR}"
         out = os.path.join(d, "out.mp4")
-        cmd = [
-            exe, "-y", "-i", master, "-vf", f"ass={ass_path}:fontsdir={FONTS_DIR}",
-            "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
-            "-c:a", "copy", "-movflags", "+faststart", out,
-        ]
+        if logo_b64:
+            logo_path = os.path.join(d, "logo.png")
+            with open(logo_path, "wb") as f:
+                f.write(_b64.b64decode(logo_b64))
+            fc = f"[1:v]scale={w // 6}:-1[lg];[0:v]{vf_main}[v0];[v0][lg]overlay=W-w-{int(w * 0.04)}:{int(h * 0.03)}"
+            cmd = [
+                exe, "-y", "-i", master, "-i", logo_path, "-filter_complex", fc,
+                "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
+                "-c:a", "copy", "-movflags", "+faststart", out,
+            ]
+        else:
+            cmd = [
+                exe, "-y", "-i", master, "-vf", vf_main,
+                "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
+                "-c:a", "copy", "-movflags", "+faststart", out,
+            ]
         proc = subprocess.run(cmd, capture_output=True, timeout=300)
         if proc.returncode != 0 or not os.path.exists(out) or os.path.getsize(out) == 0:
             raise RuntimeError(f"Caption burn failed: {proc.stderr.decode(errors='ignore')[-300:]}")

@@ -121,8 +121,9 @@ def build_ass(
     `style` is a preset name or a custom template dict. A custom dict with
     headline.enabled burns `headline_text` as a top banner for the whole clip.
     `edits` (absolute-time [{start,end,text}]) replaces the transcript slice."""
-    segments = edits if edits else _clip_segments(transcript, start, end)
-    lines = _lines(segments, start, end)
+    sub_enabled = not (isinstance(style, dict) and style.get("subtitles") is False)
+    segments = (edits if edits else _clip_segments(transcript, start, end)) if sub_enabled else []
+    lines = _lines(segments, start, end) if sub_enabled else []
     headline = (style.get("headline") if isinstance(style, dict) else None) or {}
     show_headline = bool(headline.get("enabled")) and bool((headline_text or "").strip())
     if not lines and not show_headline:
@@ -146,12 +147,20 @@ def build_ass(
     if show_headline:
         head_size = round(height * 15 / 400)
         head_fg = hex_to_ass(str(headline.get("color") or "#000000"))
-        head_bg = hex_to_ass(str(headline.get("bg") or "#FFFFFF"))
-        # BorderStyle 4 = opaque box behind the line; alignment 8 = top-center.
-        header += (
-            f"Style: Head,{FONT_NAME},{head_size},{head_fg},{head_fg},{head_bg},{head_bg},"
-            f"-1,0,0,0,100,100,0,0,4,3,0,8,60,60,{round(height * 0.06)},1\n"
-        )
+        bg_raw = headline.get("bg") or "#FFFFFF"
+        if bg_raw == "none":
+            # outlined text, no box (e.g. yellow headline variant)
+            header += (
+                f"Style: Head,{FONT_NAME},{head_size},{head_fg},{head_fg},&H00000000,&H00000000,"
+                f"-1,0,0,0,100,100,0,0,1,3,0,8,60,60,{round(height * 0.06)},1\n"
+            )
+        else:
+            head_bg = hex_to_ass(str(bg_raw))
+            # BorderStyle 4 = opaque box behind the line; alignment 8 = top-center.
+            header += (
+                f"Style: Head,{FONT_NAME},{head_size},{head_fg},{head_fg},{head_bg},{head_bg},"
+                f"-1,0,0,0,100,100,0,0,4,3,0,8,60,60,{round(height * 0.06)},1\n"
+            )
     header += "\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
 
     events = []

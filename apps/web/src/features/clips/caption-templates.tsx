@@ -2,6 +2,7 @@
 
 import { Check, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/cn";
 import type { CustomCaptionStyle } from "./api";
 
@@ -404,112 +405,190 @@ function TemplateEditor({
       uppercase: false,
       box: false,
       position: "bottom",
+      layout: "auto",
+      bg: "#000000",
+      logo: null,
+      subtitles: true,
       headline: { enabled: false, bg: "#FFFFFF", color: "#000000" },
     },
   );
   const [advanced, setAdvanced] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const logoRef = useRef<HTMLInputElement>(null);
   const set = (patch: Partial<CustomCaptionStyle>) => setDef((d) => ({ ...d, ...patch }));
-  const css = captionCss("custom", def, 1.2);
+  const css = captionCss("custom", def, 1.1);
   const headline = def.headline ?? { enabled: false, bg: "#FFFFFF", color: "#000000" };
+  const subtitlesOn = def.subtitles !== false;
+
+  const onLogoFile = (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > 400 * 1024) {
+      setLogoError("Logo must be under 400 KB.");
+      return;
+    }
+    setLogoError(null);
+    const reader = new FileReader();
+    reader.onload = () => set({ logo: String(reader.result) });
+    reader.readAsDataURL(file);
+  };
+
+  const SectionSwitch = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={onChange}
+      className={cn("relative h-5 w-9 shrink-0 rounded-full transition-colors", checked ? "bg-teal-400" : "bg-white/15")}
+    >
+      <span className={cn("absolute top-0.5 size-4 rounded-full bg-white shadow transition-[left] duration-150", checked ? "left-[18px]" : "left-0.5")} />
+    </button>
+  );
 
   return (
     <div className="dark fixed inset-0 z-[210] grid place-items-center bg-black/80 p-4" onClick={onClose}>
       <div
-        className="flex max-h-[92vh] w-full max-w-3xl flex-col rounded-2xl border border-white/10 bg-[#1a1a1a] text-foreground"
+        className="flex max-h-[92vh] w-full max-w-4xl flex-col rounded-2xl border border-white/10 bg-[#1a1a1a] text-foreground"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-3.5">
-          <h3 className="text-base font-bold">{initial ? "Edit template" : "New template"}</h3>
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <h3 className="text-lg font-bold">{initial ? "Edit template" : "New template"}</h3>
           <button type="button" aria-label="Close" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/10 hover:text-foreground">
             <X className="size-4" />
           </button>
         </div>
 
-        <div className="grid min-h-0 flex-1 md:grid-cols-[1fr_260px]">
+        <div className="grid min-h-0 flex-1 md:grid-cols-[1fr_280px]">
           {/* controls */}
-          <div className="min-h-0 space-y-5 overflow-y-auto p-5 [scrollbar-width:thin]">
+          <div className="min-h-0 space-y-6 overflow-y-auto p-6 [scrollbar-width:thin]">
             <input
               value={def.name}
               onChange={(e) => set({ name: e.target.value })}
               placeholder="Template name"
-              className="w-full rounded-xl border border-white/10 bg-[#161616] px-4 py-2.5 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-teal-400/50"
+              className="w-full rounded-xl border border-white/10 bg-[#161616] px-4 py-3 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-teal-400/50"
             />
 
-            {/* subtitle swatches */}
+            {/* layout */}
             <div>
-              <p className="mb-2 text-sm font-medium">Subtitles</p>
-              <div className="grid grid-cols-3 gap-2">
-                {SWATCHES.map((sw) => {
-                  const active = matchesSwatch(def, sw.patch);
-                  return (
-                    <button
-                      key={sw.id}
-                      type="button"
-                      onClick={() => set(sw.patch)}
-                      className={cn(
-                        "grid h-14 place-items-center overflow-hidden rounded-lg border bg-gradient-to-br from-neutral-600 to-neutral-800 px-1 transition-all",
-                        active ? "border-teal-400 ring-1 ring-teal-400" : "border-white/10 hover:border-white/30",
-                      )}
-                    >
-                      <CaptionSample css={captionCss("custom", { ...def, ...sw.patch }, 0.75)} text="Five boxing wizards" />
-                    </button>
-                  );
-                })}
+              <p className="mb-2.5 text-sm font-semibold">Layout</p>
+              <div className="flex gap-2">
+                {(
+                  [
+                    ["auto", "Auto", "Face-aware crop"],
+                    ["fill", "Fill", "Center crop"],
+                    ["fit", "Fit", "Letterbox on colour"],
+                  ] as const
+                ).map(([id, label, hint]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    title={hint}
+                    onClick={() => set({ layout: id })}
+                    className={cn(
+                      "flex-1 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors",
+                      (def.layout ?? "auto") === id
+                        ? "border-teal-400 bg-teal-400/10 text-teal-300"
+                        : "border-white/10 text-muted-foreground hover:border-white/25 hover:text-foreground",
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
-              <button
-                type="button"
-                onClick={() => setAdvanced((v) => !v)}
-                className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-xl bg-white/5 py-2.5 text-sm text-foreground/90 transition-colors hover:bg-white/10"
-              >
-                <Pencil className="size-3.5" />
-                Advanced settings
-              </button>
-              {advanced ? (
-                <div className="mt-3 space-y-3 rounded-xl border border-white/10 p-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="block text-xs">
-                      <span className="mb-1 block text-muted-foreground">Text color</span>
-                      <input type="color" value={def.color} onChange={(e) => set({ color: e.target.value })} className="h-9 w-full cursor-pointer rounded-lg border border-white/10 bg-[#161616] p-1" />
-                    </label>
-                    <label className="block text-xs">
-                      <span className="mb-1 block text-muted-foreground">Active word</span>
-                      <input type="color" value={def.highlight} onChange={(e) => set({ highlight: e.target.value })} className="h-9 w-full cursor-pointer rounded-lg border border-white/10 bg-[#161616] p-1" />
-                    </label>
-                    <label className="block text-xs">
-                      <span className="mb-1 block text-muted-foreground">Size</span>
-                      <select value={def.size} onChange={(e) => set({ size: e.target.value as CustomCaptionStyle["size"] })} className="w-full rounded-lg border border-white/10 bg-[#161616] px-2 py-2 outline-none">
-                        <option value="s">Small</option>
-                        <option value="m">Medium</option>
-                        <option value="l">Large</option>
-                      </select>
-                    </label>
-                    <label className="block text-xs">
-                      <span className="mb-1 block text-muted-foreground">Position</span>
-                      <select value={def.position} onChange={(e) => set({ position: e.target.value as CustomCaptionStyle["position"] })} className="w-full rounded-lg border border-white/10 bg-[#161616] px-2 py-2 outline-none">
-                        <option value="bottom">Bottom</option>
-                        <option value="middle">Middle</option>
-                      </select>
-                    </label>
+              {def.layout === "fit" ? (
+                <label className="mt-2.5 flex items-center gap-3 text-sm text-muted-foreground">
+                  Background
+                  <input
+                    type="color"
+                    value={def.bg ?? "#000000"}
+                    onChange={(e) => set({ bg: e.target.value })}
+                    className="h-8 w-14 cursor-pointer rounded-lg border border-white/10 bg-[#161616] p-1"
+                  />
+                </label>
+              ) : null}
+            </div>
+
+            {/* subtitles */}
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold">Subtitles</p>
+                <SectionSwitch checked={subtitlesOn} onChange={() => set({ subtitles: !subtitlesOn })} />
+              </div>
+              {subtitlesOn ? (
+                <div className="mt-3 space-y-3">
+                  <label className="flex items-center gap-2.5 text-sm text-muted-foreground">
+                    <Checkbox
+                      checked={def.position !== "middle"}
+                      onCheckedChange={(v) => set({ position: v === true ? "bottom" : "middle" })}
+                    />
+                    Auto position (bottom)
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {SWATCHES.map((sw) => {
+                      const active = matchesSwatch(def, sw.patch);
+                      return (
+                        <button
+                          key={sw.id}
+                          type="button"
+                          onClick={() => set(sw.patch)}
+                          className={cn(
+                            "grid h-14 place-items-center overflow-hidden rounded-lg border bg-gradient-to-br from-neutral-600 to-neutral-800 px-1 transition-all",
+                            active ? "border-teal-400 ring-1 ring-teal-400" : "border-white/10 hover:border-white/30",
+                          )}
+                        >
+                          <CaptionSample css={captionCss("custom", { ...def, ...sw.patch }, 0.75)} text="Five boxing wizards" />
+                        </button>
+                      );
+                    })}
                   </div>
-                  <div className="flex flex-wrap gap-4 text-xs">
-                    {(
-                      [
-                        ["bold", "Bold"],
-                        ["uppercase", "UPPERCASE"],
-                        ["box", "Background box"],
-                      ] as const
-                    ).map(([key, label]) => (
-                      <label key={key} className="flex cursor-pointer items-center gap-1.5">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(def[key])}
-                          onChange={(e) => set({ [key]: e.target.checked } as Partial<CustomCaptionStyle>)}
-                          className="size-3.5 accent-teal-400"
-                        />
-                        {label}
-                      </label>
-                    ))}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAdvanced((v) => !v)}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/5 py-2.5 text-sm text-foreground/90 transition-colors hover:bg-white/10"
+                  >
+                    <Pencil className="size-3.5" />
+                    Advanced settings
+                  </button>
+                  {advanced ? (
+                    <div className="space-y-3 rounded-xl border border-white/10 p-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <label className="block text-xs">
+                          <span className="mb-1 block text-muted-foreground">Text color</span>
+                          <input type="color" value={def.color} onChange={(e) => set({ color: e.target.value })} className="h-9 w-full cursor-pointer rounded-lg border border-white/10 bg-[#161616] p-1" />
+                        </label>
+                        <label className="block text-xs">
+                          <span className="mb-1 block text-muted-foreground">Active word</span>
+                          <input type="color" value={def.highlight} onChange={(e) => set({ highlight: e.target.value })} className="h-9 w-full cursor-pointer rounded-lg border border-white/10 bg-[#161616] p-1" />
+                        </label>
+                        <label className="block text-xs">
+                          <span className="mb-1 block text-muted-foreground">Size</span>
+                          <select value={def.size} onChange={(e) => set({ size: e.target.value as CustomCaptionStyle["size"] })} className="w-full rounded-lg border border-white/10 bg-[#161616] px-2 py-2 outline-none">
+                            <option value="s">Small</option>
+                            <option value="m">Medium</option>
+                            <option value="l">Large</option>
+                          </select>
+                        </label>
+                        <div className="flex flex-col justify-end gap-2 pb-1 text-xs">
+                          {(
+                            [
+                              ["bold", "Bold"],
+                              ["uppercase", "UPPERCASE"],
+                              ["box", "Background box"],
+                            ] as const
+                          ).map(([key, label]) => (
+                            <label key={key} className="flex cursor-pointer items-center gap-1.5">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(def[key])}
+                                onChange={(e) => set({ [key]: e.target.checked } as Partial<CustomCaptionStyle>)}
+                                className="size-3.5 accent-teal-400"
+                              />
+                              {label}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -517,56 +596,121 @@ function TemplateEditor({
             {/* headline */}
             <div>
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">Headline</p>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={headline.enabled}
-                  onClick={() => set({ headline: { ...headline, enabled: !headline.enabled } })}
-                  className={cn("relative h-5 w-9 shrink-0 rounded-full transition-colors", headline.enabled ? "bg-teal-400" : "bg-white/15")}
-                >
-                  <span className={cn("absolute top-0.5 size-4 rounded-full bg-white shadow transition-[left] duration-150", headline.enabled ? "left-[18px]" : "left-0.5")} />
-                </button>
+                <p className="text-sm font-semibold">Headline</p>
+                <SectionSwitch
+                  checked={headline.enabled}
+                  onChange={() => set({ headline: { ...headline, enabled: !headline.enabled } })}
+                />
               </div>
               <p className="mt-0.5 text-xs text-muted-foreground">Shows the clip title as a banner at the top.</p>
               {headline.enabled ? (
-                <div className="mt-2.5 flex items-center gap-2">
-                  {HEADLINE_BGS.map((bg) => (
+                <div className="mt-3 flex gap-2">
+                  {(
+                    [
+                      { id: "black", bg: "#000000", color: "#FFFFFF" },
+                      { id: "white", bg: "#FFFFFF", color: "#000000" },
+                      { id: "yellow", bg: "none", color: "#FFD700" },
+                    ] as const
+                  ).map((v) => (
                     <button
-                      key={bg}
+                      key={v.id}
                       type="button"
-                      aria-label={`Headline background ${bg}`}
-                      onClick={() => set({ headline: { ...headline, bg, color: textOn(bg) } })}
+                      onClick={() => set({ headline: { ...headline, bg: v.bg, color: v.color } })}
                       className={cn(
-                        "grid h-8 w-12 place-items-center rounded-lg border text-[8px] font-extrabold uppercase transition-all",
-                        headline.bg === bg ? "border-teal-400 ring-1 ring-teal-400" : "border-white/15 hover:border-white/35",
+                        "flex-1 rounded-lg border px-2 py-2.5 text-center text-[11px] font-extrabold transition-all",
+                        headline.bg === v.bg && headline.color === v.color
+                          ? "border-teal-400 ring-1 ring-teal-400"
+                          : "border-white/10 hover:border-white/30",
                       )}
-                      style={{ background: bg, color: textOn(bg) }}
                     >
-                      Abc
+                      <span
+                        className={cn("rounded px-2 py-1", v.bg === "none" && "[text-shadow:0_1px_2px_rgba(0,0,0,0.9)]")}
+                        style={{ background: v.bg === "none" ? "transparent" : v.bg, color: v.color }}
+                      >
+                        Lorem ipsum
+                      </span>
                     </button>
                   ))}
                 </div>
               ) : null}
+            </div>
+
+            {/* logo */}
+            <div>
+              <p className="mb-1 text-sm font-semibold">Logo</p>
+              <p className="mb-2.5 text-xs text-muted-foreground">Overlaid top-right on every exported clip.</p>
+              <input
+                ref={logoRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  onLogoFile(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
+              {def.logo ? (
+                <div className="flex items-center gap-3">
+                  <span className="grid h-14 w-24 place-items-center overflow-hidden rounded-lg border border-white/10 bg-[#0f0f0f] p-1.5">
+                    {/* biome-ignore lint/a11y/useAltText: template logo */}
+                    <img src={def.logo} className="max-h-full max-w-full object-contain" />
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => set({ logo: null })}
+                    className="rounded-lg px-3 py-2 text-xs text-red-400/90 transition-colors hover:bg-red-400/10"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => logoRef.current?.click()}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-white/15 py-3.5 text-sm text-muted-foreground transition-colors hover:border-teal-400/50 hover:text-teal-300"
+                >
+                  <Plus className="size-4" /> Add
+                </button>
+              )}
+              {logoError ? <p className="mt-1.5 text-xs text-amber-300">{logoError}</p> : null}
             </div>
           </div>
 
           {/* phone preview */}
           <div className="hidden flex-col items-center justify-center gap-2 border-l border-white/10 bg-[#141414] p-4 md:flex">
             <span className="rounded-lg border border-white/10 px-2.5 py-1 text-[11px] text-muted-foreground">9:16</span>
-            <div className="relative h-[340px] w-[192px] overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-slate-600 via-slate-800 to-lime-900/60">
-              <div className="absolute left-1/2 top-[22%] size-24 -translate-x-1/2 rounded-full bg-orange-200/20 blur-2xl" />
+            <div
+              className="relative h-[360px] w-[203px] overflow-hidden rounded-2xl border border-white/10"
+              style={{ background: def.layout === "fit" ? (def.bg ?? "#000") : undefined }}
+            >
+              <div
+                className={cn(
+                  "absolute bg-gradient-to-b from-slate-600 via-slate-800 to-lime-900/60",
+                  def.layout === "fit" ? "inset-x-0 top-1/2 aspect-video -translate-y-1/2" : "inset-0",
+                )}
+              >
+                <div className="absolute left-1/2 top-[30%] size-20 -translate-x-1/2 rounded-full bg-orange-200/20 blur-2xl" />
+              </div>
+              {def.logo ? (
+                // biome-ignore lint/a11y/useAltText: logo preview
+                <img src={def.logo} className="absolute right-[5%] top-[3%] w-1/5 object-contain" />
+              ) : null}
               {headline.enabled ? (
                 <span
-                  className="absolute inset-x-2 top-[6%] mx-auto w-fit max-w-full rounded px-2 py-1 text-center text-[9px] font-extrabold uppercase leading-tight"
-                  style={{ background: headline.bg, color: headline.color }}
+                  className={cn(
+                    "absolute inset-x-2 top-[7%] mx-auto w-fit max-w-full rounded px-2 py-1 text-center text-[9px] font-extrabold uppercase leading-tight",
+                    headline.bg === "none" && "[text-shadow:0_1px_2px_rgba(0,0,0,0.95)]",
+                  )}
+                  style={{ background: headline.bg === "none" ? "transparent" : headline.bg, color: headline.color }}
                 >
                   Here is a line of headline
                 </span>
               ) : null}
-              <span className={cn("absolute inset-x-2 flex justify-center", css.middle ? "top-1/2 -translate-y-1/2" : "bottom-[14%]")}>
-                <CaptionSample css={css} text="The five boxing wizards" />
-              </span>
+              {subtitlesOn ? (
+                <span className={cn("absolute inset-x-2 flex justify-center", css.middle ? "top-1/2 -translate-y-1/2" : "bottom-[13%]")}>
+                  <CaptionSample css={css} text="The five boxing wizards" />
+                </span>
+              ) : null}
             </div>
           </div>
         </div>

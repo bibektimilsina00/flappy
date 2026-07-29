@@ -50,8 +50,12 @@ export interface CustomCaptionStyle {
   uppercase: boolean;
   box: boolean;
   position: "bottom" | "middle";
-  // top banner with the clip title, burned for the whole clip
+  // top banner with the clip title, burned for the whole clip ("none" bg = outlined text)
   headline?: { enabled: boolean; bg: string; color: string };
+  layout?: "auto" | "fill" | "fit"; // fit letterboxes onto `bg`
+  bg?: string; // letterbox colour for fit layout
+  logo?: string | null; // data URL, overlaid top-right on burns + player
+  subtitles?: boolean; // false = headline/logo only
 }
 
 export interface ScheduleConfig {

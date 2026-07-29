@@ -78,7 +78,11 @@ export function ClipPlayer({
   // Legacy clips (pre clean-master) have captions burned into the file —
   // overlaying would show them twice, so the caption layer is clean-only.
   const captionable = clip.clean === true;
-  const lines = useMemo(() => (captionable ? buildLines(transcript, clip) : []), [captionable, transcript, clip]);
+  const subtitlesOff = cc.style === "custom" && customStyle?.subtitles === false;
+  const lines = useMemo(
+    () => (captionable && !subtitlesOff ? buildLines(transcript, clip) : []),
+    [captionable, subtitlesOff, transcript, clip],
+  );
   const line = captionable && cc.on ? lines.find((l) => t >= l.s && t <= l.e) : undefined;
 
   useEffect(() => {
@@ -119,6 +123,12 @@ export function ClipPlayer({
       {/* caption overlay — same resolver as the template cards, so WYSIWYG */}
       {line ? (
         <CaptionOverlay line={line} t={t} style={cc.style} custom={customStyle} />
+      ) : null}
+
+      {/* template logo (custom templates) */}
+      {cc.on && cc.style === "custom" && customStyle?.logo ? (
+        // biome-ignore lint/a11y/useAltText: brand logo overlay
+        <img src={customStyle.logo} className="pointer-events-none absolute right-[4%] top-[3%] w-1/6" />
       ) : null}
 
       {/* headline banner (custom templates) */}
