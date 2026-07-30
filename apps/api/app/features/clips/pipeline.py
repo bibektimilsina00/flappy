@@ -217,9 +217,11 @@ def _ingest(session: Session, job: ClipsJob, storage, workdir: str) -> str:
         return path
 
     path = os.path.join(workdir, "source.mp4")
+    # Free plan ingests at 720p (half the proxy bandwidth); paid gets 1080p.
+    cap = 720 if is_free_plan(session, job.workspace_id) else 1080
     extra = {
         "outtmpl": path,
-        "format": "bv*[height<=1080]+ba/b[height<=1080]/b",
+        "format": f"bv*[height<={cap}]+ba/b[height<={cap}]/b",
         "merge_output_format": "mp4",
         # yt-dlp needs ffmpeg to merge video+audio; ours is the bundled
         # imageio-ffmpeg binary, not on PATH.
