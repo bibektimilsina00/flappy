@@ -3,7 +3,7 @@ import { Legal } from "@/features/marketing/legal";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
-  description: "How Flappy collects, uses, and protects your data.",
+  description: "How Kinomill collects, uses, and protects your data.",
 };
 
 const CONTACT = "support@khareedlow.com";
@@ -13,8 +13,8 @@ export default function PrivacyPage() {
     <Legal title="Privacy Policy" updated="July 30, 2026">
       <section>
         <p>
-          This Privacy Policy explains how Flappy ("Flappy", "we", "us") collects, uses, and protects your
-          information when you use our website and the Flappy application (together, the "Service"). By using the
+          This Privacy Policy explains how Kinomill ("Kinomill", "we", "us") collects, uses, and protects your
+          information when you use our website and the Kinomill application (together, the "Service"). By using the
           Service you agree to this policy. If you have any questions, contact us at <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.
         </p>
       </section>
@@ -75,16 +75,16 @@ export default function PrivacyPage() {
         </p>
         <ul>
           <li>
-            <strong>YouTube.</strong> Flappy uses YouTube API Services. By connecting a YouTube account you also agree
+            <strong>YouTube.</strong> Kinomill uses YouTube API Services. By connecting a YouTube account you also agree
             to the <a href="https://www.youtube.com/t/terms">YouTube Terms of Service</a>, and Google's{" "}
-            <a href="https://policies.google.com/privacy">Privacy Policy</a> applies. Flappy's use of information
+            <a href="https://policies.google.com/privacy">Privacy Policy</a> applies. Kinomill's use of information
             received from Google APIs adheres to the{" "}
             <a href="https://developers.google.com/terms/api-services-user-data-policy">
               Google API Services User Data Policy
             </a>
             , including the Limited Use requirements. We use the YouTube upload permission only to upload videos you
             explicitly ask us to publish, and the read permission only to display your channel name and avatar. You can
-            revoke Flappy's access at any time via <a href="https://myaccount.google.com/permissions">Google security settings</a>.
+            revoke Kinomill's access at any time via <a href="https://myaccount.google.com/permissions">Google security settings</a>.
           </li>
           <li>
             <strong>Meta (Instagram and Facebook).</strong> We use the tokens only to list your pages/accounts and to
@@ -96,7 +96,7 @@ export default function PrivacyPage() {
           </li>
         </ul>
         <p>
-          Disconnecting an account in Flappy deletes its stored tokens immediately. See also our{" "}
+          Disconnecting an account in Kinomill deletes its stored tokens immediately. See also our{" "}
           <a href="/data-deletion">data deletion instructions</a>.
         </p>
       </section>
@@ -117,7 +117,7 @@ export default function PrivacyPage() {
             <strong>Social platforms</strong> you connected, when you publish or schedule a post.
           </li>
           <li>
-            <strong>Authorities</strong>, if required by law, or to protect the rights, safety, and security of Flappy
+            <strong>Authorities</strong>, if required by law, or to protect the rights, safety, and security of Kinomill
             and its users.
           </li>
         </ul>
@@ -127,7 +127,7 @@ export default function PrivacyPage() {
         <h2>5. Data retention and deletion</h2>
         <ul>
           <li>Your content and projects are kept while your account is active so you can keep working with them.</li>
-          <li>Social account tokens are kept until you disconnect the account or delete your Flappy account.</li>
+          <li>Social account tokens are kept until you disconnect the account or delete your Kinomill account.</li>
           <li>
             You can request deletion of your account and all associated data at any time by emailing{" "}
             <a href={`mailto:${CONTACT}`}>{CONTACT}</a> — see <a href="/data-deletion">data deletion</a> for details. We

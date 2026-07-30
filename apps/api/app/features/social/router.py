@@ -18,10 +18,10 @@ from apps.api.app.features.users.models import User
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/social", tags=["social"])
 
-_POPUP_HTML = """<!doctype html><meta charset="utf-8"><title>Flappy</title>
+_POPUP_HTML = """<!doctype html><meta charset="utf-8"><title>Kinomill</title>
 <body style="background:#111;color:#eee;font-family:system-ui;display:grid;place-items:center;height:100vh;margin:0">
 <p>__MSG__</p>
-<script>if(window.opener){window.opener.postMessage("flappy:social-connected","*")}setTimeout(()=>window.close(),1500)</script>
+<script>if(window.opener){window.opener.postMessage("kinomill:social-connected","*")}setTimeout(()=>window.close(),1500)</script>
 """
 
 

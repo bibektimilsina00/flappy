@@ -1,11 +1,16 @@
 import { BRAND } from "./content";
 
-/** Flappy logo mark — a teal squircle with a bird in mid-flap, wings up. */
+/** Kinomill logo mark — a teal squircle with a mill wheel that doubles as a
+ * film reel: rim, four spokes, hub. */
 export function Logo({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" className={className} aria-hidden="true" focusable="false">
       <rect width="32" height="32" rx="9" fill="#14b8a6" />
-      <path d="M5.5 16.5 C9.5 13 12.5 14.5 16 20 C19.5 14.5 22.5 13 26.5 16.5" fill="none" stroke="#ffffff" strokeWidth="3.8" strokeLinecap="round" strokeLinejoin="round" />
+      <g stroke="#ffffff" strokeWidth="2.6" strokeLinecap="round" fill="none">
+        <circle cx="16" cy="16" r="8.2" />
+        <path d="M16 10.2 V13.4 M16 18.6 V21.8 M10.2 16 H13.4 M18.6 16 H21.8" />
+      </g>
+      <circle cx="16" cy="16" r="2.1" fill="#ffffff" />
     </svg>
   );
 }

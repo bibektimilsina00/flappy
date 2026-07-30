@@ -118,11 +118,12 @@ export interface UserTemplate {
   def: CustomCaptionStyle;
 }
 
-const LS_KEY = "flappy-caption-templates";
+const LS_KEY = "kinomill-caption-templates";
 
 export function loadTemplates(): UserTemplate[] {
   try {
-    return JSON.parse(localStorage.getItem(LS_KEY) ?? "[]");
+    // rebrand migration: fall back to the old flappy-era key
+    return JSON.parse(localStorage.getItem(LS_KEY) ?? localStorage.getItem("flappy-caption-templates") ?? "[]");
   } catch {
     return [];
   }

@@ -1,4 +1,4 @@
-# Flappy
+# Kinomill
 
 Node-based AI video generation. Monorepo — see [`arch.md`](./arch.md).
 

@@ -3,19 +3,19 @@ import { Legal } from "@/features/marketing/legal";
 
 export const metadata: Metadata = {
   title: "Data Deletion",
-  description: "How to delete your data from Flappy.",
+  description: "How to delete your data from Kinomill.",
 };
 
 const CONTACT = "support@khareedlow.com";
 
 // Required by Meta (and useful for every platform): a public page explaining
-// how users can delete the data Flappy holds about them.
+// how users can delete the data Kinomill holds about them.
 export default function DataDeletionPage() {
   return (
     <Legal title="Data Deletion Instructions" updated="July 30, 2026">
       <section>
         <p>
-          You are always in control of the data Flappy stores. There are three levels of deletion, depending on what
+          You are always in control of the data Kinomill stores. There are three levels of deletion, depending on what
           you want removed:
         </p>
       </section>
@@ -27,10 +27,10 @@ export default function DataDeletionPage() {
           tokens:
         </p>
         <ul>
-          <li>Open any clip in Flappy → <strong>Publish</strong> → hover the account chip → click the <strong>×</strong> to disconnect.</li>
+          <li>Open any clip in Kinomill → <strong>Publish</strong> → hover the account chip → click the <strong>×</strong> to disconnect.</li>
           <li>The stored tokens are deleted immediately and any scheduled auto-posts to that account will no longer run.</li>
           <li>
-            You can additionally revoke Flappy from the platform's side: Google{" "}
+            You can additionally revoke Kinomill from the platform's side: Google{" "}
             <a href="https://myaccount.google.com/permissions">security settings</a>, Facebook/Instagram{" "}
             <em>Settings → Apps and websites</em>, TikTok <em>Settings → Security → Apps</em>, X{" "}
             <em>Settings → Security → Apps and sessions</em>, LinkedIn <em>Settings → Data privacy → Permitted services</em>.
@@ -57,7 +57,7 @@ export default function DataDeletionPage() {
         </p>
         <p>
           Note: content you already published to social platforms lives on those platforms and is not deleted by
-          removing your Flappy data — manage it on the platform directly.
+          removing your Kinomill data — manage it on the platform directly.
         </p>
       </section>
     </Legal>

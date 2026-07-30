@@ -43,7 +43,7 @@ def watermark_filter() -> str:
 
     font = os.path.join(FONTS_DIR, "Poppins.ttf")
     return (
-        f",drawtext=fontfile={font}:text='Flappy':fontcolor=white:alpha=0.55"
+        f",drawtext=fontfile={font}:text='Kinomill':fontcolor=white:alpha=0.55"
         ":fontsize=h/34:x=w*0.035:y=h*0.03:shadowcolor=black@0.6:shadowx=2:shadowy=2"
     )
 
