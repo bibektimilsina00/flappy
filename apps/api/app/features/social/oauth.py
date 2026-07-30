@@ -30,6 +30,13 @@ PROVIDERS: dict[str, dict] = {
         "keys": ("tiktok_client_key", "tiktok_client_secret"),
         "id_param": "client_key",  # TikTok's name for client_id
     },
+    "instagram": {  # standalone "Instagram API with Instagram Login" — no page needed
+        "authorize_url": "https://www.instagram.com/oauth/authorize",
+        "token_url": "https://api.instagram.com/oauth/access_token",
+        "scope": "instagram_business_basic,instagram_business_content_publish",
+        "extra": {},
+        "keys": ("instagram_app_id", "instagram_app_secret"),
+    },
     "facebook": {
         "authorize_url": "https://www.facebook.com/v19.0/dialog/oauth",
         "token_url": f"{GRAPH}/oauth/access_token",
@@ -38,7 +45,7 @@ PROVIDERS: dict[str, dict] = {
         "keys": ("facebook_app_id", "facebook_app_secret"),
     },
 }
-CONNECT_PLATFORMS = ("youtube", "tiktok", "facebook")
+CONNECT_PLATFORMS = ("youtube", "tiktok", "instagram", "facebook")
 
 
 def creds(provider: str) -> tuple[str, str]:
@@ -139,6 +146,37 @@ def discover_accounts(provider: str, tokens: dict) -> list[dict]:
                     "external_id": open_id,
                     "username": user.get("display_name"),
                     "avatar_url": user.get("avatar_url"),
+                }
+            ]
+
+        if provider == "instagram":
+            # short-lived login token -> 60-day token, then who am I
+            _, csec = creds("instagram")
+            res = client.get(
+                "https://graph.instagram.com/access_token",
+                params={"grant_type": "ig_exchange_token", "client_secret": csec, "access_token": access},
+            )
+            res.raise_for_status()
+            ll = res.json()
+            me = client.get(
+                "https://graph.instagram.com/v19.0/me",
+                params={"fields": "user_id,username,profile_picture_url", "access_token": ll["access_token"]},
+            )
+            me.raise_for_status()
+            user = me.json()
+            ig_id = str(user.get("user_id") or tokens.get("user_id") or "")
+            if not ig_id:
+                return []
+            return [
+                {
+                    "platform": "instagram",
+                    "external_id": ig_id,
+                    "username": user.get("username"),
+                    "avatar_url": user.get("profile_picture_url"),
+                    "access_token": ll["access_token"],
+                    "refresh_token": None,
+                    "token_expires_at": expiry(ll),
+                    "meta": {"ig_login": True, "ig_user_id": ig_id},
                 }
             ]
 

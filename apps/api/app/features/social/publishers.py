@@ -19,11 +19,24 @@ log = logging.getLogger(__name__)
 
 
 def fresh_token(session: Session, account: SocialAccount) -> str:
-    """Refresh an expired token (google/tiktok). Meta page tokens don't expire."""
+    """Refresh a near-expiry token (google/tiktok/ig-login). Meta page tokens don't expire."""
     now = datetime.now(timezone.utc).replace(tzinfo=None)
-    if account.token_expires_at is None or account.token_expires_at > now or not account.refresh_token:
+    if account.token_expires_at is None or account.token_expires_at > now:
         return account.access_token
-    payload = oauth.refresh("youtube" if account.platform == "youtube" else account.platform, account.refresh_token)
+    if (account.meta or {}).get("ig_login"):
+        # IG long-lived tokens refresh with themselves (works only while still valid;
+        # ponytail: a token expired for weeks needs a reconnect, not a refresh)
+        with httpx.Client(timeout=20) as client:
+            res = client.get(
+                "https://graph.instagram.com/refresh_access_token",
+                params={"grant_type": "ig_refresh_token", "access_token": account.access_token},
+            )
+            res.raise_for_status()
+            payload = res.json()
+    elif not account.refresh_token:
+        return account.access_token
+    else:
+        payload = oauth.refresh("youtube" if account.platform == "youtube" else account.platform, account.refresh_token)
     account.access_token = payload["access_token"]
     account.refresh_token = payload.get("refresh_token") or account.refresh_token
     account.token_expires_at = oauth.expiry(payload)
@@ -107,25 +120,28 @@ def _tiktok(account, token, video_url, video_bytes, title, caption) -> str:
 
 
 def _instagram(account, token, video_url, video_bytes, title, caption) -> str:
-    ig = (account.meta or {}).get("ig_user_id") or account.external_id
+    meta = account.meta or {}
+    # standalone Instagram Login talks to graph.instagram.com; page-linked to graph.facebook.com
+    graph = "https://graph.instagram.com/v19.0" if meta.get("ig_login") else oauth.GRAPH
+    ig = meta.get("ig_user_id") or account.external_id
     with httpx.Client(timeout=60) as client:
         res = client.post(
-            f"{oauth.GRAPH}/{ig}/media",
+            f"{graph}/{ig}/media",
             data={"media_type": "REELS", "video_url": video_url, "caption": caption or title or "", "access_token": token},
         )
         _raise(res, "Instagram")
         creation = res.json()["id"]
         for _ in range(60):  # IG pulls + processes the video before it can publish
-            st = client.get(f"{oauth.GRAPH}/{creation}", params={"fields": "status_code", "access_token": token})
+            st = client.get(f"{graph}/{creation}", params={"fields": "status_code", "access_token": token})
             code = st.json().get("status_code")
             if code == "FINISHED":
                 break
             if code == "ERROR":
                 raise RuntimeError("Instagram could not process the video")
             time.sleep(5)
-        pub = client.post(f"{oauth.GRAPH}/{ig}/media_publish", data={"creation_id": creation, "access_token": token})
+        pub = client.post(f"{graph}/{ig}/media_publish", data={"creation_id": creation, "access_token": token})
         _raise(pub, "Instagram publish")
-        link = client.get(f"{oauth.GRAPH}/{pub.json()['id']}", params={"fields": "permalink", "access_token": token})
+        link = client.get(f"{graph}/{pub.json()['id']}", params={"fields": "permalink", "access_token": token})
         return link.json().get("permalink") or f"https://www.instagram.com/{account.username or ''}"
 
 

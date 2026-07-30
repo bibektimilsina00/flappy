@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     tiktok_client_secret: str = ""
     facebook_app_id: str = ""
     facebook_app_secret: str = ""
+    # "Instagram API with Instagram Login" (standalone, no Facebook page needed)
+    instagram_app_id: str = ""
+    instagram_app_secret: str = ""
 
 
 settings = Settings()
