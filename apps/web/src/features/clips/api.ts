@@ -106,6 +106,8 @@ export interface SocialAccount {
 }
 
 export interface ClipsParams {
+  // Source ingest quality. 1080p is paid-only; the server enforces the cap.
+  quality?: "720p" | "1080p";
   count: number | "auto";
   duration: "auto" | string[]; // "auto" or multi-selected length bands
   ratio: "9:16" | "1:1" | "16:9";

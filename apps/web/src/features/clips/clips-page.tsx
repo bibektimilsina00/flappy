@@ -12,6 +12,7 @@ import {
   FolderOpen,
   Link2,
   Loader2,
+  Lock,
   Play,
   Scissors,
   SlidersHorizontal,
@@ -44,6 +45,7 @@ import {
 } from "./api";
 
 const DEFAULTS: ClipsParams = {
+  quality: "1080p",
   count: "auto",
   duration: "auto",
   ratio: "9:16",
@@ -667,6 +669,11 @@ function ConfigPanel({
       .catch(() => setCost(null));
   }, [params.count]);
   const insufficient = cost !== null && balance !== undefined && balance.balance < cost;
+  const isFree = (balance?.plan ?? "free") === "free";
+  // Free plan can't hold a paid-only quality (e.g. restored draft or default).
+  useEffect(() => {
+    if (isFree && params.quality !== "720p") setParams((p) => ({ ...p, quality: "720p" }));
+  }, [isFree, params.quality, setParams]);
   return (
     <div className="space-y-5">
       {/* source chip */}
@@ -713,7 +720,15 @@ function ConfigPanel({
       ) : null}
 
       {/* format fields — standalone row above the group */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <FieldSelect
+            label="Quality"
+            value={params.quality ?? "1080p"}
+            options={["720p", "1080p"]}
+            display={(v) => (v === "1080p" ? "1080p HD" : "720p")}
+            locked={(v) => v === "1080p" && isFree}
+            onChange={(v) => setParams((p) => ({ ...p, quality: v as ClipsParams["quality"] }))}
+          />
         <FieldSelect
             label="Ratio"
             value={params.ratio}
@@ -1000,12 +1015,15 @@ function FieldSelect({
   options,
   display,
   onChange,
+  locked,
 }: {
   label: string;
   value: string;
   options: string[];
   display: (v: string) => string;
   onChange: (v: string) => void;
+  // Options shown but not selectable (upsell) — renders a lock + Pro tag.
+  locked?: (v: string) => boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -1044,23 +1062,36 @@ function FieldSelect({
         >
           {options.map((o) => {
             const active = o === value;
+            const isLocked = locked?.(o) ?? false;
             return (
               <button
                 key={o}
                 type="button"
                 role="option"
                 aria-selected={active}
+                aria-disabled={isLocked}
                 onClick={() => {
+                  if (isLocked) return;
                   onChange(o);
                   setOpen(false);
                 }}
                 className={cn(
                   "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors",
-                  active ? "bg-teal-400/10 text-teal-300" : "text-foreground/90 hover:bg-white/5",
+                  isLocked
+                    ? "cursor-not-allowed text-muted-foreground/60"
+                    : active
+                      ? "bg-teal-400/10 text-teal-300"
+                      : "text-foreground/90 hover:bg-white/5",
                 )}
               >
                 {display(o)}
-                {active ? <Check className="size-4" /> : null}
+                {isLocked ? (
+                  <span className="flex items-center gap-1 rounded-md bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
+                    <Lock className="size-3" /> Pro
+                  </span>
+                ) : active ? (
+                  <Check className="size-4" />
+                ) : null}
               </button>
             );
           })}

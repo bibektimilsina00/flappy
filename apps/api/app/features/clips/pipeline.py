@@ -217,8 +217,10 @@ def _ingest(session: Session, job: ClipsJob, storage, workdir: str) -> str:
         return path
 
     path = os.path.join(workdir, "source.mp4")
-    # Free plan ingests at 720p (half the proxy bandwidth); paid gets 1080p.
-    cap = 720 if is_free_plan(session, job.workspace_id) else 1080
+    # Free plan is hard-capped at 720p (half the proxy bandwidth) regardless of
+    # what the client sent; paid gets the quality they picked (default 1080p).
+    requested = 720 if (job.params or {}).get("quality") == "720p" else 1080
+    cap = 720 if is_free_plan(session, job.workspace_id) else requested
     extra = {
         "outtmpl": path,
         "format": f"bv*[height<={cap}]+ba/b[height<={cap}]/b",
