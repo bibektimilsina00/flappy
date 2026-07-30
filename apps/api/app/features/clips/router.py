@@ -344,6 +344,7 @@ def clip_srt(
 @router.get("/jobs/{job_id}/zip")
 def job_zip(
     job_id: uuid.UUID,
+    ids: str | None = None,  # comma-separated clip ids -> zip only those
     session: Session = Depends(get_session),
     workspace_id: uuid.UUID = Depends(current_workspace_id),
     _user: User = Depends(get_current_user),
@@ -362,6 +363,11 @@ def job_zip(
     params = job.params or {}
     style = (params.get("caption_style") or "clean") if params.get("captions", True) else None
     clips = list(job.clips)
+    if ids:
+        wanted = set(ids.split(","))
+        clips = [c for c in clips if c.get("id") in wanted]
+        if not clips:
+            raise HTTPException(status_code=404, detail="No matching clips")
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as zf:
         for i, clip in enumerate(clips):
@@ -372,7 +378,10 @@ def job_zip(
                 key = burn_clip_captions(job, clip, style, storage) or key
             safe = re.sub(r"[^\w\- ]", "", clip.get("title") or f"clip {i + 1}")[:60]
             zf.writestr(f"{i + 1:02d} {safe}.mp4", storage.get(key))
-    job.clips = clips  # persist any burns done above
+    # Persist any burns done above. Clip dicts are shared with job.clips, so a
+    # full-list reassign triggers the JSON change detection without dropping
+    # clips excluded by the ids filter.
+    job.clips = list(job.clips)
     repository.save(session, job)
     buf.seek(0)
     name = re.sub(r"[^\w\- ]", "", job.source_title or "clips")[:60] or "clips"

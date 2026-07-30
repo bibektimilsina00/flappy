@@ -205,20 +205,10 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
                   disabled={busyAction !== null}
                   onClick={() => {
                     setBusyAction("zip");
-                    const jc = {
-                      on: (job.params as { captions?: boolean }).captions !== false,
-                      style: String((job.params as { caption_style?: string }).caption_style ?? "clean"),
-                    };
-                    const run =
-                      selected.size > 0
-                        ? (async () => {
-                            for (const clip of job.clips.filter((c) => selected.has(c.id))) {
-                              const { url } = await getClipDownloadUrl(job.id, clip.id, jc.on ? jc.style : "none");
-                              triggerDownload(url, `${job.source_title ?? "clip"}-${clip.title ?? clip.id.slice(0, 6)}.mp4`);
-                            }
-                          })()
-                        : authDownload(`/clips/jobs/${job.id}/zip`, "clips.zip");
-                    void run.finally(() => setBusyAction(null));
+                    const qs = selected.size > 0 ? `?ids=${[...selected].join(",")}` : "";
+                    void authDownload(`/clips/jobs/${job.id}/zip${qs}`, "clips.zip").finally(() =>
+                      setBusyAction(null),
+                    );
                   }}
                   className="flex items-center gap-2 rounded-lg bg-teal-500 px-3 py-2 text-sm font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-60"
                 >
