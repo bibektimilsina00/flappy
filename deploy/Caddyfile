@@ -1,6 +1,5 @@
-# Single public entry point. When a domain exists, replace :80 with the domain
-# and Caddy does HTTPS automatically.
-:80 {
+# Caddy gets/renews Let's Encrypt certs automatically for these hosts.
+riocut.com {
 	encode zstd gzip
 
 	# API + WebSockets
@@ -16,4 +15,8 @@
 	handle {
 		reverse_proxy web:3000
 	}
+}
+
+www.riocut.com {
+	redir https://riocut.com{uri} permanent
 }

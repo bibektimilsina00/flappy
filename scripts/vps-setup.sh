@@ -23,7 +23,7 @@ fi
 
 # Basic firewall: ssh + Caddy. Everything else stays internal to compose.
 if command -v ufw >/dev/null; then
-  ufw allow 22/tcp && ufw allow 80/tcp
+  ufw allow 22/tcp && ufw allow 80/tcp && ufw allow 443/tcp && ufw allow 443/udp
   ufw --force enable
 fi
 

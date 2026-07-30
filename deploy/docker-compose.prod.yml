@@ -82,9 +82,12 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
-    # The only public port. /api -> api, /video-assets -> minio, rest -> web.
-    ports: ["80:80"]
-    volumes: ["./Caddyfile:/etc/caddy/Caddyfile:ro"]
+    # The only public service. /api -> api, /video-assets -> minio, rest -> web.
+    # 443/udp = HTTP/3.
+    ports: ["80:80", "443:443", "443:443/udp"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
     depends_on: [web]
     <<: *logging
 
@@ -92,3 +95,4 @@ volumes:
   pgdata:
   miniodata:
   modelcache:
+  caddydata:
