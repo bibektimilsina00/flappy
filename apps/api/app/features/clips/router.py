@@ -101,14 +101,11 @@ def probe_source(
     title/thumbnail/duration before the job starts."""
     if not URL_RE.match(body.source_url.strip()):
         raise HTTPException(status_code=422, detail="That doesn't look like a valid link.")
-    import yt_dlp
-
-    from apps.api.app.features.clips.pipeline import friendly_link_error, ydl_base_opts
+    from apps.api.app.features.clips.pipeline import friendly_link_error, ydl_extract
 
     url = body.source_url.strip()
     try:
-        with yt_dlp.YoutubeDL(ydl_base_opts()) as ydl:
-            info = ydl.extract_info(url, download=False)
+        info = ydl_extract(url, download=False)
     except Exception as exc:
         friendly = friendly_link_error(exc)
         if "upload the file" in friendly:

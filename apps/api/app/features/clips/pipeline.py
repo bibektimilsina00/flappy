@@ -168,6 +168,23 @@ def ydl_base_opts() -> dict:
     return opts
 
 
+def ydl_extract(url: str, download: bool, extra_opts: dict | None = None) -> dict:
+    """Extract via the proxy when configured, falling back to a direct attempt —
+    a proxy outage must never make ingestion worse than having no proxy."""
+    import yt_dlp
+
+    opts = {**ydl_base_opts(), **(extra_opts or {})}
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            return ydl.extract_info(url, download=download)
+    except Exception:
+        if not opts.pop("proxy", None):
+            raise
+        log.warning("yt-dlp via proxy failed for %s; retrying direct", url)
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            return ydl.extract_info(url, download=download)
+
+
 def friendly_link_error(exc: Exception) -> str:
     """Turn yt-dlp's wall of text into something a user can act on."""
     msg = str(exc)
@@ -199,11 +216,8 @@ def _ingest(session: Session, job: ClipsJob, storage, workdir: str) -> str:
             f.write(storage.get(job.source_key))
         return path
 
-    import yt_dlp
-
     path = os.path.join(workdir, "source.mp4")
-    opts = {
-        **ydl_base_opts(),
+    extra = {
         "outtmpl": path,
         "format": "bv*[height<=1080]+ba/b[height<=1080]/b",
         "merge_output_format": "mp4",
@@ -212,8 +226,7 @@ def _ingest(session: Session, job: ClipsJob, storage, workdir: str) -> str:
         "ffmpeg_location": imageio_ffmpeg.get_ffmpeg_exe(),
     }
     try:
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(job.source_url, download=True)
+        info = ydl_extract(job.source_url, download=True, extra_opts=extra)
     except Exception as exc:
         raise ValueError(friendly_link_error(exc)) from exc
     title = (info or {}).get("title")
