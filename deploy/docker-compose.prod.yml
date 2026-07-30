@@ -57,7 +57,8 @@ services:
   api:
     <<: *backend
     command: sh -c "alembic -c apps/api/alembic.ini upgrade head && exec uvicorn apps.api.app.main:app --host 0.0.0.0 --port 8000"
-    volumes: ["./ytdlp:/ytdlp:ro"]
+    # rw: yt-dlp persists YouTube's rotated cookies back into the file.
+    volumes: ["./ytdlp:/ytdlp"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
@@ -68,7 +69,7 @@ services:
 # ponytail: concurrency=1 — the VPS is 1 vCPU/2GB; raise when the box grows
     command: celery -A apps.worker.app.worker worker --loglevel=info --concurrency=1
     # Whisper models download once, then persist here.
-    volumes: ["modelcache:/home/app/.cache", "./ytdlp:/ytdlp:ro"]
+    volumes: ["modelcache:/home/app/.cache", "./ytdlp:/ytdlp"]
 
   beat:
     <<: *backend
