@@ -1,0 +1,186 @@
+"""Platform OAuth for publishing (not login). YouTube rides the existing
+Google app (enable the YouTube Data API on it); TikTok and Meta have their own
+keys. One Meta connect discovers Facebook pages AND their linked Instagram
+business accounts."""
+
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+from urllib.parse import urlencode
+
+import httpx
+
+from apps.api.app.core.config import settings
+
+GRAPH = "https://graph.facebook.com/v19.0"
+
+PROVIDERS: dict[str, dict] = {
+    "youtube": {
+        "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth",
+        "token_url": "https://oauth2.googleapis.com/token",
+        "scope": "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly",
+        "extra": {"access_type": "offline", "prompt": "consent"},
+        "keys": ("google_client_id", "google_client_secret"),
+    },
+    "tiktok": {
+        "authorize_url": "https://www.tiktok.com/v2/auth/authorize/",
+        "token_url": "https://open.tiktokapis.com/v2/oauth/token/",
+        "scope": "user.info.basic,video.publish",
+        "extra": {},
+        "keys": ("tiktok_client_key", "tiktok_client_secret"),
+        "id_param": "client_key",  # TikTok's name for client_id
+    },
+    "facebook": {
+        "authorize_url": "https://www.facebook.com/v19.0/dialog/oauth",
+        "token_url": f"{GRAPH}/oauth/access_token",
+        "scope": "pages_show_list,pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish",
+        "extra": {},
+        "keys": ("facebook_app_id", "facebook_app_secret"),
+    },
+}
+CONNECT_PLATFORMS = ("youtube", "tiktok", "facebook")
+
+
+def creds(provider: str) -> tuple[str, str]:
+    kid, ksec = PROVIDERS[provider]["keys"]
+    return getattr(settings, kid), getattr(settings, ksec)
+
+
+def is_configured(provider: str) -> bool:
+    return all(creds(provider))
+
+
+def redirect_uri(provider: str) -> str:
+    return f"{settings.api_base_url}/api/v1/social/{provider}/callback"
+
+
+def authorize_url(provider: str, state: str) -> str:
+    cfg = PROVIDERS[provider]
+    params = {
+        cfg.get("id_param", "client_id"): creds(provider)[0],
+        "redirect_uri": redirect_uri(provider),
+        "response_type": "code",
+        "scope": cfg["scope"],
+        "state": state,
+        **cfg["extra"],
+    }
+    return f"{cfg['authorize_url']}?{urlencode(params)}"
+
+
+def _token_call(provider: str, data: dict) -> dict:
+    cfg = PROVIDERS[provider]
+    cid, csec = creds(provider)
+    data = {cfg.get("id_param", "client_id"): cid, "client_secret": csec, **data}
+    with httpx.Client(timeout=20) as client:
+        res = client.post(cfg["token_url"], data=data, headers={"Accept": "application/json"})
+        res.raise_for_status()
+        return res.json()
+
+
+def exchange(provider: str, code: str) -> dict:
+    return _token_call(
+        provider, {"grant_type": "authorization_code", "code": code, "redirect_uri": redirect_uri(provider)}
+    )
+
+
+def refresh(provider: str, refresh_token: str) -> dict:
+    return _token_call(provider, {"grant_type": "refresh_token", "refresh_token": refresh_token})
+
+
+def expiry(payload: dict) -> datetime | None:
+    if not payload.get("expires_in"):
+        return None
+    return datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(seconds=int(payload["expires_in"]) - 60)
+
+
+def discover_accounts(provider: str, tokens: dict) -> list[dict]:
+    """Token payload -> SocialAccount field dicts to upsert."""
+    access = tokens["access_token"]
+    base = {
+        "access_token": access,
+        "refresh_token": tokens.get("refresh_token"),
+        "token_expires_at": expiry(tokens),
+        "meta": {},
+    }
+    with httpx.Client(timeout=20) as client:
+        if provider == "youtube":
+            res = client.get(
+                "https://www.googleapis.com/youtube/v3/channels",
+                params={"part": "snippet", "mine": "true"},
+                headers={"Authorization": f"Bearer {access}"},
+            )
+            res.raise_for_status()
+            return [
+                {
+                    **base,
+                    "platform": "youtube",
+                    "external_id": ch["id"],
+                    "username": (ch.get("snippet") or {}).get("title"),
+                    "avatar_url": (((ch.get("snippet") or {}).get("thumbnails") or {}).get("default") or {}).get("url"),
+                }
+                for ch in res.json().get("items", [])
+            ]
+
+        if provider == "tiktok":
+            res = client.get(
+                "https://open.tiktokapis.com/v2/user/info/",
+                params={"fields": "open_id,display_name,avatar_url"},
+                headers={"Authorization": f"Bearer {access}"},
+            )
+            res.raise_for_status()
+            user = (res.json().get("data") or {}).get("user") or {}
+            open_id = user.get("open_id") or tokens.get("open_id")
+            if not open_id:
+                return []
+            return [
+                {
+                    **base,
+                    "platform": "tiktok",
+                    "external_id": open_id,
+                    "username": user.get("display_name"),
+                    "avatar_url": user.get("avatar_url"),
+                }
+            ]
+
+        # facebook: long-lived user token -> pages (page tokens then never expire) + IG accounts
+        cid, csec = creds("facebook")
+        res = client.get(
+            f"{GRAPH}/oauth/access_token",
+            params={"grant_type": "fb_exchange_token", "client_id": cid, "client_secret": csec, "fb_exchange_token": access},
+        )
+        res.raise_for_status()
+        user_token = res.json()["access_token"]
+        res = client.get(
+            f"{GRAPH}/me/accounts",
+            params={
+                "fields": "id,name,access_token,picture{url},instagram_business_account{id,username,profile_picture_url}",
+                "access_token": user_token,
+            },
+        )
+        res.raise_for_status()
+        out: list[dict] = []
+        for page in res.json().get("data", []):
+            token_fields = {"access_token": page["access_token"], "refresh_token": None, "token_expires_at": None}
+            out.append(
+                {
+                    "platform": "facebook",
+                    "external_id": page["id"],
+                    "username": page.get("name"),
+                    "avatar_url": ((page.get("picture") or {}).get("data") or {}).get("url"),
+                    "meta": {"page_id": page["id"]},
+                    **token_fields,
+                }
+            )
+            ig = page.get("instagram_business_account")
+            if ig:
+                out.append(
+                    {
+                        "platform": "instagram",
+                        "external_id": ig["id"],
+                        "username": ig.get("username"),
+                        "avatar_url": ig.get("profile_picture_url"),
+                        "meta": {"ig_user_id": ig["id"], "page_id": page["id"]},
+                        **token_fields,
+                    }
+                )
+        return out

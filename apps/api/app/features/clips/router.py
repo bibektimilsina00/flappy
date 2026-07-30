@@ -438,6 +438,70 @@ def job_by_workflow(
     return {"job_id": str(job.id)}
 
 
+class PublishRequest(BaseModel):
+    account_ids: list[uuid.UUID]
+    caption: str | None = None
+
+
+@router.post("/jobs/{job_id}/clips/{clip_id}/publish", status_code=201)
+def publish_clip_now(
+    job_id: uuid.UUID,
+    clip_id: str,
+    body: PublishRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> list[dict]:
+    """Post this clip to the selected connected accounts right now — one
+    ScheduledPost per account, published by the worker."""
+    from datetime import datetime, timezone
+
+    from apps.api.app.features.clips.models import ScheduledPost
+    from apps.api.app.features.social.models import SocialAccount
+
+    job = repository.get(session, workspace_id, job_id)
+    clip = next((c for c in (job.clips if job else []) or [] if c.get("id") == clip_id and c.get("key")), None)
+    if job is None or clip is None:
+        raise HTTPException(status_code=404, detail="Clip not found")
+    accounts = [
+        a for aid in body.account_ids if (a := session.get(SocialAccount, aid)) and a.workspace_id == workspace_id
+    ]
+    if not accounts:
+        raise HTTPException(status_code=422, detail="Select at least one connected account")
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    posts = []
+    for account in accounts:
+        post = ScheduledPost(
+            workspace_id=workspace_id,
+            job_id=job.id,
+            clip_id=clip_id,
+            title=clip.get("title"),
+            post_at=now,
+            status="posting",
+            social_account_id=account.id,
+            platform=account.platform,
+            caption=(body.caption or "").strip() or None,
+        )
+        session.add(post)
+        posts.append((post, account))
+    session.commit()
+    for post, _ in posts:
+        celery_app.send_task("publish_post", args=[str(post.id)])
+    return [
+        {
+            "id": str(post.id),
+            "clip_id": post.clip_id,
+            "status": post.status,
+            "platform": post.platform,
+            "account": account.username,
+            "result_url": post.result_url,
+            "error": post.error,
+        }
+        for post, account in posts
+    ]
+
+
 class BulkScheduleRequest(BaseModel):
     clip_ids: list[str]
     config: dict
@@ -473,17 +537,23 @@ def bulk_schedule(
     for p in stale:
         session.delete(p)
 
+    from apps.api.app.features.clips.schedule import workspace_accounts
+
+    targets = workspace_accounts(session, workspace_id, body.config.get("account_ids") or [])
     created = []
     for clip, when in compute_schedule(clips, {**body.config, "min_score": None}):
-        post = ScheduledPost(
-            workspace_id=workspace_id,
-            job_id=job.id,
-            clip_id=clip["id"],
-            title=clip.get("title"),
-            post_at=when.replace(tzinfo=None),
-        )
-        session.add(post)
-        created.append(post)
+        for account in targets or [None]:
+            post = ScheduledPost(
+                workspace_id=workspace_id,
+                job_id=job.id,
+                clip_id=clip["id"],
+                title=clip.get("title"),
+                post_at=when.replace(tzinfo=None),
+                social_account_id=account.id if account else None,
+                platform=account.platform if account else None,
+            )
+            session.add(post)
+            created.append(post)
     session.commit()
     return [{"id": str(p.id), "clip_id": p.clip_id, "post_at": p.post_at.isoformat() + "Z"} for p in created]
 
@@ -499,13 +569,27 @@ def list_schedule(
 
     from apps.api.app.features.clips.models import ScheduledPost
 
+    from apps.api.app.features.social.models import SocialAccount
+
     posts = list(
         session.exec(
             select(ScheduledPost)
-            .where(ScheduledPost.workspace_id == workspace_id, ScheduledPost.status.in_(("scheduled", "due")))  # type: ignore[attr-defined]
+            .where(
+                ScheduledPost.workspace_id == workspace_id,
+                ScheduledPost.status.in_(("scheduled", "due", "posting", "posted", "failed")),  # type: ignore[attr-defined]
+            )
             .order_by(ScheduledPost.post_at)
             .limit(200)
         )
+    )
+    acct_ids = {p.social_account_id for p in posts if p.social_account_id}
+    account_names = (
+        {
+            a.id: a.username or a.platform
+            for a in session.exec(select(SocialAccount).where(SocialAccount.id.in_(acct_ids)))  # type: ignore[attr-defined]
+        }
+        if acct_ids
+        else {}
     )
     storage = get_storage()
     jobs: dict[uuid.UUID, ClipsJob | None] = {}
@@ -523,6 +607,10 @@ def list_schedule(
                 "title": p.title or (clip or {}).get("title"),
                 "post_at": p.post_at.isoformat() + "Z",
                 "status": p.status,
+                "platform": p.platform,
+                "account": account_names.get(p.social_account_id),
+                "result_url": p.result_url,
+                "error": p.error,
                 "score": (clip or {}).get("score"),
                 "url": storage.url(clip["key"]) if clip and clip.get("key") else None,
             }

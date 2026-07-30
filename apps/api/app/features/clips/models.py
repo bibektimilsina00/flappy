@@ -44,4 +44,10 @@ class ScheduledPost(TimestampMixin, table=True):
     clip_id: str = Field(nullable=False)
     title: str | None = Field(default=None)
     post_at: datetime = Field(index=True, nullable=False)  # UTC
-    status: str = Field(default="scheduled", index=True)  # scheduled|due|canceled
+    # scheduled -> due (manual "ready to post") | posting -> posted/failed (auto)
+    status: str = Field(default="scheduled", index=True)
+    social_account_id: uuid.UUID | None = Field(default=None, index=True)  # None = manual post
+    platform: str | None = Field(default=None)
+    caption: str | None = Field(default=None)
+    result_url: str | None = Field(default=None)  # link to the published post
+    error: str | None = Field(default=None)

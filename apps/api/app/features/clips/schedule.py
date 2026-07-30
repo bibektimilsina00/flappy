@@ -57,3 +57,21 @@ def compute_schedule(clips: list[dict], cfg: dict, now: datetime | None = None) 
         local = datetime.combine(start + timedelta(days=day_i), time(minutes // 60, minutes % 60), tzinfo=tz)
         out.append((clip, local.astimezone(timezone.utc)))
     return out
+
+
+def workspace_accounts(session, workspace_id, account_ids: list) -> list:
+    """The workspace's SocialAccounts matching the ids (ignores stale/foreign ids)."""
+    import uuid as _uuid
+
+    from apps.api.app.features.social.models import SocialAccount
+
+    out = []
+    for raw in account_ids:
+        try:
+            aid = raw if isinstance(raw, _uuid.UUID) else _uuid.UUID(str(raw))
+        except ValueError:
+            continue
+        account = session.get(SocialAccount, aid)
+        if account and account.workspace_id == workspace_id:
+            out.append(account)
+    return out

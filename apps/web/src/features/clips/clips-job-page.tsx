@@ -275,7 +275,17 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
                 onPublish={setPublishClip}
               />
               <PostingQueue jobId={job.id} refresh={queueNonce} />
-              {publishClip ? <PublishPanel clipTitle={publishClip.title} onClose={() => setPublishClip(null)} /> : null}
+              {publishClip ? (
+                <PublishPanel
+                  jobId={job.id}
+                  clipId={publishClip.id}
+                  clipTitle={publishClip.title}
+                  onClose={() => {
+                    setPublishClip(null);
+                    setQueueNonce((n) => n + 1);
+                  }}
+                />
+              ) : null}
               {bulkOpen ? (
                 <ScheduleModal
                   value={defaultSchedule()}
@@ -533,9 +543,24 @@ function PostingQueue({ jobId, refresh = 0 }: { jobId: string; refresh?: number 
   const [posts, setPosts] = useState<ScheduledPost[] | null>(null);
 
   useEffect(() => {
-    listSchedule()
-      .then((all) => setPosts(all.filter((p) => p.job_id === jobId)))
-      .catch(() => setPosts([]));
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try {
+        const all = await listSchedule();
+        if (!alive) return;
+        const mine = all.filter((p) => p.job_id === jobId);
+        setPosts(mine);
+        if (mine.some((p) => p.status === "posting")) timer = setTimeout(poll, 2500);
+      } catch {
+        if (alive) setPosts((l) => l ?? []);
+      }
+    };
+    void poll();
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
   }, [jobId, refresh]);
 
   if (!posts || posts.length === 0) return null;
@@ -551,14 +576,49 @@ function PostingQueue({ jobId, refresh = 0 }: { jobId: string; refresh?: number 
           return (
             <div key={post.id} className="group flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
               <span
+                title={post.error ?? undefined}
                 className={cn(
                   "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                  post.status === "due" ? "bg-teal-400/15 text-teal-300" : "bg-white/5 text-muted-foreground",
+                  post.status === "posted"
+                    ? "bg-teal-400/15 text-teal-300"
+                    : post.status === "failed"
+                      ? "bg-red-400/15 text-red-400"
+                      : post.status === "posting"
+                        ? "bg-amber-400/15 text-amber-300"
+                        : post.status === "due"
+                          ? "bg-teal-400/15 text-teal-300"
+                          : "bg-white/5 text-muted-foreground",
                 )}
               >
-                {post.status === "due" ? "Ready to post" : "Scheduled"}
+                {post.status === "posted"
+                  ? "Posted"
+                  : post.status === "failed"
+                    ? "Failed"
+                    : post.status === "posting"
+                      ? "Posting…"
+                      : post.status === "due"
+                        ? "Ready to post"
+                        : "Scheduled"}
               </span>
-              <span className="min-w-0 flex-1 truncate text-sm">{post.title ?? "Clip"}</span>
+              <span className="min-w-0 flex-1 truncate text-sm">
+                {post.title ?? "Clip"}
+                {post.account ? (
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    → {post.account}
+                    {post.platform ? ` · ${post.platform}` : ""}
+                  </span>
+                ) : null}
+              </span>
+              {post.status === "posted" && post.result_url ? (
+                <a
+                  href={post.result_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="shrink-0 text-xs font-semibold text-teal-300 hover:text-teal-200"
+                >
+                  View post
+                </a>
+              ) : null}
               {post.score != null ? (
                 <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
                   <Flame className="size-3 text-orange-400" />

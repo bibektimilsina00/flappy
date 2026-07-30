@@ -72,6 +72,7 @@ export interface CustomCaptionStyle {
 
 export interface ScheduleConfig {
   enabled: boolean;
+  account_ids?: string[]; // connected accounts to auto-post to (empty = manual reminders)
   min_score: number | null;
   per_day: number;
   mode: "all" | "days";
@@ -88,9 +89,20 @@ export interface ScheduledPost {
   clip_id: string;
   title: string | null;
   post_at: string;
-  status: "scheduled" | "due";
+  status: "scheduled" | "due" | "posting" | "posted" | "failed";
+  platform: string | null;
+  account: string | null;
+  result_url: string | null;
+  error: string | null;
   score: number | null;
   url: string | null;
+}
+
+export interface SocialAccount {
+  id: string;
+  platform: string; // youtube | tiktok | instagram | facebook
+  username: string | null;
+  avatar_url: string | null;
 }
 
 export interface ClipsParams {
@@ -231,4 +243,41 @@ export async function uploadClipsSource(file: File): Promise<{ source_key: strin
     throw new Error(detail ?? `Upload failed (${res.status})`);
   }
   return res.json();
+}
+
+// --- Social publishing (M5) ---
+
+export function listSocialAccounts(): Promise<SocialAccount[]> {
+  return api("/social/accounts");
+}
+
+// platform -> app credentials configured (false = "awaiting approval")
+export function socialProviders(): Promise<Record<string, boolean>> {
+  return api("/social/providers");
+}
+
+export function socialConnectUrl(platform: string): Promise<{ url: string }> {
+  return api(`/social/${platform}/connect`);
+}
+
+export function disconnectSocialAccount(id: string): Promise<void> {
+  return api(`/social/accounts/${id}`, { method: "DELETE" });
+}
+
+export interface PublishResult {
+  id: string;
+  clip_id: string;
+  status: string;
+  platform: string | null;
+  account: string | null;
+  result_url: string | null;
+  error: string | null;
+}
+
+export function publishClipNow(
+  jobId: string,
+  clipId: string,
+  body: { account_ids: string[]; caption?: string },
+): Promise<PublishResult[]> {
+  return api(`/clips/jobs/${jobId}/clips/${clipId}/publish`, { method: "POST", body: JSON.stringify(body) });
 }

@@ -49,8 +49,8 @@ def cleanup_stuck() -> None:
 
 @celery_app.task(name="promote_due_posts")
 def promote_due_posts() -> None:
-    """Flip scheduled posts to 'due' at their time. Direct auto-posting swaps in
-    here once platform accounts can be connected (OAuth)."""
+    """At post time: account-backed posts get published (publish_post task);
+    account-less posts flip to 'due' — a manual "ready to post" reminder."""
     from apps.api.app.features.clips.models import ScheduledPost
 
     now = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -62,5 +62,8 @@ def promote_due_posts() -> None:
             p.status = "due"
             session.add(p)
         session.commit()
+        auto = [str(p.id) for p in due if p.social_account_id]
+    for post_id in auto:
+        celery_app.send_task("publish_post", args=[post_id])
     if due:
-        log.info("schedule: %d posts became due", len(due))
+        log.info("schedule: %d posts due (%d auto-publishing)", len(due), len(auto))

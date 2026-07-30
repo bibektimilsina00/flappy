@@ -519,19 +519,23 @@ def schedule_posts(session: Session, job: ClipsJob) -> None:
     if not cfg.get("enabled"):
         return
     from apps.api.app.features.clips.models import ScheduledPost
-    from apps.api.app.features.clips.schedule import compute_schedule
+    from apps.api.app.features.clips.schedule import compute_schedule, workspace_accounts
 
     try:
+        targets = workspace_accounts(session, job.workspace_id, cfg.get("account_ids") or [])
         for clip, when in compute_schedule(job.clips or [], cfg):
-            session.add(
-                ScheduledPost(
-                    workspace_id=job.workspace_id,
-                    job_id=job.id,
-                    clip_id=clip["id"],
-                    title=clip.get("title"),
-                    post_at=when.replace(tzinfo=None),  # stored naive-UTC like every timestamp here
+            for account in targets or [None]:
+                session.add(
+                    ScheduledPost(
+                        workspace_id=job.workspace_id,
+                        job_id=job.id,
+                        clip_id=clip["id"],
+                        title=clip.get("title"),
+                        post_at=when.replace(tzinfo=None),  # stored naive-UTC like every timestamp here
+                        social_account_id=account.id if account else None,
+                        platform=account.platform if account else None,
+                    )
                 )
-            )
         session.commit()
     except Exception:  # noqa: BLE001
         log.exception("auto-schedule failed for job %s", job.id)

@@ -6,6 +6,7 @@ from apps.api.app.features.video_editor.router import router as video_editor_rou
 from apps.api.app.features.auth.router import router as auth_router
 from apps.api.app.features.billing.router import router as billing_router
 from apps.api.app.features.clips.router import router as clips_router
+from apps.api.app.features.social.router import router as social_router
 from apps.api.app.features.dashboard.router import router as dashboard_router
 from apps.api.app.features.collections.router import router as collections_router
 from apps.api.app.features.executions.router import router as executions_router
@@ -34,6 +35,7 @@ for r in (
     models_router,
     billing_router,
     clips_router,
+    social_router,
     dashboard_router,
     settings_router,
 ):

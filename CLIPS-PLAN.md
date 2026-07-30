@@ -177,3 +177,33 @@ websocket pattern is overkill here. `# ponytail: poll; upgrade to WS if users st
 Copyright note: URL import will happily fetch content the user doesn't own; add a
 one-line "only import content you have rights to" notice under the input (same trust
 posture as uploads).
+
+## M5 — Direct publishing to connected accounts
+
+One `social` feature owns account connections and platform uploads; the clips
+schedule pipeline grows an optional account per post.
+
+- **Connections**: `SocialAccount` table (workspace, platform, tokens, meta).
+  OAuth connect per provider — YouTube rides the existing Google app (needs the
+  YouTube Data API enabled + `youtube.upload` scope), TikTok and Meta get their
+  own env keys (`TIKTOK_CLIENT_KEY/SECRET`, `FACEBOOK_APP_ID/SECRET`). One Meta
+  connect discovers Facebook pages AND their linked Instagram business accounts.
+  Callback is a popup that posts `flappy:social-connected` back to the app.
+  Unconfigured providers surface honestly as "awaiting app approval".
+- **Publishers** (`social/publishers.py`): YouTube resumable upload,
+  TikTok FILE_UPLOAD direct post, Instagram Reels container + publish (pull from
+  presigned URL), Facebook page video via `file_url`. Tokens auto-refresh
+  (google/tiktok); Meta page tokens don't expire.
+- **Publish now**: `POST /clips/jobs/{id}/clips/{clip_id}/publish {account_ids,
+  caption}` creates `ScheduledPost` rows (status `posting`) and dispatches the
+  `publish_post` worker task per account. The task burns captions in the job's
+  style (same artifact as download) and uploads.
+- **Schedule**: `ScheduleConfig.account_ids` fans each slot out to one post per
+  account. Beat's `promote_due_posts` dispatches `publish_post` for
+  account-backed posts; account-less posts stay manual ("ready to post").
+- **UI**: Publish panel lists platforms with connect/disconnect + account
+  selection, caption box, live per-account status (posting → posted with link /
+  failed with error). Schedule modal gains "Auto-post to" account chips.
+  Posting queue shows posting/posted/failed with the post link.
+- Deferred: X + LinkedIn publishers (paid/approval-heavy APIs), token
+  encryption at rest, retry/backoff on transient platform errors.

@@ -46,5 +46,11 @@ class Settings(BaseSettings):
     clips_credits_select: float = 1.0
     clips_credits_per_clip: float = 2.0
 
+    # Social publishing OAuth apps (M5). YouTube reuses the Google app above.
+    tiktok_client_key: str = ""
+    tiktok_client_secret: str = ""
+    facebook_app_id: str = ""
+    facebook_app_secret: str = ""
+
 
 settings = Settings()

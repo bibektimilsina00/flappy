@@ -12,6 +12,7 @@ from apps.api.app.features.collections.models import Collection  # noqa: F401
 from apps.api.app.features.video_editor.models import VideoEditorComment, VideoEditorProject  # noqa: F401
 from apps.api.app.features.billing.models import Credit, UsageRecord  # noqa: F401
 from apps.api.app.features.executions.models import Execution  # noqa: F401
+from apps.api.app.features.social.models import SocialAccount  # noqa: F401
 from apps.api.app.features.users.models import User  # noqa: F401
 from apps.api.app.features.workflows.models import Workflow  # noqa: F401
 from apps.api.app.features.workspaces.models import Workspace  # noqa: F401

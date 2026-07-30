@@ -1,7 +1,7 @@
 "use client";
 
 import { Calendar, Globe, Minus, Plus, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/cn";
-import type { ScheduleConfig } from "./api";
+import { listSocialAccounts, type ScheduleConfig, type SocialAccount } from "./api";
 
 const HOURS = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, "0")}:00`);
 const hourLabel = (v: string) => {
@@ -33,6 +33,7 @@ export function defaultSchedule(): ScheduleConfig {
     window_start: "09:00",
     window_end: "19:00",
     tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    account_ids: [],
   };
 }
 
@@ -46,8 +47,20 @@ export function ScheduleModal({
   onClose: () => void;
 }) {
   const [cfg, setCfg] = useState<ScheduleConfig>(value);
+  const [accounts, setAccounts] = useState<SocialAccount[] | null>(null);
   const set = (patch: Partial<ScheduleConfig>) => setCfg((c) => ({ ...c, ...patch }));
   const windowInvalid = cfg.window_end <= cfg.window_start;
+
+  useEffect(() => {
+    listSocialAccounts().then(setAccounts).catch(() => setAccounts([]));
+  }, []);
+
+  const toggleAccount = (id: string) =>
+    set({
+      account_ids: (cfg.account_ids ?? []).includes(id)
+        ? (cfg.account_ids ?? []).filter((a) => a !== id)
+        : [...(cfg.account_ids ?? []), id],
+    });
 
   return (
     <div className="dark fixed inset-0 z-[200] grid place-items-center bg-black/80 p-4" onClick={onClose}>
@@ -215,9 +228,49 @@ export function ScheduleModal({
             {windowInvalid ? <p className="mt-2 text-sm text-amber-300">End time must be after the start time.</p> : null}
           </section>
 
+          {/* auto-post targets */}
+          {accounts && accounts.length > 0 ? (
+            <section>
+              <p className="mb-3 text-sm font-medium text-muted-foreground">Auto-post to</p>
+              <div className="flex flex-wrap gap-2">
+                {accounts.map((a) => {
+                  const on = (cfg.account_ids ?? []).includes(a.id);
+                  return (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => toggleAccount(a.id)}
+                      className={cn(
+                        "flex items-center gap-2 rounded-full border py-1.5 pl-1.5 pr-3.5 text-sm font-medium transition-colors",
+                        on
+                          ? "border-teal-400/60 bg-teal-400/10 text-teal-200"
+                          : "border-white/10 text-muted-foreground hover:border-white/25 hover:text-foreground",
+                      )}
+                    >
+                      {a.avatar_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={a.avatar_url} alt="" className="size-6 rounded-full object-cover" />
+                      ) : (
+                        <span className="grid size-6 place-items-center rounded-full bg-white/10 text-[10px] capitalize">
+                          {(a.username ?? a.platform).slice(0, 1)}
+                        </span>
+                      )}
+                      {a.username ?? a.platform}
+                      <span className="text-[11px] capitalize text-muted-foreground">{a.platform}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
+
           <p className="text-sm leading-relaxed text-muted-foreground">
-            At each post's time it becomes <span className="text-teal-300">ready to post</span> in your queue. Direct
-            auto-posting to TikTok/YouTube arrives with connected accounts.
+            {(cfg.account_ids ?? []).length > 0 ? (
+              <>Posts publish <span className="text-teal-300">automatically</span> to the selected accounts at their time.</>
+            ) : (
+              <>At each post's time it becomes <span className="text-teal-300">ready to post</span> in your queue — pick
+              connected accounts above to auto-post instead.</>
+            )}
           </p>
         </div>
 
