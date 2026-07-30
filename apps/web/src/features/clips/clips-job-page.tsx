@@ -75,21 +75,6 @@ const PHASES = [
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
-const eta = (startedAt: string | null, progress: number): string | null => {
-  if (!startedAt || progress < 0.04) return null;
-  const elapsed = (Date.now() - new Date(startedAt).getTime()) / 1000;
-  const left = elapsed * (1 - progress) / progress;
-  if (!Number.isFinite(left) || left < 0) return null;
-  if (left < 60) return `~${Math.max(5, Math.round(left / 5) * 5)}s left`;
-  return `~${Math.round(left / 60)}m left`;
-};
-
-const elapsedLabel = (startedAt: string | null): string | null => {
-  if (!startedAt) return null;
-  const s = Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000));
-  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`;
-};
-
 function triggerDownload(href: string, name: string) {
   const a = document.createElement("a");
   a.href = href;
@@ -369,12 +354,6 @@ function ClipsModeTabs({ job, onLinked }: { job: ClipsJob; onLinked: (workflowId
 
 function PhaseTracker({ job }: { job: ClipsJob }) {
   const current = PHASES.findIndex((p) => p.key === job.phase);
-  // 1s tick keeps the elapsed/ETA labels breathing between 2s polls.
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setTick((n) => n + 1), 1000);
-    return () => clearInterval(t);
-  }, []);
 
   return (
     <div className="space-y-4">
@@ -433,8 +412,6 @@ function PhaseTracker({ job }: { job: ClipsJob }) {
             const state = i < current ? "done" : i === current ? "active" : "pending";
             const isLast = i === PHASES.length - 1;
             const showBar = state === "active" && job.progress > 0;
-            const left = state === "active" ? eta(job.phase_started_at, job.progress) : null;
-            const elapsed = state === "active" ? elapsedLabel(job.phase_started_at) : null;
             const Icon = phase.icon;
             return (
               <div key={phase.key} className="flex gap-4">
@@ -469,7 +446,11 @@ function PhaseTracker({ job }: { job: ClipsJob }) {
                       {phase.label}
                     </p>
                     <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
-                      {state === "done" ? "Done" : state === "active" ? (elapsed ?? "") : ""}
+                      {state === "done"
+                        ? "Done"
+                        : state === "active" && job.progress > 0
+                          ? `${Math.round(job.progress * 100)}%`
+                          : ""}
                     </span>
                   </div>
 
@@ -483,10 +464,6 @@ function PhaseTracker({ job }: { job: ClipsJob }) {
                               className="h-full rounded-full bg-teal-400 transition-[width] duration-700"
                               style={{ width: `${Math.round(job.progress * 100)}%` }}
                             />
-                          </div>
-                          <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
-                            <span>{Math.round(job.progress * 100)}%</span>
-                            {left ? <span>{left}</span> : null}
                           </div>
                         </div>
                       ) : (
