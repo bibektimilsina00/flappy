@@ -163,6 +163,8 @@ def ydl_base_opts() -> dict:
         opts["extractor_args"] = {
             "youtubepot-bgutilhttp": {"base_url": [settings.clips_pot_provider_url]}
         }
+    if settings.clips_proxy:
+        opts["proxy"] = settings.clips_proxy
     return opts
 
 

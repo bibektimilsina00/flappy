@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     clips_cookies_file: str = ""
     # bgutil PO-token provider service URL (empty = disabled).
     clips_pot_provider_url: str = ""
+    # Residential proxy for yt-dlp, e.g. http://user:pass@gw.dataimpulse.com:823
+    # (empty = direct). Only ingest traffic goes through it.
+    clips_proxy: str = ""
     clips_select_model: str = ""  # empty -> default text model
     clips_credits_select: float = 1.0
     clips_credits_per_clip: float = 2.0
