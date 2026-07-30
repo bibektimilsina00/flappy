@@ -34,7 +34,8 @@ pnpm --filter web dev
 Push to `main` → GitHub Actions lints/tests, builds both images to GHCR
 (`riocut/backend`, `riocut/web`), then SSHes into the VPS and rolls
 `deploy/docker-compose.prod.yml` over (`pull` + `up -d`). Migrations run on
-api start.
+api start. Caddy is the single public port (80): `/api/*` → api,
+`/video-assets/*` → MinIO presigned URLs, rest → web.
 
 One-time setup:
 

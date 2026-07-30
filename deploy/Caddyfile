@@ -1,0 +1,19 @@
+# Single public entry point. When a domain exists, replace :80 with the domain
+# and Caddy does HTTPS automatically.
+:80 {
+	encode zstd gzip
+
+	# API + WebSockets
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	# MinIO presigned URLs (path-style: /<bucket>/<key>?sig)
+	handle /video-assets/* {
+		reverse_proxy minio:9000
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+}

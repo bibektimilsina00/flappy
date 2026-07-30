@@ -21,9 +21,9 @@ if [ ! -f .env ]; then
   echo ">>> EDIT IT NOW — replace every change-me with real secrets (openssl rand -hex 32)."
 fi
 
-# Basic firewall: ssh + the three public ports (web, api, minio).
+# Basic firewall: ssh + Caddy. Everything else stays internal to compose.
 if command -v ufw >/dev/null; then
-  ufw allow 22/tcp && ufw allow 80/tcp && ufw allow 8000/tcp && ufw allow 9000/tcp
+  ufw allow 22/tcp && ufw allow 80/tcp
   ufw --force enable
 fi
 
