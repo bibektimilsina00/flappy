@@ -29,6 +29,19 @@ pnpm install
 pnpm --filter web dev
 ```
 
+## Deploy
+
+Push to `main` → GitHub Actions lints/tests, builds both images to GHCR
+(`riocut/backend`, `riocut/web`), then SSHes into the VPS and rolls
+`deploy/docker-compose.prod.yml` over (`pull` + `up -d`). Migrations run on
+api start.
+
+One-time setup:
+
+1. On the VPS (as root): `curl -fsSL https://raw.githubusercontent.com/bibektimilsina00/riocut/main/scripts/vps-setup.sh | bash`
+2. Fill `/opt/riocut/.env` (template: `deploy/env.prod.example`).
+3. Add a repo secret `VPS_SSH_KEY` — a private key whose public half is in the VPS `~/.ssh/authorized_keys`.
+
 ## Conventions
 
 - **Imports:** everything is addressed from the repo root — `apps.api.app.*`.
