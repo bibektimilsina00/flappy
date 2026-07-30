@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends
 from sqlmodel import Session
@@ -28,7 +28,7 @@ def get_spend(
     workspace_id: uuid.UUID = Depends(current_workspace_id),
 ) -> dict:
     """Real provider spend (USD) over rolling windows — the observability view."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return {
         "today": service.spend_usd(session, workspace_id, now - timedelta(days=1)),
         "week": service.spend_usd(session, workspace_id, now - timedelta(days=7)),

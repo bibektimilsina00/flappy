@@ -3,7 +3,11 @@
 from fastapi import HTTPException, status
 from sqlmodel import Session
 
-from apps.api.app.core.security import create_access_token, hash_password, verify_password
+from apps.api.app.core.security import (
+    create_access_token,
+    hash_password,
+    verify_password,
+)
 from apps.api.app.features.auth.schemas import RegisterRequest
 from apps.api.app.features.billing import service as billing_service
 from apps.api.app.features.users import repository as users_repo
@@ -34,8 +38,10 @@ def register(session: Session, data: RegisterRequest) -> tuple[str, User]:
 
 def login(session: Session, email: str, password: str) -> tuple[str, User]:
     user = users_repo.get_by_email(session, email)
-    if user is None or user.hashed_password is None or not verify_password(
-        password, user.hashed_password
+    if (
+        user is None
+        or user.hashed_password is None
+        or not verify_password(password, user.hashed_password)
     ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password"

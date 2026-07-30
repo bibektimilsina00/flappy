@@ -39,10 +39,10 @@ _PINNED = {
         ("bytedance/seedance-1-pro", 25),
     ],
     "audio": [
-        ("minimax/speech-02-turbo", 3),   # TTS
-        ("resemble-ai/chatterbox", 3),    # TTS
-        ("meta/musicgen", 4),             # music
-        ("minimax/music-1.5", 5),         # music
+        ("minimax/speech-02-turbo", 3),  # TTS
+        ("resemble-ai/chatterbox", 3),  # TTS
+        ("meta/musicgen", 4),  # music
+        ("minimax/music-1.5", 5),  # music
     ],
 }
 _PER_KIND = 12  # cap collection models per kind so boot stays fast
@@ -52,17 +52,40 @@ _PER_KIND = 12  # cap collection models per kind so boot stays fast
 # fall back to "replicate" (the generic Replicate logo) — never iconless.
 _MAKER = [
     # Specific brand names first (so e.g. "imagen" isn't caught by a generic substring).
-    ("imagen", "google"), ("veo", "google"), ("gemini", "google"),
-    ("sora", "openai"), ("dall-e", "openai"), ("gpt-image", "openai"),
-    ("hunyuan", "tencent"), ("kling", "kling"), ("flux", "flux"),
-    ("seedream", "bytedance"), ("seedance", "bytedance"), ("doubao", "doubao"),
-    ("hailuo", "hailuo"), ("minimax", "minimax"), ("pixverse", "pixverse"),
-    ("vidu", "vidu"), ("qwen", "qwen"), ("ideogram", "ideogram"), ("recraft", "recraft"),
-    ("photon", "luma"), ("ray-", "luma"), ("luma", "luma"), ("pika", "pika"),
+    ("imagen", "google"),
+    ("veo", "google"),
+    ("gemini", "google"),
+    ("sora", "openai"),
+    ("dall-e", "openai"),
+    ("gpt-image", "openai"),
+    ("hunyuan", "tencent"),
+    ("kling", "kling"),
+    ("flux", "flux"),
+    ("seedream", "bytedance"),
+    ("seedance", "bytedance"),
+    ("doubao", "doubao"),
+    ("hailuo", "hailuo"),
+    ("minimax", "minimax"),
+    ("pixverse", "pixverse"),
+    ("vidu", "vidu"),
+    ("qwen", "qwen"),
+    ("ideogram", "ideogram"),
+    ("recraft", "recraft"),
+    ("photon", "luma"),
+    ("ray-", "luma"),
+    ("luma", "luma"),
+    ("pika", "pika"),
     ("runway", "runway"),
-    ("sdxl", "stability"), ("stable-diffusion", "stability"), ("sd3", "stability"),
-    ("suno", "suno"), ("udio", "udio"), ("elevenlabs", "elevenlabs"),
-    ("musicgen", "meta"), ("llama", "meta"), ("tripo", "tripo"), ("meshy", "meshy"),
+    ("sdxl", "stability"),
+    ("stable-diffusion", "stability"),
+    ("sd3", "stability"),
+    ("suno", "suno"),
+    ("udio", "udio"),
+    ("elevenlabs", "elevenlabs"),
+    ("musicgen", "meta"),
+    ("llama", "meta"),
+    ("tripo", "tripo"),
+    ("meshy", "meshy"),
     ("wan", "alibaba"),
 ]
 
@@ -165,7 +188,10 @@ def _parse_schema(schema: dict | None) -> tuple[list[ParamSpec], str, str | None
     """openapi_schema.components.schemas.Input.properties -> ParamSpecs, plus the
     detected prompt/image input field names."""
     props = (
-        ((schema or {}).get("components") or {}).get("schemas", {}).get("Input", {}).get("properties", {})
+        ((schema or {}).get("components") or {})
+        .get("schemas", {})
+        .get("Input", {})
+        .get("properties", {})
     )
     prompt_field, image_field = "prompt", None
     params: list[ParamSpec] = []
@@ -189,11 +215,23 @@ def _to_param(key: str, spec: dict) -> ParamSpec | None:
     default = spec.get("default")
     enum = spec.get("enum") or (spec.get("allOf") or [{}])[0].get("enum")
     if enum:
-        return ParamSpec(key, label, "select", default if default is not None else enum[0], options=[str(e) for e in enum])
+        return ParamSpec(
+            key,
+            label,
+            "select",
+            default if default is not None else enum[0],
+            options=[str(e) for e in enum],
+        )
     typ = spec.get("type")
     if typ in ("integer", "number"):
-        return ParamSpec(key, label, "number", default if default is not None else spec.get("minimum", 1),
-                         min=spec.get("minimum"), max=spec.get("maximum"))
+        return ParamSpec(
+            key,
+            label,
+            "number",
+            default if default is not None else spec.get("minimum", 1),
+            min=spec.get("minimum"),
+            max=spec.get("maximum"),
+        )
     if typ == "boolean":
         return ParamSpec(key, label, "boolean", bool(default))
     return None  # freeform strings etc. — skip

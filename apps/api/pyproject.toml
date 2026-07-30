@@ -23,12 +23,16 @@ dependencies = [
     "opencv-python-headless>=5.0.0.93",
 ]
 
+[dependency-groups]
+dev = ["ruff>=0.8", "pytest>=8"]
+
 [tool.uv]
 package = false
 
 # Repo root is the import root — everything is addressed as apps.api.app.*
 # Launched as: uvicorn apps.api.app.main:app  (from repo root)
 [tool.ruff]
+extend = "../../pyproject.toml"
 src = ["../.."]
 
 [tool.pytest.ini_options]

@@ -94,6 +94,7 @@ def _skip(mid: str) -> bool:
 
 # ── Text ──────────────────────────────────────────────────────────────────────
 
+
 def _text_cost(pricing: dict) -> int:
     per_m = _f(pricing.get("completion")) * 1_000_000
     if per_m <= 1:
@@ -132,8 +133,13 @@ def openrouter_text_models() -> list[ModelSpec]:
         pricing = m.get("pricing") or {}
         models.append(
             ModelSpec(
-                id=mid, name=_name(m), kind="text", adapter="openrouter",
-                provider=_provider(mid), cost=_text_cost(pricing), usd=_text_usd(pricing),
+                id=mid,
+                name=_name(m),
+                kind="text",
+                adapter="openrouter",
+                provider=_provider(mid),
+                cost=_text_cost(pricing),
+                usd=_text_usd(pricing),
                 config={"model": mid},
             )
         )
@@ -145,7 +151,10 @@ def openrouter_text_models() -> list[ModelSpec]:
 
 # The images API accepts `aspect_ratio` (providers clamp to their supported set).
 _IMAGE_RATIO = ParamSpec(
-    "aspect_ratio", "Aspect Ratio", "select", "1:1",
+    "aspect_ratio",
+    "Aspect Ratio",
+    "select",
+    "1:1",
     options=["1:1", "16:9", "9:16", "4:3", "3:4", "21:9"],
 )
 
@@ -178,9 +187,15 @@ def openrouter_image_models() -> list[ModelSpec]:
         usd = _image_usd(m.get("pricing") or {})
         models.append(
             ModelSpec(
-                id=mid, name=_name(m), kind="image", adapter="openrouter",
-                provider=_provider(mid), cost=_bucket(usd), usd=usd,
-                description=_desc(m.get("description")), params=[_IMAGE_RATIO],
+                id=mid,
+                name=_name(m),
+                kind="image",
+                adapter="openrouter",
+                provider=_provider(mid),
+                cost=_bucket(usd),
+                usd=usd,
+                description=_desc(m.get("description")),
+                params=[_IMAGE_RATIO],
                 config={"model": mid},
             )
         )
@@ -190,12 +205,19 @@ def openrouter_image_models() -> list[ModelSpec]:
 
 # ── Video ─────────────────────────────────────────────────────────────────────
 
+
 def _video_usd(skus: dict) -> float:
     """Cents per output second (prefer 720p) × a nominal 5s clip -> USD."""
     key = next(
-        (k for k in ("cents_per_video_output_second_720p",
-                     "cents_per_video_output_second_1080p",
-                     "cents_per_video_output_second_480p") if k in skus),
+        (
+            k
+            for k in (
+                "cents_per_video_output_second_720p",
+                "cents_per_video_output_second_1080p",
+                "cents_per_video_output_second_480p",
+            )
+            if k in skus
+        ),
         next((k for k in skus if "per_video_output_second" in k), None),
     )
     if not key:
@@ -209,15 +231,31 @@ def _video_params(m: dict) -> list[ParamSpec]:
     durs = m.get("supported_durations") or []
     if durs:
         default = 5 if 5 in durs else durs[0]
-        params.append(ParamSpec("duration", "Duration (s)", "select", str(default), options=[str(d) for d in durs]))
+        params.append(
+            ParamSpec(
+                "duration", "Duration (s)", "select", str(default), options=[str(d) for d in durs]
+            )
+        )
     ratios = m.get("supported_aspect_ratios") or []
     if ratios:
-        params.append(ParamSpec("aspect_ratio", "Aspect ratio", "select", str(ratios[0]), options=[str(r) for r in ratios]))
+        params.append(
+            ParamSpec(
+                "aspect_ratio",
+                "Aspect ratio",
+                "select",
+                str(ratios[0]),
+                options=[str(r) for r in ratios],
+            )
+        )
     res = m.get("supported_resolutions") or []
     if res:
-        params.append(ParamSpec("resolution", "Resolution", "select", res[0], options=[str(r) for r in res]))
+        params.append(
+            ParamSpec("resolution", "Resolution", "select", res[0], options=[str(r) for r in res])
+        )
     if m.get("generate_audio") is not None:
-        params.append(ParamSpec("generate_audio", "Generate audio", "boolean", bool(m.get("generate_audio"))))
+        params.append(
+            ParamSpec("generate_audio", "Generate audio", "boolean", bool(m.get("generate_audio")))
+        )
     return params
 
 
@@ -240,9 +278,15 @@ def openrouter_video_models() -> list[ModelSpec]:
         frames = m.get("supported_frame_images") or []
         models.append(
             ModelSpec(
-                id=mid, name=_name(m), kind="video", adapter="openrouter",
-                provider=_provider(mid), cost=_bucket(usd), usd=usd,
-                description=_desc(m.get("description")), params=_video_params(m),
+                id=mid,
+                name=_name(m),
+                kind="video",
+                adapter="openrouter",
+                provider=_provider(mid),
+                cost=_bucket(usd),
+                usd=usd,
+                description=_desc(m.get("description")),
+                params=_video_params(m),
                 config={"model": mid, **({"frames": frames} if frames else {})},
             )
         )
@@ -280,12 +324,23 @@ def openrouter_audio_models() -> list[ModelSpec]:
             params: list[ParamSpec] = []
             voices = m.get("supported_voices")
             if mode == "speech" and isinstance(voices, list) and voices:
-                params.append(ParamSpec("voice", "Voice", "select", str(voices[0]), options=[str(v) for v in voices]))
+                params.append(
+                    ParamSpec(
+                        "voice", "Voice", "select", str(voices[0]), options=[str(v) for v in voices]
+                    )
+                )
             models.append(
                 ModelSpec(
-                    id=mid, name=_name(m), kind="audio", adapter="openrouter",
-                    provider=_provider(mid), cost=_bucket(usd), usd=usd, mode=mode,
-                    description=_desc(m.get("description")), params=params,
+                    id=mid,
+                    name=_name(m),
+                    kind="audio",
+                    adapter="openrouter",
+                    provider=_provider(mid),
+                    cost=_bucket(usd),
+                    usd=usd,
+                    mode=mode,
+                    description=_desc(m.get("description")),
+                    params=params,
                     config={"model": mid, "audio_mode": mode},
                 )
             )

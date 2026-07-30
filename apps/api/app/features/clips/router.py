@@ -2,6 +2,7 @@
 
 import re
 import uuid
+from datetime import UTC
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
@@ -37,8 +38,7 @@ def _job_out(job: ClipsJob, storage, with_transcript: bool = False) -> dict:
         "created_at": job.created_at.isoformat(),
         "phase_started_at": job.phase_started_at.isoformat() if job.phase_started_at else None,
         "clips": [
-            {**c, "url": storage.url(c["key"]) if c.get("key") else None}
-            for c in (job.clips or [])
+            {**c, "url": storage.url(c["key"]) if c.get("key") else None} for c in (job.clips or [])
         ],
     }
     if with_transcript:
@@ -65,7 +65,11 @@ async def upload_source(
     data = await file.read()
     if len(data) > 500 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="File too large (max 500 MB).")
-    ext = file.filename.rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else "mp4"
+    ext = (
+        file.filename.rsplit(".", 1)[-1].lower()
+        if file.filename and "." in file.filename
+        else "mp4"
+    )
     key = f"{workspace_id}/clips/uploads/{uuid.uuid4()}.{ext}"
     get_storage().put(key, data, ctype)
     return {"source_key": key, "name": file.filename}
@@ -116,7 +120,9 @@ def create_job(
     _user: User = Depends(get_current_user),
 ) -> dict:
     if bool(body.source_url) == bool(body.source_key):
-        raise HTTPException(status_code=422, detail="Provide either a video link or an uploaded file.")
+        raise HTTPException(
+            status_code=422, detail="Provide either a video link or an uploaded file."
+        )
     if body.source_url and not URL_RE.match(body.source_url.strip()):
         raise HTTPException(status_code=422, detail="That doesn't look like a valid link.")
 
@@ -125,7 +131,9 @@ def create_job(
     est_clips = DEFAULT_COUNT if count in (None, "auto") else max(1, min(10, int(count)))
     estimated = settings.clips_credits_select + settings.clips_credits_per_clip * est_clips
     if not billing_service.has_credits(session, workspace_id, estimated):
-        raise HTTPException(status_code=402, detail=f"Not enough credits (about {estimated:.0f} needed).")
+        raise HTTPException(
+            status_code=402, detail=f"Not enough credits (about {estimated:.0f} needed)."
+        )
 
     job = repository.add(
         session,
@@ -208,7 +216,9 @@ def rerender(
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
     if not job.source_key:
-        raise HTTPException(status_code=409, detail="The source video is no longer available for this job.")
+        raise HTTPException(
+            status_code=409, detail="The source video is no longer available for this job."
+        )
     clips = list(job.clips or [])
     clip = next((c for c in clips if c.get("id") == clip_id), None)
     if clip is None:
@@ -221,7 +231,9 @@ def rerender(
     if end - start < 3:
         raise HTTPException(status_code=422, detail="A clip must be at least 3 seconds long.")
     # Trim/caption edits invalidate any cached caption burns.
-    clip.update({"start": round(start, 2), "end": round(end, 2), "status": "rendering", "burned": {}})
+    clip.update(
+        {"start": round(start, 2), "end": round(end, 2), "status": "rendering", "burned": {}}
+    )
     if body.caption_edits is not None:
         edits = [
             {"start": float(e["start"]), "end": float(e["end"]), "text": str(e["text"]).strip()}
@@ -250,9 +262,8 @@ def download_clip(
 ) -> dict:
     """URL for a downloadable MP4 — the clean master, or a caption burn in the
     requested style (burned lazily, cached per style on the clip)."""
-    from apps.api.app.features.clips.pipeline import burn_clip_captions
-
     from apps.api.app.features.clips.captions import PRESETS
+    from apps.api.app.features.clips.pipeline import burn_clip_captions
 
     if body.style not in ("none", "custom", *PRESETS):
         raise HTTPException(status_code=422, detail="Unknown caption style")
@@ -374,12 +385,22 @@ def to_project(
     from apps.api.app.features.workflows.models import Workflow
 
     job = repository.get(session, workspace_id, job_id)
-    ids = (body.clip_ids if body and body.clip_ids else None) or ([body.clip_id] if body and body.clip_id else None)
-    selected = [c for c in (job.clips if job else []) or [] if c.get("key") and (ids is None or c.get("id") in ids)]
+    ids = (body.clip_ids if body and body.clip_ids else None) or (
+        [body.clip_id] if body and body.clip_id else None
+    )
+    selected = [
+        c
+        for c in (job.clips if job else []) or []
+        if c.get("key") and (ids is None or c.get("id") in ids)
+    ]
     if job is None or not selected:
         raise HTTPException(status_code=404, detail="No clips to open")
     # Full-job opens reuse the linked project instead of creating duplicates.
-    if ids is None and job.workflow_id and workflows_repo.get(session, workspace_id, job.workflow_id):
+    if (
+        ids is None
+        and job.workflow_id
+        and workflows_repo.get(session, workspace_id, job.workflow_id)
+    ):
         return {"workflow_id": str(job.workflow_id)}
     nodes = [
         {
@@ -399,7 +420,10 @@ def to_project(
         session,
         Workflow(
             workspace_id=workspace_id,
-            name=((selected[0].get("title") if ids and len(selected) == 1 else job.source_title) or "Clips")[:80],
+            name=(
+                (selected[0].get("title") if ids and len(selected) == 1 else job.source_title)
+                or "Clips"
+            )[:80],
             graph={"nodes": nodes, "edges": []},
         ),
     )
@@ -431,7 +455,9 @@ def job_by_workflow(
     from sqlmodel import select
 
     job = session.exec(
-        select(ClipsJob).where(ClipsJob.workspace_id == workspace_id, ClipsJob.workflow_id == workflow_id)
+        select(ClipsJob).where(
+            ClipsJob.workspace_id == workspace_id, ClipsJob.workflow_id == workflow_id
+        )
     ).first()
     if job is None:
         raise HTTPException(status_code=404, detail="No clips job for this project")
@@ -454,22 +480,27 @@ def publish_clip_now(
 ) -> list[dict]:
     """Post this clip to the selected connected accounts right now — one
     ScheduledPost per account, published by the worker."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from apps.api.app.features.clips.models import ScheduledPost
     from apps.api.app.features.social.models import SocialAccount
 
     job = repository.get(session, workspace_id, job_id)
-    clip = next((c for c in (job.clips if job else []) or [] if c.get("id") == clip_id and c.get("key")), None)
+    clip = next(
+        (c for c in (job.clips if job else []) or [] if c.get("id") == clip_id and c.get("key")),
+        None,
+    )
     if job is None or clip is None:
         raise HTTPException(status_code=404, detail="Clip not found")
     accounts = [
-        a for aid in body.account_ids if (a := session.get(SocialAccount, aid)) and a.workspace_id == workspace_id
+        a
+        for aid in body.account_ids
+        if (a := session.get(SocialAccount, aid)) and a.workspace_id == workspace_id
     ]
     if not accounts:
         raise HTTPException(status_code=422, detail="Select at least one connected account")
 
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(UTC).replace(tzinfo=None)
     posts = []
     for account in accounts:
         post = ScheduledPost(
@@ -523,7 +554,11 @@ def bulk_schedule(
     from apps.api.app.features.clips.schedule import compute_schedule
 
     job = repository.get(session, workspace_id, job_id)
-    clips = [c for c in (job.clips if job else []) or [] if c.get("key") and c.get("id") in set(body.clip_ids)]
+    clips = [
+        c
+        for c in (job.clips if job else []) or []
+        if c.get("key") and c.get("id") in set(body.clip_ids)
+    ]
     if job is None or not clips:
         raise HTTPException(status_code=404, detail="No clips selected")
 
@@ -555,7 +590,10 @@ def bulk_schedule(
             session.add(post)
             created.append(post)
     session.commit()
-    return [{"id": str(p.id), "clip_id": p.clip_id, "post_at": p.post_at.isoformat() + "Z"} for p in created]
+    return [
+        {"id": str(p.id), "clip_id": p.clip_id, "post_at": p.post_at.isoformat() + "Z"}
+        for p in created
+    ]
 
 
 @router.get("/schedule")
@@ -568,7 +606,6 @@ def list_schedule(
     from sqlmodel import select
 
     from apps.api.app.features.clips.models import ScheduledPost
-
     from apps.api.app.features.social.models import SocialAccount
 
     posts = list(

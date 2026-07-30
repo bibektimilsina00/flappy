@@ -14,9 +14,7 @@ def list_by_workspace(session: Session, workspace_id: uuid.UUID) -> list[Workflo
 def get(session: Session, workspace_id: uuid.UUID, workflow_id: uuid.UUID) -> Workflow | None:
     # Tenancy: always filter by workspace_id — never trust the caller.
     return session.exec(
-        select(Workflow).where(
-            Workflow.id == workflow_id, Workflow.workspace_id == workspace_id
-        )
+        select(Workflow).where(Workflow.id == workflow_id, Workflow.workspace_id == workspace_id)
     ).first()
 
 

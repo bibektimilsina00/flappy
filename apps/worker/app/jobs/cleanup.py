@@ -2,7 +2,7 @@
 shows an eternal spinner. Scheduled via celery beat (see core/celery.py)."""
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlmodel import Session, select
 
@@ -19,7 +19,7 @@ CLIPS_TIMEOUT = timedelta(minutes=90)  # whisper on CPU can be slow for long sou
 
 @celery_app.task(name="cleanup_stuck")
 def cleanup_stuck() -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     with Session(engine) as session:
         stuck_exec = session.exec(
             select(Execution).where(
@@ -44,7 +44,11 @@ def cleanup_stuck() -> None:
             session.add(j)
         session.commit()
     if stuck_exec or stuck_jobs:
-        log.info("cleanup: failed %d stuck executions, %d stuck clips jobs", len(stuck_exec), len(stuck_jobs))
+        log.info(
+            "cleanup: failed %d stuck executions, %d stuck clips jobs",
+            len(stuck_exec),
+            len(stuck_jobs),
+        )
 
 
 @celery_app.task(name="promote_due_posts")
@@ -53,10 +57,12 @@ def promote_due_posts() -> None:
     account-less posts flip to 'due' — a manual "ready to post" reminder."""
     from apps.api.app.features.clips.models import ScheduledPost
 
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(UTC).replace(tzinfo=None)
     with Session(engine) as session:
         due = session.exec(
-            select(ScheduledPost).where(ScheduledPost.status == "scheduled", ScheduledPost.post_at <= now)
+            select(ScheduledPost).where(
+                ScheduledPost.status == "scheduled", ScheduledPost.post_at <= now
+            )
         ).all()
         for p in due:
             p.status = "due"

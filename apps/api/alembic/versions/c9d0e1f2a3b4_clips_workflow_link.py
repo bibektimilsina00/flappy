@@ -4,6 +4,7 @@ Revision ID: c9d0e1f2a3b4
 Revises: b8c9d0e1f2a3
 Create Date: 2026-07-29 23:00:00.000000
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa

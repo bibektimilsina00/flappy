@@ -42,7 +42,9 @@ def build_text_ass(doc: dict) -> str | None:
             if end <= start:
                 continue
             text = content.replace("{", "").replace("}", "").replace("\n", "\\N")
-            events.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Cap,,0,0,0,,{{\\fad(120,60)}}{text}")
+            events.append(
+                f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Cap,,0,0,0,,{{\\fad(120,60)}}{text}"
+            )
     if not events:
         return None
 
@@ -108,7 +110,16 @@ def build_render_args(
     for item in visual:
         clip, src = item["clip"], item["src"]
         if src["kind"] == "image":
-            input_args += ["-loop", "1", "-framerate", str(fps), "-t", _f(clip.get("duration", 1)), "-i", src["path"]]
+            input_args += [
+                "-loop",
+                "1",
+                "-framerate",
+                str(fps),
+                "-t",
+                _f(clip.get("duration", 1)),
+                "-i",
+                src["path"],
+            ]
         else:
             input_args += ["-i", src["path"]]
         item["idx"] = idx
@@ -143,7 +154,9 @@ def build_render_args(
         x = f"(main_w-overlay_w)/2+{_f(tx)}"
         y = f"(main_h-overlay_h)/2+{_f(ty)}"
         out = f"ov{n}"
-        fc.append(f"[{prev}][v{n}]overlay=x={x}:y={y}:enable='between(t,{_f(start)},{_f(start + dur)})'[{out}]")
+        fc.append(
+            f"[{prev}][v{n}]overlay=x={x}:y={y}:enable='between(t,{_f(start)},{_f(start + dur)})'[{out}]"
+        )
         prev = out
     if ass_path:
         from apps.api.app.features.clips.captions import FONTS_DIR
@@ -166,7 +179,9 @@ def build_render_args(
         fc.append(chain)
         alabels.append(f"[a{n}]")
     if alabels:
-        fc.append(f"{''.join(alabels)}amix=inputs={len(alabels)}:normalize=0:dropout_transition=0[aout]")
+        fc.append(
+            f"{''.join(alabels)}amix=inputs={len(alabels)}:normalize=0:dropout_transition=0[aout]"
+        )
 
     post = ["-map", f"[{vout}]"]
     if alabels:

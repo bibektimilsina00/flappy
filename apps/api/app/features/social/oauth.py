@@ -5,7 +5,7 @@ business accounts."""
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urlencode
 
 import httpx
@@ -96,15 +96,25 @@ def _token_call(provider: str, data: dict) -> dict:
     cfg = PROVIDERS[provider]
     cid, csec = creds(provider)
     auth = (cid, csec) if cfg.get("basic_auth") else None
-    data = {cfg.get("id_param", "client_id"): cid, **({} if auth else {"client_secret": csec}), **data}
+    data = {
+        cfg.get("id_param", "client_id"): cid,
+        **({} if auth else {"client_secret": csec}),
+        **data,
+    }
     with httpx.Client(timeout=20) as client:
-        res = client.post(cfg["token_url"], data=data, auth=auth, headers={"Accept": "application/json"})
+        res = client.post(
+            cfg["token_url"], data=data, auth=auth, headers={"Accept": "application/json"}
+        )
         res.raise_for_status()
         return res.json()
 
 
 def exchange(provider: str, code: str, verifier: str | None = None) -> dict:
-    data = {"grant_type": "authorization_code", "code": code, "redirect_uri": redirect_uri(provider)}
+    data = {
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": redirect_uri(provider),
+    }
     if PROVIDERS[provider].get("pkce") and verifier:
         data["code_verifier"] = verifier
     return _token_call(provider, data)
@@ -117,7 +127,9 @@ def refresh(provider: str, refresh_token: str) -> dict:
 def expiry(payload: dict) -> datetime | None:
     if not payload.get("expires_in"):
         return None
-    return datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(seconds=int(payload["expires_in"]) - 60)
+    return datetime.now(UTC).replace(tzinfo=None) + timedelta(
+        seconds=int(payload["expires_in"]) - 60
+    )
 
 
 def discover_accounts(provider: str, tokens: dict) -> list[dict]:
@@ -143,7 +155,9 @@ def discover_accounts(provider: str, tokens: dict) -> list[dict]:
                     "platform": "youtube",
                     "external_id": ch["id"],
                     "username": (ch.get("snippet") or {}).get("title"),
-                    "avatar_url": (((ch.get("snippet") or {}).get("thumbnails") or {}).get("default") or {}).get("url"),
+                    "avatar_url": (
+                        ((ch.get("snippet") or {}).get("thumbnails") or {}).get("default") or {}
+                    ).get("url"),
                 }
                 for ch in res.json().get("items", [])
             ]
@@ -190,7 +204,10 @@ def discover_accounts(provider: str, tokens: dict) -> list[dict]:
             ]
 
         if provider == "linkedin":
-            res = client.get("https://api.linkedin.com/v2/userinfo", headers={"Authorization": f"Bearer {access}"})
+            res = client.get(
+                "https://api.linkedin.com/v2/userinfo",
+                headers={"Authorization": f"Bearer {access}"},
+            )
             res.raise_for_status()
             user = res.json()
             if not user.get("sub"):
@@ -211,13 +228,20 @@ def discover_accounts(provider: str, tokens: dict) -> list[dict]:
             _, csec = creds("instagram")
             res = client.get(
                 "https://graph.instagram.com/access_token",
-                params={"grant_type": "ig_exchange_token", "client_secret": csec, "access_token": access},
+                params={
+                    "grant_type": "ig_exchange_token",
+                    "client_secret": csec,
+                    "access_token": access,
+                },
             )
             res.raise_for_status()
             ll = res.json()
             me = client.get(
                 "https://graph.instagram.com/v19.0/me",
-                params={"fields": "user_id,username,profile_picture_url", "access_token": ll["access_token"]},
+                params={
+                    "fields": "user_id,username,profile_picture_url",
+                    "access_token": ll["access_token"],
+                },
             )
             me.raise_for_status()
             user = me.json()
@@ -241,7 +265,12 @@ def discover_accounts(provider: str, tokens: dict) -> list[dict]:
         cid, csec = creds("facebook")
         res = client.get(
             f"{GRAPH}/oauth/access_token",
-            params={"grant_type": "fb_exchange_token", "client_id": cid, "client_secret": csec, "fb_exchange_token": access},
+            params={
+                "grant_type": "fb_exchange_token",
+                "client_id": cid,
+                "client_secret": csec,
+                "fb_exchange_token": access,
+            },
         )
         res.raise_for_status()
         user_token = res.json()["access_token"]
@@ -255,7 +284,11 @@ def discover_accounts(provider: str, tokens: dict) -> list[dict]:
         res.raise_for_status()
         out: list[dict] = []
         for page in res.json().get("data", []):
-            token_fields = {"access_token": page["access_token"], "refresh_token": None, "token_expires_at": None}
+            token_fields = {
+                "access_token": page["access_token"],
+                "refresh_token": None,
+                "token_expires_at": None,
+            }
             out.append(
                 {
                     "platform": "facebook",

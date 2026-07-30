@@ -80,7 +80,9 @@ def exchange(provider: str, code: str) -> dict:
         info = info_res.json()
 
     email = info.get("email")
-    name = info.get(cfg["name_field"]) or info.get("username") or (
-        email.split("@")[0] if email else "User"
+    name = (
+        info.get(cfg["name_field"])
+        or info.get("username")
+        or (email.split("@")[0] if email else "User")
     )
     return {"email": email, "name": name}

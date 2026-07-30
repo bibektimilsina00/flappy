@@ -35,11 +35,7 @@ def _subgraph(graph: dict, node_id: str) -> dict:
 
     return {
         "nodes": [n for n in graph.get("nodes", []) if n["id"] in keep],
-        "edges": [
-            e
-            for e in graph.get("edges", [])
-            if e["source"] in keep and e["target"] in keep
-        ],
+        "edges": [e for e in graph.get("edges", []) if e["source"] in keep and e["target"] in keep],
     }
 
 

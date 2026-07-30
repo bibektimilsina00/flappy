@@ -23,9 +23,13 @@ def publish_post(post_id: str) -> None:
         post = session.get(ScheduledPost, uuid.UUID(post_id))
         if post is None or post.status in ("posted", "canceled"):
             return
-        account = session.get(SocialAccount, post.social_account_id) if post.social_account_id else None
+        account = (
+            session.get(SocialAccount, post.social_account_id) if post.social_account_id else None
+        )
         job = session.get(ClipsJob, post.job_id)
-        clip = next((c for c in (job.clips if job else []) or [] if c.get("id") == post.clip_id), None)
+        clip = next(
+            (c for c in (job.clips if job else []) or [] if c.get("id") == post.clip_id), None
+        )
         if account is None or job is None or clip is None or not clip.get("key"):
             post.status = "failed"
             post.error = "The connected account or clip no longer exists."

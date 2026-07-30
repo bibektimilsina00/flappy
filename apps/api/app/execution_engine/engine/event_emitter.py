@@ -2,7 +2,7 @@
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import redis
@@ -30,7 +30,7 @@ class EventEmitter:
                 "node_id": node_id,
                 "message": message,
                 "data": data or {},
-                "ts": datetime.now(timezone.utc).isoformat(),
+                "ts": datetime.now(UTC).isoformat(),
             }
         )
         # Publish for live subscribers, and append for late joiners to replay.

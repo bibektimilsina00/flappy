@@ -12,18 +12,21 @@ import uuid
 import imageio_ffmpeg
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
+from sqlmodel import Session
 
 from apps.api.app.api.deps import current_workspace_id, get_current_user, get_session
 from apps.api.app.features.assets import repository as assets_repo
 from apps.api.app.features.assets.models import Asset
 from apps.api.app.features.executions import service as executions_service
-from apps.api.app.features.video_editor import repository
-from apps.api.app.features.video_editor.models import VideoEditorComment, VideoEditorProject
-from apps.api.app.features.video_editor.render import build_render_args, build_text_ass
 from apps.api.app.features.users.models import User
+from apps.api.app.features.video_editor import repository
+from apps.api.app.features.video_editor.models import (
+    VideoEditorComment,
+    VideoEditorProject,
+)
+from apps.api.app.features.video_editor.render import build_render_args, build_text_ass
 from apps.api.app.features.workflows import repository as workflows_repo
 from apps.api.app.storage.factory import get_storage
-from sqlmodel import Session
 
 router = APIRouter(prefix="/video-editor", tags=["video-editor"])
 
@@ -52,7 +55,15 @@ def _clip(asset: Asset, kind: str, start: float, dur: float) -> dict:
 
 
 def _track(kind: str, name: str, clips: list[dict]) -> dict:
-    return {"id": _id(), "kind": kind, "name": name, "locked": False, "hidden": False, "muted": False, "clips": clips}
+    return {
+        "id": _id(),
+        "kind": kind,
+        "name": name,
+        "locked": False,
+        "hidden": False,
+        "muted": False,
+        "clips": clips,
+    }
 
 
 def _seed_doc(assets: list[Asset]) -> dict:
@@ -120,7 +131,9 @@ def get_project(
     if workflow is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    assets = [a for a in assets_repo.latest_by_node_for_workflow(session, workflow_id).values() if a.key]
+    assets = [
+        a for a in assets_repo.latest_by_node_for_workflow(session, workflow_id).values() if a.key
+    ]
 
     project = repository.get_by_workflow(session, workspace_id, workflow_id)
     if project is None:
@@ -142,8 +155,14 @@ def get_project(
         "id": str(project.id),
         "title": project.title,
         "doc": project.doc,
-        "assets": [{"id": item["id"], "kind": item["kind"], "url": storage.url(item["key"])} for item in pool],
-        "share": {"review": project.share_review_token, "presentation": project.share_present_token},
+        "assets": [
+            {"id": item["id"], "kind": item["kind"], "url": storage.url(item["key"])}
+            for item in pool
+        ],
+        "share": {
+            "review": project.share_review_token,
+            "presentation": project.share_present_token,
+        },
     }
 
 
@@ -169,7 +188,11 @@ async def upload_to_project(
     if len(data) > 100 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="File too large (max 100 MB).")
 
-    ext = file.filename.rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else "bin"
+    ext = (
+        file.filename.rsplit(".", 1)[-1].lower()
+        if file.filename and "." in file.filename
+        else "bin"
+    )
     key = f"{workspace_id}/uploads/{uuid.uuid4()}.{ext}"
     storage = get_storage()
     storage.put(key, data, ctype)
@@ -275,7 +298,9 @@ def generate_in_project(
     workflows_repo.save(session, workflow)
 
     # Reuses the execution engine's plan/credit guardrails (may raise 402).
-    execution = executions_service.create_execution(session, workspace_id, workflow_id, node_id=gen_id)
+    execution = executions_service.create_execution(
+        session, workspace_id, workflow_id, node_id=gen_id
+    )
     return {"execution_id": str(execution.id), "node_id": gen_id}
 
 
@@ -339,7 +364,13 @@ def render_project(
             path = os.path.join(d, f"{ref.replace('/', '_')}{ext}")
             with open(path, "wb") as f:
                 f.write(storage.get(item["key"]))
-            kind = "image" if item["kind"] == "image" else "audio" if item["kind"] == "audio" else "video"
+            kind = (
+                "image"
+                if item["kind"] == "image"
+                else "audio"
+                if item["kind"] == "audio"
+                else "video"
+            )
             sources[ref] = {"path": path, "kind": kind}
 
         text_ass = build_text_ass(project.doc)
@@ -362,7 +393,9 @@ def render_project(
             # Two-pass palette for a decent GIF; capped size/fps to keep it shareable.
             gif = os.path.join(d, "out.gif")
             vf = "fps=12,scale=480:-2:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse"
-            proc = subprocess.run([exe, "-y", "-i", out, "-filter_complex", vf, gif], capture_output=True, timeout=300)
+            proc = subprocess.run(
+                [exe, "-y", "-i", out, "-filter_complex", vf, gif], capture_output=True, timeout=300
+            )
             if proc.returncode != 0 or not os.path.exists(gif) or os.path.getsize(gif) == 0:
                 raise HTTPException(
                     status_code=422,
@@ -416,7 +449,10 @@ def share_project(
         return {"mode": body.mode, "token": None}
 
     if not project.last_render_key:
-        raise HTTPException(status_code=409, detail="Export the video first — the share page plays the latest render.")
+        raise HTTPException(
+            status_code=409,
+            detail="Export the video first — the share page plays the latest render.",
+        )
     token = getattr(project, field) or uuid.uuid4().hex
     setattr(project, field, token)
     repository.save(session, project)
@@ -440,7 +476,13 @@ def get_shared(token: str, session: Session = Depends(get_session)) -> dict:
     }
     if mode == "review":
         out["comments"] = [
-            {"id": str(c.id), "author": c.author, "text": c.text, "at": c.at, "created_at": c.created_at.isoformat()}
+            {
+                "id": str(c.id),
+                "author": c.author,
+                "text": c.text,
+                "at": c.at,
+                "created_at": c.created_at.isoformat(),
+            }
             for c in repository.comments_for(session, project.id)
         ]
     return out
@@ -453,7 +495,9 @@ class CommentRequest(BaseModel):
 
 
 @router.post("/shared/{token}/comments")
-def add_shared_comment(token: str, body: CommentRequest, session: Session = Depends(get_session)) -> dict:
+def add_shared_comment(
+    token: str, body: CommentRequest, session: Session = Depends(get_session)
+) -> dict:
     """Public: leave a review comment. Only review links accept comments."""
     hit = repository.get_by_token(session, token)
     if hit is None:
@@ -467,6 +511,14 @@ def add_shared_comment(token: str, body: CommentRequest, session: Session = Depe
         raise HTTPException(status_code=422, detail="Comment text is required")
     comment = repository.add_comment(
         session,
-        VideoEditorComment(project_id=project.id, author=author, text=text[:2000], at=max(0.0, float(body.at))),
+        VideoEditorComment(
+            project_id=project.id, author=author, text=text[:2000], at=max(0.0, float(body.at))
+        ),
     )
-    return {"id": str(comment.id), "author": comment.author, "text": comment.text, "at": comment.at, "created_at": comment.created_at.isoformat()}
+    return {
+        "id": str(comment.id),
+        "author": comment.author,
+        "text": comment.text,
+        "at": comment.at,
+        "created_at": comment.created_at.isoformat(),
+    }

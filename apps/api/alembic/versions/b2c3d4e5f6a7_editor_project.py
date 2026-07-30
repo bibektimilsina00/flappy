@@ -4,6 +4,7 @@ Revision ID: b2c3d4e5f6a7
 Revises: a1b2c3d4e5f6
 Create Date: 2026-07-22 01:00:00.000000
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -28,8 +29,12 @@ def upgrade() -> None:
         sa.Column("doc", sa.JSON(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_editor_project_workspace_id"), "editor_project", ["workspace_id"], unique=False)
-    op.create_index(op.f("ix_editor_project_workflow_id"), "editor_project", ["workflow_id"], unique=False)
+    op.create_index(
+        op.f("ix_editor_project_workspace_id"), "editor_project", ["workspace_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_editor_project_workflow_id"), "editor_project", ["workflow_id"], unique=False
+    )
 
 
 def downgrade() -> None:

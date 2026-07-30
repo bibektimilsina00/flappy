@@ -35,14 +35,16 @@ def editor_doc_from_job(job: ClipsJob, clips: list[dict] | None = None) -> dict:
     video_clips: list[dict] = []
     text_clips: list[dict] = []
     t = 0.0
-    for clip in (clips if clips is not None else job.clips):
+    for clip in clips if clips is not None else job.clips:
         if not clip.get("key"):
             continue
         dur = float(clip["end"]) - float(clip["start"])
         vc = {**_base("video", t, dur), "assetId": clip["key"]}
         video_clips.append(vc)
         segments = clip.get("caption_edits") or [
-            s for s in (job.transcript or []) if s["end"] > clip["start"] and s["start"] < clip["end"]
+            s
+            for s in (job.transcript or [])
+            if s["end"] > clip["start"] and s["start"] < clip["end"]
         ]
         for seg in segments:
             s = max(float(seg["start"]), float(clip["start"]))
@@ -59,7 +61,15 @@ def editor_doc_from_job(job: ClipsJob, clips: list[dict] | None = None) -> dict:
         t += dur
 
     def _track(kind: str, name: str, clips_: list[dict]) -> dict:
-        return {"id": uuid.uuid4().hex, "kind": kind, "name": name, "locked": False, "hidden": False, "muted": False, "clips": clips_}
+        return {
+            "id": uuid.uuid4().hex,
+            "kind": kind,
+            "name": name,
+            "locked": False,
+            "hidden": False,
+            "muted": False,
+            "clips": clips_,
+        }
 
     tracks = [_track("video", "V1", video_clips)]
     if text_clips:

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 from sqlmodel import Session
@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 
 def fresh_token(session: Session, account: SocialAccount) -> str:
     """Refresh a near-expiry token (google/tiktok/ig-login). Meta page tokens don't expire."""
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(UTC).replace(tzinfo=None)
     if account.token_expires_at is None or account.token_expires_at > now:
         return account.access_token
     if (account.meta or {}).get("ig_login"):
@@ -36,7 +36,9 @@ def fresh_token(session: Session, account: SocialAccount) -> str:
     elif not account.refresh_token:
         return account.access_token
     else:
-        payload = oauth.refresh("youtube" if account.platform == "youtube" else account.platform, account.refresh_token)
+        payload = oauth.refresh(
+            "youtube" if account.platform == "youtube" else account.platform, account.refresh_token
+        )
     account.access_token = payload["access_token"]
     account.refresh_token = payload.get("refresh_token") or account.refresh_token
     account.token_expires_at = oauth.expiry(payload)
@@ -45,7 +47,15 @@ def fresh_token(session: Session, account: SocialAccount) -> str:
     return account.access_token
 
 
-def publish(session: Session, account: SocialAccount, *, video_url: str, video_bytes, title: str, caption: str) -> str:
+def publish(
+    session: Session,
+    account: SocialAccount,
+    *,
+    video_url: str,
+    video_bytes,
+    title: str,
+    caption: str,
+) -> str:
     token = fresh_token(session, account)
     fn = {
         "youtube": _youtube,
@@ -80,7 +90,9 @@ def _youtube(account, token, video_url, video_bytes, title, caption) -> str:
             headers={"Authorization": f"Bearer {token}", "X-Upload-Content-Type": "video/mp4"},
         )
         _raise(init, "YouTube")
-        up = client.put(init.headers["location"], content=video_bytes(), headers={"Content-Type": "video/mp4"})
+        up = client.put(
+            init.headers["location"], content=video_bytes(), headers={"Content-Type": "video/mp4"}
+        )
         _raise(up, "YouTube upload")
         return f"https://youtube.com/shorts/{up.json()['id']}"
 
@@ -92,7 +104,10 @@ def _tiktok(account, token, video_url, video_bytes, title, caption) -> str:
         init = client.post(
             "https://open.tiktokapis.com/v2/post/publish/video/init/",
             json={
-                "post_info": {"title": (caption or title or "")[:2200], "privacy_level": "PUBLIC_TO_EVERYONE"},
+                "post_info": {
+                    "title": (caption or title or "")[:2200],
+                    "privacy_level": "PUBLIC_TO_EVERYONE",
+                },
                 "source_info": {
                     "source": "FILE_UPLOAD",
                     "video_size": len(data),
@@ -107,7 +122,10 @@ def _tiktok(account, token, video_url, video_bytes, title, caption) -> str:
         up = client.put(
             info["upload_url"],
             content=data,
-            headers={"Content-Type": "video/mp4", "Content-Range": f"bytes 0-{len(data) - 1}/{len(data)}"},
+            headers={
+                "Content-Type": "video/mp4",
+                "Content-Range": f"bytes 0-{len(data) - 1}/{len(data)}",
+            },
         )
         _raise(up, "TikTok upload")
         for _ in range(60):  # TikTok posts asynchronously
@@ -123,7 +141,11 @@ def _tiktok(account, token, video_url, video_bytes, title, caption) -> str:
                 raise RuntimeError(f"TikTok rejected the video: {st.json()}")
             time.sleep(5)
         # The Content Posting API doesn't return the video URL — link the profile.
-        return f"https://www.tiktok.com/@{account.username}" if account.username else "https://www.tiktok.com"
+        return (
+            f"https://www.tiktok.com/@{account.username}"
+            if account.username
+            else "https://www.tiktok.com"
+        )
 
 
 def _instagram(account, token, video_url, video_bytes, title, caption) -> str:
@@ -134,21 +156,32 @@ def _instagram(account, token, video_url, video_bytes, title, caption) -> str:
     with httpx.Client(timeout=60) as client:
         res = client.post(
             f"{graph}/{ig}/media",
-            data={"media_type": "REELS", "video_url": video_url, "caption": caption or title or "", "access_token": token},
+            data={
+                "media_type": "REELS",
+                "video_url": video_url,
+                "caption": caption or title or "",
+                "access_token": token,
+            },
         )
         _raise(res, "Instagram")
         creation = res.json()["id"]
         for _ in range(60):  # IG pulls + processes the video before it can publish
-            st = client.get(f"{graph}/{creation}", params={"fields": "status_code", "access_token": token})
+            st = client.get(
+                f"{graph}/{creation}", params={"fields": "status_code", "access_token": token}
+            )
             code = st.json().get("status_code")
             if code == "FINISHED":
                 break
             if code == "ERROR":
                 raise RuntimeError("Instagram could not process the video")
             time.sleep(5)
-        pub = client.post(f"{graph}/{ig}/media_publish", data={"creation_id": creation, "access_token": token})
+        pub = client.post(
+            f"{graph}/{ig}/media_publish", data={"creation_id": creation, "access_token": token}
+        )
         _raise(pub, "Instagram publish")
-        link = client.get(f"{graph}/{pub.json()['id']}", params={"fields": "permalink", "access_token": token})
+        link = client.get(
+            f"{graph}/{pub.json()['id']}", params={"fields": "permalink", "access_token": token}
+        )
         return link.json().get("permalink") or f"https://www.instagram.com/{account.username or ''}"
 
 
@@ -160,7 +193,12 @@ def _x(account, token, video_url, video_bytes, title, caption) -> str:
     with httpx.Client(timeout=600) as client:
         init = client.post(
             upload,
-            data={"command": "INIT", "total_bytes": len(data), "media_type": "video/mp4", "media_category": "tweet_video"},
+            data={
+                "command": "INIT",
+                "total_bytes": len(data),
+                "media_type": "video/mp4",
+                "media_category": "tweet_video",
+            },
             headers=headers,
         )
         _raise(init, "X upload init")
@@ -175,12 +213,16 @@ def _x(account, token, video_url, video_bytes, title, caption) -> str:
                 headers=headers,
             )
             _raise(part, "X upload")
-        fin = client.post(upload, data={"command": "FINALIZE", "media_id": media_id}, headers=headers)
+        fin = client.post(
+            upload, data={"command": "FINALIZE", "media_id": media_id}, headers=headers
+        )
         _raise(fin, "X upload finalize")
         info = ((fin.json().get("data") or fin.json()) or {}).get("processing_info")
         while info and info.get("state") in ("pending", "in_progress"):
             time.sleep(info.get("check_after_secs") or 3)
-            st = client.get(upload, params={"command": "STATUS", "media_id": media_id}, headers=headers)
+            st = client.get(
+                upload, params={"command": "STATUS", "media_id": media_id}, headers=headers
+            )
             info = ((st.json().get("data") or st.json()) or {}).get("processing_info")
         if info and info.get("state") == "failed":
             raise RuntimeError(f"X could not process the video: {info}")
@@ -213,8 +255,12 @@ def _linkedin(account, token, video_url, video_bytes, title, caption) -> str:
         )
         _raise(reg, "LinkedIn upload register")
         value = reg.json()["value"]
-        upload_url = value["uploadMechanism"]["com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"]["uploadUrl"]
-        up = client.put(upload_url, content=video_bytes(), headers={"Authorization": f"Bearer {token}"})
+        upload_url = value["uploadMechanism"][
+            "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"
+        ]["uploadUrl"]
+        up = client.put(
+            upload_url, content=video_bytes(), headers={"Authorization": f"Bearer {token}"}
+        )
         _raise(up, "LinkedIn upload")
         post = client.post(
             "https://api.linkedin.com/v2/ugcPosts",
@@ -226,7 +272,11 @@ def _linkedin(account, token, video_url, video_bytes, title, caption) -> str:
                         "shareCommentary": {"text": caption or title or ""},
                         "shareMediaCategory": "VIDEO",
                         "media": [
-                            {"status": "READY", "media": value["asset"], "title": {"text": (title or "Clip")[:200]}}
+                            {
+                                "status": "READY",
+                                "media": value["asset"],
+                                "title": {"text": (title or "Clip")[:200]},
+                            }
                         ],
                     }
                 },
@@ -244,7 +294,11 @@ def _facebook(account, token, video_url, video_bytes, title, caption) -> str:
     with httpx.Client(timeout=120) as client:
         res = client.post(
             f"{oauth.GRAPH}/{page}/videos",
-            data={"file_url": video_url, "description": caption or title or "", "access_token": token},
+            data={
+                "file_url": video_url,
+                "description": caption or title or "",
+                "access_token": token,
+            },
         )
         _raise(res, "Facebook")
         return f"https://www.facebook.com/{res.json()['id']}"

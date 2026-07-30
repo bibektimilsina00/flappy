@@ -79,9 +79,7 @@ def all_for_workflow(session: Session, workflow_id: uuid.UUID) -> list[Asset]:
     return [a for a in rows if a.key]
 
 
-def latest_by_node_for_workflow(
-    session: Session, workflow_id: uuid.UUID
-) -> dict[str, Asset]:
+def latest_by_node_for_workflow(session: Session, workflow_id: uuid.UUID) -> dict[str, Asset]:
     """The most recent asset each node produced across all runs of a workflow."""
     rows = session.exec(
         select(Asset)

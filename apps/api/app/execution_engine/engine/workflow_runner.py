@@ -24,7 +24,9 @@ def _resolve_params(model: ModelSpec, overrides: dict) -> dict:
     return params
 
 
-def _build_request(node: graph_mod.GraphNode, results: dict[str, dict], model: ModelSpec) -> GenerationRequest:
+def _build_request(
+    node: graph_mod.GraphNode, results: dict[str, dict], model: ModelSpec
+) -> GenerationRequest:
     data = node.data or {}
     inputs: dict = {}
     image_urls: list[str] = []

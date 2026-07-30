@@ -27,9 +27,7 @@ class StubAdapter:
         count = int(request.params.get("count", 1) or 1)
         return model.cost * max(count, 1)
 
-    def generate(
-        self, model: ModelSpec, request: GenerationRequest, ctx
-    ) -> GenerationResult:
+    def generate(self, model: ModelSpec, request: GenerationRequest, ctx) -> GenerationResult:
         cost = self.estimate_cost(model, request)
         if request.kind == "text":
             return GenerationResult(kind=request.kind, cost=cost, text="[generated text]")
@@ -72,8 +70,7 @@ def _wav() -> bytes:
     writer.setsampwidth(2)
     writer.setframerate(16000)
     samples = b"".join(
-        struct.pack("<h", int(4000 * math.sin(2 * math.pi * 440 * t / 16000)))
-        for t in range(16000)
+        struct.pack("<h", int(4000 * math.sin(2 * math.pi * 440 * t / 16000))) for t in range(16000)
     )
     writer.writeframes(samples)
     writer.close()

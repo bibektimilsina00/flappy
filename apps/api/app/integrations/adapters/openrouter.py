@@ -129,7 +129,11 @@ class OpenRouterAdapter:
             urls = request.inputs.get("image_urls") or []
             if urls:
                 body["frame_images"] = [
-                    {"type": "image_url", "image_url": {"url": urls[0]}, "frame_type": "first_frame"}
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": urls[0]},
+                        "frame_type": "first_frame",
+                    }
                 ]
         with httpx.Client(timeout=120) as client:
             res = client.post(f"{BASE}/videos", headers=self._headers, json=body)

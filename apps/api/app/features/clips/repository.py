@@ -1,7 +1,7 @@
 """DB queries for clips jobs."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlmodel import Session, desc, select
 
@@ -17,10 +17,15 @@ def get_any(session: Session, job_id: uuid.UUID) -> ClipsJob | None:
     return session.get(ClipsJob, job_id)
 
 
-def list_for_workspace(session: Session, workspace_id: uuid.UUID, limit: int = 30) -> list[ClipsJob]:
+def list_for_workspace(
+    session: Session, workspace_id: uuid.UUID, limit: int = 30
+) -> list[ClipsJob]:
     return list(
         session.exec(
-            select(ClipsJob).where(ClipsJob.workspace_id == workspace_id).order_by(desc(ClipsJob.created_at)).limit(limit)
+            select(ClipsJob)
+            .where(ClipsJob.workspace_id == workspace_id)
+            .order_by(desc(ClipsJob.created_at))
+            .limit(limit)
         )
     )
 
@@ -33,7 +38,7 @@ def add(session: Session, job: ClipsJob) -> ClipsJob:
 
 
 def save(session: Session, job: ClipsJob) -> ClipsJob:
-    job.updated_at = datetime.now(timezone.utc)
+    job.updated_at = datetime.now(UTC)
     session.add(job)
     session.commit()
     session.refresh(job)

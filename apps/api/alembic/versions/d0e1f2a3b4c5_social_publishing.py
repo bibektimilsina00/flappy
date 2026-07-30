@@ -4,6 +4,7 @@ Revision ID: d0e1f2a3b4c5
 Revises: c9d0e1f2a3b4
 Create Date: 2026-07-30 12:00:00.000000
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -33,15 +34,32 @@ def upgrade() -> None:
         sa.Column("meta", sa.JSON(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_social_account_workspace_id"), "social_account", ["workspace_id"], unique=False)
-    op.create_index(op.f("ix_social_account_platform"), "social_account", ["platform"], unique=False)
+    op.create_index(
+        op.f("ix_social_account_workspace_id"), "social_account", ["workspace_id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_social_account_platform"), "social_account", ["platform"], unique=False
+    )
 
     op.add_column("scheduled_post", sa.Column("social_account_id", sa.Uuid(), nullable=True))
-    op.add_column("scheduled_post", sa.Column("platform", sqlmodel.sql.sqltypes.AutoString(), nullable=True))
-    op.add_column("scheduled_post", sa.Column("caption", sqlmodel.sql.sqltypes.AutoString(), nullable=True))
-    op.add_column("scheduled_post", sa.Column("result_url", sqlmodel.sql.sqltypes.AutoString(), nullable=True))
-    op.add_column("scheduled_post", sa.Column("error", sqlmodel.sql.sqltypes.AutoString(), nullable=True))
-    op.create_index(op.f("ix_scheduled_post_social_account_id"), "scheduled_post", ["social_account_id"], unique=False)
+    op.add_column(
+        "scheduled_post", sa.Column("platform", sqlmodel.sql.sqltypes.AutoString(), nullable=True)
+    )
+    op.add_column(
+        "scheduled_post", sa.Column("caption", sqlmodel.sql.sqltypes.AutoString(), nullable=True)
+    )
+    op.add_column(
+        "scheduled_post", sa.Column("result_url", sqlmodel.sql.sqltypes.AutoString(), nullable=True)
+    )
+    op.add_column(
+        "scheduled_post", sa.Column("error", sqlmodel.sql.sqltypes.AutoString(), nullable=True)
+    )
+    op.create_index(
+        op.f("ix_scheduled_post_social_account_id"),
+        "scheduled_post",
+        ["social_account_id"],
+        unique=False,
+    )
 
 
 def downgrade() -> None:

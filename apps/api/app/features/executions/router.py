@@ -1,9 +1,16 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from sqlmodel import Session
 
-from apps.api.app.api.deps import current_workspace_id, get_current_user, get_session
+from apps.api.app.api.deps import current_workspace_id, get_session
 from apps.api.app.core.redis import get_async_redis
 from apps.api.app.core.security import decode_token
 from apps.api.app.features.assets import repository as assets_repo
@@ -87,7 +94,9 @@ async def execution_stream(
         await websocket.close(code=1008)
         return
     workspace = workspaces_repo.get_by_owner(session, user.id)
-    execution = repository.get(session, workspace.id, uuid.UUID(execution_id)) if workspace else None
+    execution = (
+        repository.get(session, workspace.id, uuid.UUID(execution_id)) if workspace else None
+    )
     if execution is None:
         await websocket.close(code=1008)
         return

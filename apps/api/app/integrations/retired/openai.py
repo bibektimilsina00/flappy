@@ -37,7 +37,11 @@ class OpenAIAdapter:
             return GenerationResult(kind="text", cost=model.cost, text=text)
 
         if request.kind == "image":
-            body = {"model": model_id, "prompt": prompt, "size": request.params.get("size") or "1024x1024"}
+            body = {
+                "model": model_id,
+                "prompt": prompt,
+                "size": request.params.get("size") or "1024x1024",
+            }
             if request.params.get("quality"):
                 body["quality"] = request.params["quality"]
             with httpx.Client(timeout=180) as client:

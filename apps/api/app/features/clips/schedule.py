@@ -8,7 +8,7 @@ surfaces as "ready to post".
 
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 
@@ -21,14 +21,16 @@ def _hhmm(value: str, fallback: str) -> time:
         return time(int(h), int(m))
 
 
-def compute_schedule(clips: list[dict], cfg: dict, now: datetime | None = None) -> list[tuple[dict, datetime]]:
+def compute_schedule(
+    clips: list[dict], cfg: dict, now: datetime | None = None
+) -> list[tuple[dict, datetime]]:
     """[(clip, post_at_utc)] — highest score first, per_day slots per day spread
     evenly across the posting window."""
     try:
         tz = ZoneInfo(cfg.get("tz") or "UTC")
     except Exception:  # noqa: BLE001 — bad browser tz string
         tz = ZoneInfo("UTC")
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
 
     eligible = [c for c in clips if c.get("key")]
     min_score = cfg.get("min_score")
@@ -41,7 +43,11 @@ def compute_schedule(clips: list[dict], cfg: dict, now: datetime | None = None) 
         eligible = eligible[: per_day * max(1, min(60, int(cfg.get("days") or 7)))]
 
     try:
-        start = date.fromisoformat(cfg["start_date"]) if cfg.get("start_date") else now.astimezone(tz).date()
+        start = (
+            date.fromisoformat(cfg["start_date"])
+            if cfg.get("start_date")
+            else now.astimezone(tz).date()
+        )
     except (ValueError, KeyError):
         start = now.astimezone(tz).date()
 
@@ -54,8 +60,10 @@ def compute_schedule(clips: list[dict], cfg: dict, now: datetime | None = None) 
     for i, clip in enumerate(eligible):
         day_i, slot = divmod(i, per_day)
         minutes = ws_min + (span // 2 if per_day == 1 else span * slot // (per_day - 1))
-        local = datetime.combine(start + timedelta(days=day_i), time(minutes // 60, minutes % 60), tzinfo=tz)
-        out.append((clip, local.astimezone(timezone.utc)))
+        local = datetime.combine(
+            start + timedelta(days=day_i), time(minutes // 60, minutes % 60), tzinfo=tz
+        )
+        out.append((clip, local.astimezone(UTC)))
     return out
 
 

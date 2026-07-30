@@ -30,7 +30,12 @@ def _popup(msg: str) -> HTMLResponse:
 
 
 def _out(a: SocialAccount) -> dict:
-    return {"id": str(a.id), "platform": a.platform, "username": a.username, "avatar_url": a.avatar_url}
+    return {
+        "id": str(a.id),
+        "platform": a.platform,
+        "username": a.username,
+        "avatar_url": a.avatar_url,
+    }
 
 
 @router.get("/providers")
@@ -46,7 +51,9 @@ def list_accounts(
     _user: User = Depends(get_current_user),
 ) -> list[dict]:
     accounts = session.exec(
-        select(SocialAccount).where(SocialAccount.workspace_id == workspace_id).order_by(SocialAccount.platform)
+        select(SocialAccount)
+        .where(SocialAccount.workspace_id == workspace_id)
+        .order_by(SocialAccount.platform)
     ).all()
     return [_out(a) for a in accounts]
 
@@ -60,7 +67,9 @@ def connect(
     if platform not in oauth.CONNECT_PLATFORMS:
         raise HTTPException(status_code=404, detail="Unknown platform")
     if not oauth.is_configured(platform):
-        raise HTTPException(status_code=400, detail="This platform's app is still awaiting approval.")
+        raise HTTPException(
+            status_code=400, detail="This platform's app is still awaiting approval."
+        )
     verifier = uuid.uuid4().hex if oauth.PROVIDERS[platform].get("pkce") else ""
     state = create_access_token(f"social:{platform}:{workspace_id}:{verifier}")
     return {"url": oauth.authorize_url(platform, state, verifier or None)}
@@ -75,13 +84,19 @@ def callback(
     session: Session = Depends(get_session),
 ) -> HTMLResponse:
     parts = (decode_token(state) or "").split(":")
-    if error or not code or len(parts) not in (3, 4) or parts[0] != "social" or parts[1] != platform:
+    if (
+        error
+        or not code
+        or len(parts) not in (3, 4)
+        or parts[0] != "social"
+        or parts[1] != platform
+    ):
         return _popup("Connection failed — you can close this window.")
     workspace_id = uuid.UUID(parts[2])
     verifier = parts[3] if len(parts) == 4 and parts[3] else None
     try:
         found = oauth.discover_accounts(platform, oauth.exchange(platform, code, verifier))
-    except Exception:  # noqa: BLE001 — platform errors land as a readable popup
+    except Exception:
         log.exception("social connect failed for %s", platform)
         return _popup("Connection failed — the platform rejected the request.")
     for acc in found:
@@ -101,7 +116,9 @@ def callback(
     session.commit()
     if not found:
         return _popup("No publishable account found — for Meta, the login needs a Facebook page.")
-    return _popup(f"Connected {len(found)} account{'s' if len(found) != 1 else ''}! You can close this window.")
+    return _popup(
+        f"Connected {len(found)} account{'s' if len(found) != 1 else ''}! You can close this window."
+    )
 
 
 @router.delete("/accounts/{account_id}", status_code=204)

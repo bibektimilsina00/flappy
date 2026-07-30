@@ -98,10 +98,19 @@ def list_library(
 
 
 _EXT = {
-    "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif",
-    "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov",
-    "audio/mpeg": "mp3", "audio/wav": "wav", "audio/x-wav": "wav", "audio/mp4": "m4a",
-    "audio/webm": "weba", "audio/ogg": "ogg",
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+    "image/gif": "gif",
+    "video/mp4": "mp4",
+    "video/webm": "webm",
+    "video/quicktime": "mov",
+    "audio/mpeg": "mp3",
+    "audio/wav": "wav",
+    "audio/x-wav": "wav",
+    "audio/mp4": "m4a",
+    "audio/webm": "weba",
+    "audio/ogg": "ogg",
 }
 
 
@@ -129,7 +138,12 @@ async def upload_asset(
 
     storage = get_storage()
     storage.put(key, data, ctype)
-    return {"key": key, "url": storage.url(key), "kind": kind, "name": file.filename or key.rsplit("/", 1)[-1]}
+    return {
+        "key": key,
+        "url": storage.url(key),
+        "kind": kind,
+        "name": file.filename or key.rsplit("/", 1)[-1],
+    }
 
 
 def _fetch_source(url: str) -> Image.Image:
@@ -303,7 +317,9 @@ def edit_asset(
             raw = base64.b64decode(b64) if b64 else client.get(item["url"]).content
     except httpx.HTTPStatusError as exc:
         detail = exc.response.text[:300]
-        raise HTTPException(status_code=exc.response.status_code, detail=f"Image edit failed: {detail}")
+        raise HTTPException(
+            status_code=exc.response.status_code, detail=f"Image edit failed: {detail}"
+        )
     return _store_png(Image.open(io.BytesIO(raw)), workspace_id)
 
 
@@ -342,7 +358,10 @@ def _ffmpeg(
         cmd = [exe, "-y", *pre, "-i", src, *post, dst]
         proc = subprocess.run(cmd, capture_output=True, timeout=600)
         if proc.returncode != 0 or not os.path.exists(dst) or os.path.getsize(dst) == 0:
-            raise HTTPException(status_code=422, detail=f"ffmpeg failed: {proc.stderr.decode(errors='ignore')[-300:]}")
+            raise HTTPException(
+                status_code=422,
+                detail=f"ffmpeg failed: {proc.stderr.decode(errors='ignore')[-300:]}",
+            )
         with open(dst, "rb") as f:
             out = f.read()
     key = f"{workspace_id}/edits/{uuid.uuid4()}.{out_ext}"
@@ -375,7 +394,10 @@ def video_frame(
         data,
         pre=["-ss", str(max(0.0, body.time))],
         post=["-frames:v", "1", "-update", "1", "-q:v", "2"],
-        out_ext="jpg", mime="image/jpeg", kind="image", workspace_id=workspace_id,
+        out_ext="jpg",
+        mime="image/jpeg",
+        kind="image",
+        workspace_id=workspace_id,
     )
 
 
@@ -395,8 +417,12 @@ def video_reframe(
     vf = f"crop=w=min(iw\\,ih*{ar}):h=min(ih\\,iw/{ar})"
     return _ffmpeg(
         _fetch_bytes(body.source_url),
-        pre=[], post=["-vf", vf, *_VENC],
-        out_ext="mp4", mime="video/mp4", kind="video", workspace_id=workspace_id,
+        pre=[],
+        post=["-vf", vf, *_VENC],
+        out_ext="mp4",
+        mime="video/mp4",
+        kind="video",
+        workspace_id=workspace_id,
     )
 
 
@@ -416,8 +442,12 @@ def video_trim(
     dur = max(0.1, body.end - start)
     return _ffmpeg(
         _fetch_bytes(body.source_url),
-        pre=["-ss", str(start)], post=["-t", str(dur), *_VENC],
-        out_ext="mp4", mime="video/mp4", kind="video", workspace_id=workspace_id,
+        pre=["-ss", str(start)],
+        post=["-t", str(dur), *_VENC],
+        out_ext="mp4",
+        mime="video/mp4",
+        kind="video",
+        workspace_id=workspace_id,
     )
 
 
@@ -436,6 +466,10 @@ def video_upscale(
     vf = f"scale=iw*{s}:ih*{s}:flags=lanczos"
     return _ffmpeg(
         _fetch_bytes(body.source_url),
-        pre=[], post=["-vf", vf, *_VENC],
-        out_ext="mp4", mime="video/mp4", kind="video", workspace_id=workspace_id,
+        pre=[],
+        post=["-vf", vf, *_VENC],
+        out_ext="mp4",
+        mime="video/mp4",
+        kind="video",
+        workspace_id=workspace_id,
     )

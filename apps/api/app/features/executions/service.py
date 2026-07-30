@@ -2,7 +2,7 @@
 
 import logging
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException
 from sqlmodel import Session
@@ -80,7 +80,7 @@ def create_execution(
     # Guardrail 2: daily provider-spend cap (real USD), if configured.
     cap = settings.daily_spend_cap_usd
     if cap > 0:
-        since = datetime.now(timezone.utc) - timedelta(days=1)
+        since = datetime.now(UTC) - timedelta(days=1)
         spent = billing_service.spend_usd(session, workspace_id, since)
         run_usd = estimate_usd(workflow.graph, node_id)
         if spent + run_usd > cap:
@@ -91,7 +91,10 @@ def create_execution(
         if spent + run_usd > 0.8 * cap:
             logger.warning(
                 "Workspace %s near daily spend cap: $%.2f + $%.2f of $%.2f",
-                workspace_id, spent, run_usd, cap,
+                workspace_id,
+                spent,
+                run_usd,
+                cap,
             )
 
     execution = repository.add(

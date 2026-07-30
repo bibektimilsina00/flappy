@@ -55,15 +55,33 @@ RESPONSE_SCHEMA = {
             "items": {
                 "type": "object",
                 "properties": {
-                    "op": {"type": "string", "enum": ["add_node", "update_node", "connect", "delete_node", "run_node"]},
-                    "id": {"type": "string", "description": "Node id. For add_node, a temp id you invent (e.g. n1) and reuse in connect/run_node."},
+                    "op": {
+                        "type": "string",
+                        "enum": ["add_node", "update_node", "connect", "delete_node", "run_node"],
+                    },
+                    "id": {
+                        "type": "string",
+                        "description": "Node id. For add_node, a temp id you invent (e.g. n1) and reuse in connect/run_node.",
+                    },
                     "kind": {"type": "string", "enum": ["text", "image", "video", "audio"]},
                     "source": {"type": "string"},
                     "target": {"type": "string"},
-                    "prompt": {"type": "string", "description": "Prompt for an image/video/audio node."},
-                    "text": {"type": "string", "description": "Body for a text node (also sets it to text mode)."},
-                    "model": {"type": "string", "description": "Optional model id from the catalog."},
-                    "params": {"type": "string", "description": "JSON object string of model params to set, e.g. '{\"aspectRatio\":\"9:16\"}'. Use only keys/values valid for the chosen model."},
+                    "prompt": {
+                        "type": "string",
+                        "description": "Prompt for an image/video/audio node.",
+                    },
+                    "text": {
+                        "type": "string",
+                        "description": "Body for a text node (also sets it to text mode).",
+                    },
+                    "model": {
+                        "type": "string",
+                        "description": "Optional model id from the catalog.",
+                    },
+                    "params": {
+                        "type": "string",
+                        "description": 'JSON object string of model params to set, e.g. \'{"aspectRatio":"9:16"}\'. Use only keys/values valid for the chosen model.',
+                    },
                 },
                 "required": ["op"],
                 "additionalProperties": False,
@@ -79,9 +97,9 @@ def _fmt_params(params: list[dict]) -> str:
     parts = []
     for p in params or []:
         if p.get("options"):
-            parts.append(f'{p["key"]}:{"|".join(str(o) for o in p["options"])}')
+            parts.append(f"{p['key']}:{'|'.join(str(o) for o in p['options'])}")
         elif p.get("type") == "number":
-            parts.append(f'{p["key"]}:{p.get("min", "")}-{p.get("max", "")}')
+            parts.append(f"{p['key']}:{p.get('min', '')}-{p.get('max', '')}")
         else:
             parts.append(p["key"])
     return f" [{', '.join(parts)}]" if parts else ""
@@ -92,7 +110,9 @@ def _models_summary() -> str:
     for kind in ("text", "image", "video", "audio"):
         feats = [model_to_dict(m) for m in list_models(kind)]
         feats = [m for m in feats if m.get("featured")]
-        names = ", ".join(f'{m["name"]} ({m["id"]}){_fmt_params(m.get("params") or [])}' for m in feats[:8])
+        names = ", ".join(
+            f"{m['name']} ({m['id']}){_fmt_params(m.get('params') or [])}" for m in feats[:8]
+        )
         out.append(f"- {kind}: {names or 'none'}")
     return "\n".join(out)
 
@@ -109,7 +129,10 @@ def _truncate(d: dict) -> dict:
 def _graph_summary(nodes: list[GraphNode]) -> str:
     if not nodes:
         return "The canvas is currently empty."
-    lines = [f"  {n.id} [{n.type}] {json.dumps(_truncate(n.data or {}), ensure_ascii=False)}" for n in nodes[:60]]
+    lines = [
+        f"  {n.id} [{n.type}] {json.dumps(_truncate(n.data or {}), ensure_ascii=False)}"
+        for n in nodes[:60]
+    ]
     return "Current canvas nodes (full config — you can edit any field):\n" + "\n".join(lines)
 
 
@@ -238,7 +261,11 @@ def chat(
                     "messages": messages,
                     "response_format": {
                         "type": "json_schema",
-                        "json_schema": {"name": "assistant_reply", "strict": True, "schema": RESPONSE_SCHEMA},
+                        "json_schema": {
+                            "name": "assistant_reply",
+                            "strict": True,
+                            "schema": RESPONSE_SCHEMA,
+                        },
                     },
                 },
             )
@@ -250,7 +277,9 @@ def chat(
         raise HTTPException(status_code=502, detail=f"Assistant failed: {exc}")
 
     result = _parse(content)
-    history.append({"role": "assistant", "content": result["reply"], "suggestions": result["suggestions"]})
+    history.append(
+        {"role": "assistant", "content": result["reply"], "suggestions": result["suggestions"]}
+    )
     repository.save(session, thread, history, title=body.message)
     return {"thread_id": str(thread.id), **result}
 
@@ -266,7 +295,11 @@ def _parse(content: str) -> dict:
         except json.JSONDecodeError:
             data = {}
     if not isinstance(data, dict) or "reply" not in data:
-        return {"reply": content.strip() or "Sorry, I couldn't produce a response.", "operations": [], "suggestions": []}
+        return {
+            "reply": content.strip() or "Sorry, I couldn't produce a response.",
+            "operations": [],
+            "suggestions": [],
+        }
     ops = data.get("operations") or []
     sugg = data.get("suggestions") or []
     return {

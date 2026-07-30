@@ -1,7 +1,7 @@
 """Business logic for workflows. Routers call service; service calls repository."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import HTTPException
 from sqlmodel import Session
@@ -22,9 +22,7 @@ def get_workflow(session: Session, workspace_id: uuid.UUID, workflow_id: uuid.UU
     return wf
 
 
-def create_workflow(
-    session: Session, workspace_id: uuid.UUID, data: WorkflowCreate
-) -> Workflow:
+def create_workflow(session: Session, workspace_id: uuid.UUID, data: WorkflowCreate) -> Workflow:
     wf = Workflow(workspace_id=workspace_id, name=data.name, graph=data.graph)
     return repository.add(session, wf)
 
@@ -37,12 +35,10 @@ def update_workflow(
         wf.name = data.name
     if data.graph is not None:
         wf.graph = data.graph
-    wf.updated_at = datetime.now(timezone.utc)
+    wf.updated_at = datetime.now(UTC)
     return repository.save(session, wf)
 
 
-def delete_workflow(
-    session: Session, workspace_id: uuid.UUID, workflow_id: uuid.UUID
-) -> None:
+def delete_workflow(session: Session, workspace_id: uuid.UUID, workflow_id: uuid.UUID) -> None:
     wf = get_workflow(session, workspace_id, workflow_id)
     repository.delete(session, wf)

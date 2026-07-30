@@ -13,6 +13,7 @@ FONTS_DIR = os.path.join(os.path.dirname(__file__), "fonts")
 FONT_NAME = "Poppins"  # static SemiBold; variable fonts render hairline-thin in libass
 MAX_WORDS_PER_LINE = 4
 
+
 def hex_to_ass(color: str) -> str:
     """#RRGGBB -> &H00BBGGRR (ASS colour, opaque)."""
     c = (color or "").lstrip("#")
@@ -26,17 +27,77 @@ def hex_to_ass(color: str) -> str:
 # the active (already-sung) word colour. ASS colors are &HAABBGGRR.
 PRESETS: dict[str, dict] = {
     # white text in a soft dark box
-    "clean": dict(size=15, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline_c="&H00000000", back="&H60000000", bold=0, border=4, outline=1, upper=False),
+    "clean": dict(
+        size=15,
+        primary="&H00FFFFFF",
+        secondary="&H00FFFFFF",
+        outline_c="&H00000000",
+        back="&H60000000",
+        bold=0,
+        border=4,
+        outline=1,
+        upper=False,
+    ),
     # big bold uppercase white with heavy outline
-    "bold": dict(size=19, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline_c="&H00000000", back="&H00000000", bold=1, border=1, outline=3, upper=True),
+    "bold": dict(
+        size=19,
+        primary="&H00FFFFFF",
+        secondary="&H00FFFFFF",
+        outline_c="&H00000000",
+        back="&H00000000",
+        bold=1,
+        border=1,
+        outline=3,
+        upper=True,
+    ),
     # words start white, the active word fills teal
-    "highlight": dict(size=17, primary="&H00A6B814", secondary="&H00FFFFFF", outline_c="&H00000000", back="&H00000000", bold=1, border=1, outline=2, upper=False),
+    "highlight": dict(
+        size=17,
+        primary="&H00A6B814",
+        secondary="&H00FFFFFF",
+        outline_c="&H00000000",
+        back="&H00000000",
+        bold=1,
+        border=1,
+        outline=2,
+        upper=False,
+    ),
     # MrBeast-style: loud uppercase, active word turns yellow
-    "beast": dict(size=19, primary=hex_to_ass("#FFD700"), secondary="&H00FFFFFF", outline_c="&H00000000", back="&H00000000", bold=1, border=1, outline=3, upper=True),
+    "beast": dict(
+        size=19,
+        primary=hex_to_ass("#FFD700"),
+        secondary="&H00FFFFFF",
+        outline_c="&H00000000",
+        back="&H00000000",
+        bold=1,
+        border=1,
+        outline=3,
+        upper=True,
+    ),
     # white text with a teal glow outline
-    "neon": dict(size=17, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline_c=hex_to_ass("#14B8A6"), back="&H00000000", bold=1, border=1, outline=2, upper=False),
+    "neon": dict(
+        size=17,
+        primary="&H00FFFFFF",
+        secondary="&H00FFFFFF",
+        outline_c=hex_to_ass("#14B8A6"),
+        back="&H00000000",
+        bold=1,
+        border=1,
+        outline=2,
+        upper=False,
+    ),
     # minimal small white, no box
-    "mono": dict(size=13, primary="&H00FFFFFF", secondary="&H00FFFFFF", outline_c="&H00000000", back="&H00000000", bold=0, border=1, outline=1, upper=False),
+    "mono": dict(
+        size=13,
+        primary="&H00FFFFFF",
+        secondary="&H00FFFFFF",
+        outline_c="&H00000000",
+        back="&H00000000",
+        bold=0,
+        border=1,
+        outline=1,
+        upper=False,
+    ),
 }
 
 SIZE_MAP = {"s": 13, "m": 16, "l": 20}
@@ -46,7 +107,7 @@ SIZE_MAP = {"s": 13, "m": 16, "l": 20}
 FONT_ASS = {"inter": "Poppins", "poppins": "Poppins", "anton": "Anton", "bangers": "Bangers"}
 
 
-def resolve_style(style: "str | dict | None") -> dict:
+def resolve_style(style: str | dict | None) -> dict:
     """Preset name or a custom template dict -> ASS parameters."""
     if isinstance(style, dict):
         base = hex_to_ass(str(style.get("color") or "#FFFFFF"))
@@ -82,7 +143,9 @@ def _clip_segments(transcript: list[dict], start: float, end: float) -> list[dic
         if seg["end"] <= start or seg["start"] >= end:
             continue
         words = [w for w in (seg.get("words") or []) if w["e"] > start and w["s"] < end]
-        out.append({**seg, "start": max(seg["start"], start), "end": min(seg["end"], end), "words": words})
+        out.append(
+            {**seg, "start": max(seg["start"], start), "end": min(seg["end"], end), "words": words}
+        )
     return out
 
 
@@ -101,7 +164,9 @@ def _words_or_even(seg: dict) -> list[dict]:
     ]
 
 
-def _lines(segments: list[dict], clip_start: float, clip_end: float, max_words: int = MAX_WORDS_PER_LINE) -> list[tuple[float, float, list[dict]]]:
+def _lines(
+    segments: list[dict], clip_start: float, clip_end: float, max_words: int = MAX_WORDS_PER_LINE
+) -> list[tuple[float, float, list[dict]]]:
     """Short-form line groups (<= MAX_WORDS_PER_LINE words), times clip-relative."""
     out = []
     for seg in segments:
@@ -125,7 +190,7 @@ def build_ass(
     transcript: list[dict],
     start: float,
     end: float,
-    style: "str | dict",
+    style: str | dict,
     width: int,
     height: int,
     edits: list[dict] | None = None,
@@ -139,7 +204,11 @@ def build_ass(
     p = resolve_style(style)
     sub_enabled = not (isinstance(style, dict) and style.get("subtitles") is False)
     segments = (edits if edits else _clip_segments(transcript, start, end)) if sub_enabled else []
-    lines = _lines(segments, start, end, p.get("words_per_line", MAX_WORDS_PER_LINE)) if sub_enabled else []
+    lines = (
+        _lines(segments, start, end, p.get("words_per_line", MAX_WORDS_PER_LINE))
+        if sub_enabled
+        else []
+    )
     headline = (style.get("headline") if isinstance(style, dict) else None) or headline_cfg or {}
     show_headline = bool(headline.get("enabled")) and bool((headline_text or "").strip())
     if not lines and not show_headline:
@@ -182,8 +251,12 @@ def build_ass(
 
     events = []
     if show_headline:
-        text = str(headline_text).strip().upper().replace("{", "").replace("}", "").replace("\n", " ")
-        events.append(f"Dialogue: 0,{_ass_time(0)},{_ass_time(max(0.5, end - start))},Head,,0,0,0,,{text}")
+        text = (
+            str(headline_text).strip().upper().replace("{", "").replace("}", "").replace("\n", " ")
+        )
+        events.append(
+            f"Dialogue: 0,{_ass_time(0)},{_ass_time(max(0.5, end - start))},Head,,0,0,0,,{text}"
+        )
     for s, e, group in lines:
         parts = []
         for w in group:
@@ -193,20 +266,28 @@ def build_ass(
                 text = text.upper()
             if w.get("hl"):
                 # keyword highlight: force the accent colour in both karaoke states
-                parts.append(f"{{\\1c{p['primary']}&\\2c{p['primary']}&}}{{\\k{dur_cs}}}{text}{{\\r}}")
+                parts.append(
+                    f"{{\\1c{p['primary']}&\\2c{p['primary']}&}}{{\\k{dur_cs}}}{text}{{\\r}}"
+                )
             else:
                 parts.append(f"{{\\k{dur_cs}}}{text}")
         # \fad: quick fade-in/out per line — subtle motion that reads as "animated".
-        events.append(f"Dialogue: 0,{_ass_time(s)},{_ass_time(e)},Cap,,0,0,0,,{{\\fad(120,60)}}{' '.join(parts)}")
+        events.append(
+            f"Dialogue: 0,{_ass_time(s)},{_ass_time(e)},Cap,,0,0,0,,{{\\fad(120,60)}}{' '.join(parts)}"
+        )
     return header + "\n".join(events) + "\n"
 
 
 def _srt_time(t: float) -> str:
     ms = max(0, int(round(t * 1000)))
-    return f"{ms // 3600000:02d}:{ms % 3600000 // 60000:02d}:{ms % 60000 // 1000:02d},{ms % 1000:03d}"
+    return (
+        f"{ms // 3600000:02d}:{ms % 3600000 // 60000:02d}:{ms % 60000 // 1000:02d},{ms % 1000:03d}"
+    )
 
 
-def build_srt(transcript: list[dict], start: float, end: float, edits: list[dict] | None = None) -> str | None:
+def build_srt(
+    transcript: list[dict], start: float, end: float, edits: list[dict] | None = None
+) -> str | None:
     """SRT for one clip (segment-level cues, clip-relative times)."""
     segments = edits if edits else _clip_segments(transcript, start, end)
     if not segments:

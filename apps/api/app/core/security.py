@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
@@ -24,7 +24,7 @@ def verify_password(raw: str, hashed: str) -> bool:
 
 
 def create_access_token(subject: str) -> str:
-    expire = datetime.now(timezone.utc) + TOKEN_TTL
+    expire = datetime.now(UTC) + TOKEN_TTL
     return jwt.encode({"sub": subject, "exp": expire}, settings.secret_key, algorithm=ALGORITHM)
 
 

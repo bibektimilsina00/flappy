@@ -29,7 +29,11 @@ TERMINAL = {"succeeded", "failed", "canceled"}
 POLL_INTERVAL = 5
 POLL_TIMEOUT = 10 * 60
 
-_EXT = {"image": ("png", "image/png"), "video": ("mp4", "video/mp4"), "audio": ("mp3", "audio/mpeg")}
+_EXT = {
+    "image": ("png", "image/png"),
+    "video": ("mp4", "video/mp4"),
+    "audio": ("mp3", "audio/mpeg"),
+}
 
 
 class ReplicateAdapter:
@@ -59,7 +63,13 @@ class ReplicateAdapter:
             output = pred.get("output")
 
             if request.kind == "text":
-                text = output if isinstance(output, str) else "".join(output) if isinstance(output, list) else str(output)
+                text = (
+                    output
+                    if isinstance(output, str)
+                    else "".join(output)
+                    if isinstance(output, list)
+                    else str(output)
+                )
                 return GenerationResult(kind="text", cost=model.cost, text=text)
 
             url = output[0] if isinstance(output, list) else output

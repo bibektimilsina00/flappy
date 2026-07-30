@@ -12,7 +12,7 @@ from apps.api.app.features.users import repository as users_repo
 from apps.api.app.features.users.models import User
 from apps.api.app.features.workspaces import repository as workspaces_repo
 
-__all__ = ["get_session", "get_current_user", "current_workspace_id"]
+__all__ = ["current_workspace_id", "get_current_user", "get_session"]
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 

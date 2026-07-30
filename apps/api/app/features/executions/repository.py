@@ -1,7 +1,7 @@
 """DB queries for executions. Keep all SQL here; service.py calls into it."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlmodel import Session, select
 
@@ -51,6 +51,6 @@ def set_status(
     execution.status = status
     execution.error = error
     if finished:
-        execution.finished_at = datetime.now(timezone.utc)
+        execution.finished_at = datetime.now(UTC)
     session.add(execution)
     session.commit()

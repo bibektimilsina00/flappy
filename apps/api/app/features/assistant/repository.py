@@ -1,14 +1,16 @@
 """DB queries for assistant conversation threads."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlmodel import Session, select
 
 from apps.api.app.features.assistant.models import AssistantThread
 
 
-def create(session: Session, workspace_id: uuid.UUID, workflow_id: uuid.UUID | None) -> AssistantThread:
+def create(
+    session: Session, workspace_id: uuid.UUID, workflow_id: uuid.UUID | None
+) -> AssistantThread:
     thread = AssistantThread(workspace_id=workspace_id, workflow_id=workflow_id, messages=[])
     session.add(thread)
     session.commit()
@@ -33,11 +35,13 @@ def list_for_workflow(
     return list(session.exec(stmt))
 
 
-def save(session: Session, thread: AssistantThread, messages: list, title: str | None = None) -> AssistantThread:
+def save(
+    session: Session, thread: AssistantThread, messages: list, title: str | None = None
+) -> AssistantThread:
     thread.messages = messages
     if title and thread.title == "New chat":
         thread.title = title[:60]
-    thread.updated_at = datetime.now(timezone.utc)
+    thread.updated_at = datetime.now(UTC)
     session.add(thread)
     session.commit()
     session.refresh(thread)

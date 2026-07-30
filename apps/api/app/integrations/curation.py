@@ -15,37 +15,50 @@ from apps.api.app.integrations.base.model_spec import ModelSpec
 _CURATED: dict[str, list[list[str]]] = {
     # Pinned to current flagship versions — bump these as new models ship.
     "text": [
-        ["google/gemini-3.5-flash"],      # Gemini Flash (latest, cheap)
-        ["google/gemini-3.1-pro"],        # Gemini Pro (latest)
-        ["openai/gpt-5-mini"],            # GPT-5 mini (cheap)
-        ["openai/gpt-5"],                 # GPT-5 (flagship)
-        ["deepseek/deepseek-v4-flash"],   # DeepSeek Flash (cheap)
-        ["deepseek/deepseek-v4-pro"],     # DeepSeek Pro
-        ["x-ai/grok-4.5"],                # Grok
+        ["google/gemini-3.5-flash"],  # Gemini Flash (latest, cheap)
+        ["google/gemini-3.1-pro"],  # Gemini Pro (latest)
+        ["openai/gpt-5-mini"],  # GPT-5 mini (cheap)
+        ["openai/gpt-5"],  # GPT-5 (flagship)
+        ["deepseek/deepseek-v4-flash"],  # DeepSeek Flash (cheap)
+        ["deepseek/deepseek-v4-pro"],  # DeepSeek Pro
+        ["x-ai/grok-4.5"],  # Grok
         ["meta-llama/llama-4-maverick"],  # Llama (cheap)
-        ["qwen/qwen3.7-max"],             # Qwen
-        ["moonshotai/kimi-k3"],           # Kimi
-        ["mistralai/mistral-medium"],     # Mistral
-        ["minimax/minimax-m3"],           # MiniMax
+        ["qwen/qwen3.7-max"],  # Qwen
+        ["moonshotai/kimi-k3"],  # Kimi
+        ["mistralai/mistral-medium"],  # Mistral
+        ["minimax/minimax-m3"],  # MiniMax
     ],
     # OpenRouter slugs. Each spec resolves to the cleanest (shortest-id) match.
     "image": [
-        ["gemini-2.5-flash-image"],   # Nano Banana (cheap default)
-        ["gemini-3.1-flash-image"],   # Nano Banana 2
-        ["gemini-3-pro-image"],       # Nano Banana Pro
-        ["flux.2-flex"], ["flux.2-pro"],
-        ["gpt-image-1"], ["seedream-4"], ["recraft-v3"],
-        ["krea-2-large"], ["grok-imagine-image"],
+        ["gemini-2.5-flash-image"],  # Nano Banana (cheap default)
+        ["gemini-3.1-flash-image"],  # Nano Banana 2
+        ["gemini-3-pro-image"],  # Nano Banana Pro
+        ["flux.2-flex"],
+        ["flux.2-pro"],
+        ["gpt-image-1"],
+        ["seedream-4"],
+        ["recraft-v3"],
+        ["krea-2-large"],
+        ["grok-imagine-image"],
     ],
     "video": [
-        ["veo-3.1-lite"], ["veo-3.1"], ["sora-2"], ["kling-v3.0-pro"],
-        ["seedance-1-5-pro"], ["seedance-2.0"], ["wan-2.7"], ["hailuo"],
+        ["veo-3.1-lite"],
+        ["veo-3.1"],
+        ["sora-2"],
+        ["kling-v3.0-pro"],
+        ["seedance-1-5-pro"],
+        ["seedance-2.0"],
+        ["wan-2.7"],
+        ["hailuo"],
     ],
     "audio": [
-        ["kokoro"],                   # cheapest TTS
-        ["gemini-3.1-flash-tts"],     # premium TTS
-        ["aura-2"], ["grok-voice-tts"],
-        ["lyria-3-clip"], ["lyria-3-pro"], ["gpt-audio-mini"],  # music
+        ["kokoro"],  # cheapest TTS
+        ["gemini-3.1-flash-tts"],  # premium TTS
+        ["aura-2"],
+        ["grok-voice-tts"],
+        ["lyria-3-clip"],
+        ["lyria-3-pro"],
+        ["gpt-audio-mini"],  # music
     ],
 }
 
