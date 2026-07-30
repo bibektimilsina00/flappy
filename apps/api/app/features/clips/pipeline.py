@@ -14,6 +14,7 @@ import re
 import subprocess
 import tempfile
 import uuid
+from datetime import UTC
 
 import imageio_ffmpeg
 from sqlmodel import Session
@@ -30,9 +31,16 @@ MAX_SOURCE_MINUTES = 30
 DEFAULT_COUNT = 5
 DURATION_BANDS = {
     # legacy single-select keys
-    "short": (15, 30), "medium": (30, 60), "long": (60, 90), "auto": (10, 90),
+    "short": (15, 30),
+    "medium": (30, 60),
+    "long": (60, 90),
+    "auto": (10, 90),
     # multi-select bands (reference-style length filter)
-    "lt30": (10, 30), "30-60": (30, 60), "60-90": (60, 90), "90-180": (90, 180), "gt180": (180, 600),
+    "lt30": (10, 30),
+    "30-60": (30, 60),
+    "60-90": (60, 90),
+    "90-180": (90, 180),
+    "gt180": (180, 600),
 }
 RATIO_SIZES = {"9:16": (1080, 1920), "1:1": (1080, 1080), "16:9": (1920, 1080)}
 
@@ -54,14 +62,15 @@ def is_free_plan(session: Session, workspace_id) -> bool:
     ws = workspaces_repo.get(session, workspace_id)
     return (ws.plan if ws else "free") == "free"
 
+
 _whisper_model = None  # loaded once per worker process
 
 
 def _set(session: Session, job: ClipsJob, **fields) -> None:
     if "phase" in fields:  # entering a phase stamps its start (drives UI ETAs)
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        fields.setdefault("phase_started_at", datetime.now(timezone.utc))
+        fields.setdefault("phase_started_at", datetime.now(UTC))
     for k, v in fields.items():
         setattr(job, k, v)
     repository.save(session, job)
@@ -76,10 +85,17 @@ def run_pipeline(session: Session, job: ClipsJob, charge) -> None:
         source = _ingest(session, job, storage, workdir)
         probed = _probe_duration(source)
         if probed and probed > MAX_SOURCE_MINUTES * 60:
-            raise ValueError(f"Source is {probed / 60:.0f} min — the limit is {MAX_SOURCE_MINUTES} min.")
+            raise ValueError(
+                f"Source is {probed / 60:.0f} min — the limit is {MAX_SOURCE_MINUTES} min."
+            )
         # Poster frame + early duration so the progress page has something to show.
         thumb_key = _thumbnail(job, source, storage, workdir)
-        _set(session, job, **({"source_thumb_key": thumb_key} if thumb_key else {}), **({"duration": probed} if probed else {}))
+        _set(
+            session,
+            job,
+            **({"source_thumb_key": thumb_key} if thumb_key else {}),
+            **({"duration": probed} if probed else {}),
+        )
 
         _set(session, job, phase="transcribe", progress=0.0)
 
@@ -88,7 +104,9 @@ def run_pipeline(session: Session, job: ClipsJob, charge) -> None:
 
         transcript, duration = _transcribe(source, on_progress)
         if duration > MAX_SOURCE_MINUTES * 60:
-            raise ValueError(f"Source is {duration / 60:.0f} min — the limit is {MAX_SOURCE_MINUTES} min.")
+            raise ValueError(
+                f"Source is {duration / 60:.0f} min — the limit is {MAX_SOURCE_MINUTES} min."
+            )
         if not transcript:
             raise ValueError("No speech found in the source video.")
         _set(session, job, duration=duration, transcript=transcript, phase="select", progress=0.0)
@@ -114,7 +132,7 @@ def run_pipeline(session: Session, job: ClipsJob, charge) -> None:
         from apps.api.app.features.clips.project_link import populate_project
 
         populate_project(session, job)
-    except Exception:  # noqa: BLE001 — the project link never fails a job
+    except Exception:
         log.exception("populate_project failed for job %s", job.id)
 
 
@@ -171,7 +189,12 @@ def _ingest(session: Session, job: ClipsJob, storage, workdir: str) -> str:
     with open(path, "rb") as f:
         storage.put(key, f.read(), "video/mp4")
     # Never overwrite a user-provided title from the configure step.
-    _set(session, job, source_key=key, **({"source_title": str(title)[:200]} if title and not job.source_title else {}))
+    _set(
+        session,
+        job,
+        source_key=key,
+        **({"source_title": str(title)[:200]} if title and not job.source_title else {}),
+    )
     return path
 
 
@@ -179,7 +202,21 @@ def _thumbnail(job: ClipsJob, source: str, storage, workdir: str) -> str | None:
     """One poster frame for the progress page. Best-effort — never fails a job."""
     thumb = os.path.join(workdir, "thumb.jpg")
     proc = subprocess.run(
-        [imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-ss", "1", "-i", source, "-frames:v", "1", "-vf", "scale=480:-2", "-q:v", "4", thumb],
+        [
+            imageio_ffmpeg.get_ffmpeg_exe(),
+            "-y",
+            "-ss",
+            "1",
+            "-i",
+            source,
+            "-frames:v",
+            "1",
+            "-vf",
+            "scale=480:-2",
+            "-q:v",
+            "4",
+            thumb,
+        ],
         capture_output=True,
         timeout=60,
     )
@@ -246,7 +283,9 @@ def _select(job: ClipsJob, transcript: list[dict], duration: float) -> list[dict
     focus = (params.get("focus") or "").strip()
 
     if isinstance(duration_pref, str) and duration_pref.startswith("ranges:"):
-        length_rule = f"Each segment's length must fall in one of these ranges: {duration_pref[7:]}. "
+        length_rule = (
+            f"Each segment's length must fall in one of these ranges: {duration_pref[7:]}. "
+        )
     elif duration_pref == "auto":
         # Default product promise: ready-to-post TikTok/Reels length, AI-decided.
         length_rule = (
@@ -285,6 +324,7 @@ def _select(job: ClipsJob, transcript: list[dict], duration: float) -> list[dict
         + "Respond with ONLY a JSON array, no prose, each item: "
         '{"start": <sec>, "end": <sec>, "title": "<catchy 4-8 word title>", '
         '"score": <0-100 virality estimate>, "reason": "<one line why>"}'
+        "\n\nTranscript:\n" + lines
     )
 
     model = resolve_model("text", settings.clips_select_model or None)
@@ -302,10 +342,17 @@ def _select(job: ClipsJob, transcript: list[dict], duration: float) -> list[dict
                 break
             log.warning(
                 "clips selection (%s, attempt %d): unparseable response, head: %r",
-                model.id, attempt, raw[:300],
+                model.id,
+                attempt,
+                raw[:300],
             )
         except Exception as exc:  # noqa: BLE001 — fall back rather than fail the job
-            log.warning("clips selection (%s, attempt %d) failed: %s", getattr(model, "id", "?"), attempt, exc)
+            log.warning(
+                "clips selection (%s, attempt %d) failed: %s",
+                getattr(model, "id", "?"),
+                attempt,
+                exc,
+            )
 
     if not segments:
         log.warning("clips selection: using deterministic fallback (scores will be 50)")
@@ -362,7 +409,9 @@ def parse_selection(raw: str, duration: float, band: tuple[int, int]) -> list[di
     return out
 
 
-def fallback_selection(transcript: list[dict], duration: float, band: tuple[int, int], count: int) -> list[dict]:
+def fallback_selection(
+    transcript: list[dict], duration: float, band: tuple[int, int], count: int
+) -> list[dict]:
     """Deterministic fallback: evenly spaced segments snapped to speech starts.
     The job never dies on a malformed LLM response."""
     target = min(band[1], max(band[0], 45))
@@ -389,15 +438,29 @@ def fallback_selection(transcript: list[dict], duration: float, band: tuple[int,
 
 
 # ── phase 4: render (cut + cover-crop + optional caption burn) ──────────────
-def _render_clip(job: ClipsJob, source: str, seg: dict, index: int, workdir: str, storage, watermark: bool = False) -> str:
+def _render_clip(
+    job: ClipsJob,
+    source: str,
+    seg: dict,
+    index: int,
+    workdir: str,
+    storage,
+    watermark: bool = False,
+) -> str:
     return render_clip_file(
-        job, source, seg, workdir, storage,
+        job,
+        source,
+        seg,
+        workdir,
+        storage,
         key=f"{job.workspace_id}/clips/{job.id}/clip-{index}.mp4",
         watermark=watermark,
     )
 
 
-def render_clip_file(job: ClipsJob, source: str, seg: dict, workdir: str, storage, key: str, watermark: bool = False) -> str:
+def render_clip_file(
+    job: ClipsJob, source: str, seg: dict, workdir: str, storage, key: str, watermark: bool = False
+) -> str:
     """Cut [start,end] from source and crop to the target aspect — a CLEAN
     master (no burned captions). Captions live as a layer: overlaid in the web
     player, burned on demand at download (burn_clip_captions), and handed to
@@ -429,9 +492,27 @@ def render_clip_file(job: ClipsJob, source: str, seg: dict, workdir: str, storag
         vf += watermark_filter()
 
     cmd = [
-        exe, "-y", "-ss", f"{seg['start']:.2f}", "-to", f"{seg['end']:.2f}", "-i", source,
-        "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
-        "-c:a", "aac", "-movflags", "+faststart", out,
+        exe,
+        "-y",
+        "-ss",
+        f"{seg['start']:.2f}",
+        "-to",
+        f"{seg['end']:.2f}",
+        "-i",
+        source,
+        "-vf",
+        vf,
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-pix_fmt",
+        "yuv420p",
+        "-c:a",
+        "aac",
+        "-movflags",
+        "+faststart",
+        out,
     ]
     proc = subprocess.run(cmd, capture_output=True, timeout=600)
     if proc.returncode != 0 or not os.path.exists(out) or os.path.getsize(out) == 0:
@@ -457,12 +538,21 @@ def burn_clip_captions(job: ClipsJob, clip: dict, style: str, storage) -> str | 
 
     w, h = RATIO_SIZES.get((job.params or {}).get("ratio") or "9:16", RATIO_SIZES["9:16"])
     # "custom" resolves to the job's saved template definition.
-    style_def = ((job.params or {}).get("caption_custom") or "clean") if style == "custom" else style
+    style_def = (
+        ((job.params or {}).get("caption_custom") or "clean") if style == "custom" else style
+    )
     headline_cfg = (job.params or {}).get("headline")
     headline_text = (headline_cfg or {}).get("text") or clip.get("title")
     ass = build_ass(
-        job.transcript or [], clip["start"], clip["end"], style_def, w, h,
-        clip.get("caption_edits"), headline_text=headline_text, headline_cfg=headline_cfg,
+        job.transcript or [],
+        clip["start"],
+        clip["end"],
+        style_def,
+        w,
+        h,
+        clip.get("caption_edits"),
+        headline_text=headline_text,
+        headline_cfg=headline_cfg,
     )
     logo_b64 = None
     if isinstance(style_def, dict):
@@ -492,15 +582,45 @@ def burn_clip_captions(job: ClipsJob, clip: dict, style: str, storage) -> str | 
                 f.write(_b64.b64decode(logo_b64))
             fc = f"[1:v]scale={w // 6}:-1[lg];[0:v]{vf_main}[v0];[v0][lg]overlay=W-w-{int(w * 0.04)}:{int(h * 0.03)}"
             cmd = [
-                exe, "-y", "-i", master, "-i", logo_path, "-filter_complex", fc,
-                "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
-                "-c:a", "copy", "-movflags", "+faststart", out,
+                exe,
+                "-y",
+                "-i",
+                master,
+                "-i",
+                logo_path,
+                "-filter_complex",
+                fc,
+                "-c:v",
+                "libx264",
+                "-preset",
+                "veryfast",
+                "-pix_fmt",
+                "yuv420p",
+                "-c:a",
+                "copy",
+                "-movflags",
+                "+faststart",
+                out,
             ]
         else:
             cmd = [
-                exe, "-y", "-i", master, "-vf", vf_main,
-                "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
-                "-c:a", "copy", "-movflags", "+faststart", out,
+                exe,
+                "-y",
+                "-i",
+                master,
+                "-vf",
+                vf_main,
+                "-c:v",
+                "libx264",
+                "-preset",
+                "veryfast",
+                "-pix_fmt",
+                "yuv420p",
+                "-c:a",
+                "copy",
+                "-movflags",
+                "+faststart",
+                out,
             ]
         proc = subprocess.run(cmd, capture_output=True, timeout=300)
         if proc.returncode != 0 or not os.path.exists(out) or os.path.getsize(out) == 0:
@@ -519,7 +639,10 @@ def schedule_posts(session: Session, job: ClipsJob) -> None:
     if not cfg.get("enabled"):
         return
     from apps.api.app.features.clips.models import ScheduledPost
-    from apps.api.app.features.clips.schedule import compute_schedule, workspace_accounts
+    from apps.api.app.features.clips.schedule import (
+        compute_schedule,
+        workspace_accounts,
+    )
 
     try:
         targets = workspace_accounts(session, job.workspace_id, cfg.get("account_ids") or [])
@@ -531,28 +654,46 @@ def schedule_posts(session: Session, job: ClipsJob) -> None:
                         job_id=job.id,
                         clip_id=clip["id"],
                         title=clip.get("title"),
-                        post_at=when.replace(tzinfo=None),  # stored naive-UTC like every timestamp here
+                        post_at=when.replace(
+                            tzinfo=None
+                        ),  # stored naive-UTC like every timestamp here
                         social_account_id=account.id if account else None,
                         platform=account.platform if account else None,
                     )
                 )
         session.commit()
-    except Exception:  # noqa: BLE001
+    except Exception:
         log.exception("auto-schedule failed for job %s", job.id)
         session.rollback()
 
 
 # ── caption decoration: emojis, keyword highlights, censoring ────────────────
 CENSOR_WORDS = {
-    "fuck", "fucking", "fucked", "shit", "bitch", "asshole", "dick", "pussy",
-    "cunt", "bastard", "motherfucker", "cock", "whore", "slut",
+    "fuck",
+    "fucking",
+    "fucked",
+    "shit",
+    "bitch",
+    "asshole",
+    "dick",
+    "pussy",
+    "cunt",
+    "bastard",
+    "motherfucker",
+    "cock",
+    "whore",
+    "slut",
 }
 
 
 def _censor_word(word: str) -> str:
     core = re.sub(r"\W", "", word).lower()
     if core in CENSOR_WORDS and len(core) > 2:
-        return word.replace(core[1:-1], "*" * (len(core) - 2)) if core in word.lower() else word[0] + "*" * (len(word) - 2) + word[-1]
+        return (
+            word.replace(core[1:-1], "*" * (len(core) - 2))
+            if core in word.lower()
+            else word[0] + "*" * (len(word) - 2) + word[-1]
+        )
     return word
 
 
@@ -572,7 +713,8 @@ def _decorate(job: ClipsJob, transcript: list[dict], clips: list[dict]) -> None:
         return
 
     idxs = [
-        i for i, s in enumerate(transcript)
+        i
+        for i, s in enumerate(transcript)
         if (s.get("words")) and any(s["end"] > c["start"] and s["start"] < c["end"] for c in clips)
     ]
     if not idxs:
@@ -583,22 +725,32 @@ def _decorate(job: ClipsJob, transcript: list[dict], clips: list[dict]) -> None:
     )
     tasks = []
     if emojis:
-        tasks.append('add at most ONE fitting emoji per line, placed after an impactful word ("em": [[word_index, "emoji"]])')
+        tasks.append(
+            'add at most ONE fitting emoji per line, placed after an impactful word ("em": [[word_index, "emoji"]])'
+        )
     if keywords:
-        tasks.append('pick 1-2 keyword word-indexes per line to highlight ("kw": [word_index, ...])')
+        tasks.append(
+            'pick 1-2 keyword word-indexes per line to highlight ("kw": [word_index, ...])'
+        )
     prompt = (
         "You decorate short-video captions. Lines below are numbered, each word "
         "prefixed with its [index]. " + "; ".join(tasks) + ". Only include lines you "
-        "change. Respond with ONLY a JSON array of {\"i\": <line>, "
+        'change. Respond with ONLY a JSON array of {"i": <line>, '
         + ('"em": [[idx, emoji]], ' if emojis else "")
         + ('"kw": [idx, ...]' if keywords else "")
-        + "}.\n\n" + lines
+        + "}.\n\n"
+        + lines
     )
     try:
         model = resolve_model("text", settings.clips_select_model or None)
         if model is None:
             return
-        raw = get_adapter(model.adapter).generate(model, GenerationRequest(kind="text", prompt=prompt), None).text or ""
+        raw = (
+            get_adapter(model.adapter)
+            .generate(model, GenerationRequest(kind="text", prompt=prompt), None)
+            .text
+            or ""
+        )
         decoder = json.JSONDecoder()
         items, idx = None, raw.find("[")
         while idx != -1 and items is None:
@@ -612,7 +764,11 @@ def _decorate(job: ClipsJob, transcript: list[dict], clips: list[dict]) -> None:
         for item in items or []:
             if not isinstance(item, dict):
                 continue
-            seg = transcript[int(item["i"])] if 0 <= int(item.get("i", -1)) < len(transcript) else None
+            seg = (
+                transcript[int(item["i"])]
+                if 0 <= int(item.get("i", -1)) < len(transcript)
+                else None
+            )
             words = (seg or {}).get("words") or []
             if not words:
                 continue
@@ -620,7 +776,12 @@ def _decorate(job: ClipsJob, transcript: list[dict], clips: list[dict]) -> None:
                 if isinstance(wi, int) and 0 <= wi < len(words):
                     words[wi]["hl"] = True
             for pair in item.get("em") or []:
-                if isinstance(pair, list) and len(pair) == 2 and isinstance(pair[0], int) and 0 <= pair[0] < len(words):
+                if (
+                    isinstance(pair, list)
+                    and len(pair) == 2
+                    and isinstance(pair[0], int)
+                    and 0 <= pair[0] < len(words)
+                ):
                     words[pair[0]]["w"] = f"{words[pair[0]]['w']} {str(pair[1])[:4]}"
             seg["text"] = " ".join(w["w"] for w in words)
     except Exception as exc:  # noqa: BLE001 — decoration is optional polish
