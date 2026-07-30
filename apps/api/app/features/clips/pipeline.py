@@ -154,11 +154,15 @@ def _probe_duration(path: str) -> float | None:
 
 
 def ydl_base_opts() -> dict:
-    """Shared yt-dlp options. A cookies file (CLIPS_COOKIES_FILE) gets past
-    YouTube's bot wall on datacenter IPs; absent, we go without."""
+    """Shared yt-dlp options. Cookies + a PO-token provider get past YouTube's
+    bot wall on datacenter IPs; with neither configured, we go without."""
     opts = {"noplaylist": True, "quiet": True, "no_warnings": True}
     if settings.clips_cookies_file and os.path.exists(settings.clips_cookies_file):
         opts["cookiefile"] = settings.clips_cookies_file
+    if settings.clips_pot_provider_url:
+        opts["extractor_args"] = {
+            "youtubepot-bgutilhttp": {"base_url": [settings.clips_pot_provider_url]}
+        }
     return opts
 
 
