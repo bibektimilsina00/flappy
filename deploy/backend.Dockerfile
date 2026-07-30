@@ -17,6 +17,8 @@ RUN apt-get update \
     && useradd -m app
 WORKDIR /app
 ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1
+# JS runtime for yt-dlp's YouTube challenge solver (nsig/PO-token flows).
+COPY --from=denoland/deno:bin /deno /usr/local/bin/deno
 COPY --from=builder --chown=app:app /app/.venv .venv
 COPY --chown=app:app apps/api apps/api
 COPY --chown=app:app apps/worker apps/worker
