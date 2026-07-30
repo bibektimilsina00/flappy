@@ -169,19 +169,20 @@ def ydl_base_opts() -> dict:
 
 
 def ydl_extract(url: str, download: bool, extra_opts: dict | None = None) -> dict:
-    """Extract via the proxy when configured, falling back to a direct attempt —
-    a proxy outage must never make ingestion worse than having no proxy."""
+    """Try direct first (free bandwidth); retry through the residential proxy
+    only when the direct attempt fails — paid GB is spent purely on rescues."""
     import yt_dlp
 
     opts = {**ydl_base_opts(), **(extra_opts or {})}
+    proxy = opts.pop("proxy", None)
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             return ydl.extract_info(url, download=download)
     except Exception:
-        if not opts.pop("proxy", None):
+        if not proxy:
             raise
-        log.warning("yt-dlp via proxy failed for %s; retrying direct", url)
-        with yt_dlp.YoutubeDL(opts) as ydl:
+        log.info("yt-dlp direct failed for %s; retrying via proxy", url)
+        with yt_dlp.YoutubeDL({**opts, "proxy": proxy}) as ydl:
             return ydl.extract_info(url, download=download)
 
 
