@@ -91,8 +91,10 @@ def probe_source(
         raise HTTPException(status_code=422, detail="That doesn't look like a valid link.")
     import yt_dlp
 
+    from apps.api.app.features.clips.pipeline import ydl_base_opts
+
     try:
-        with yt_dlp.YoutubeDL({"noplaylist": True, "quiet": True, "no_warnings": True}) as ydl:
+        with yt_dlp.YoutubeDL(ydl_base_opts()) as ydl:
             info = ydl.extract_info(body.source_url.strip(), download=False)
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Could not read that link: {exc}") from exc

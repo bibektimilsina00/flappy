@@ -42,6 +42,8 @@ class Settings(BaseSettings):
 
     # Clips (video repurposing) — CLIPS-PLAN.md
     clips_whisper_model: str = "small"
+    # Netscape cookies.txt for yt-dlp — YouTube bot-walls datacenter IPs.
+    clips_cookies_file: str = ""
     clips_select_model: str = ""  # empty -> default text model
     clips_credits_select: float = 1.0
     clips_credits_per_clip: float = 2.0

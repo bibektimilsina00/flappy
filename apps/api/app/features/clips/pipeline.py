@@ -153,6 +153,15 @@ def _probe_duration(path: str) -> float | None:
     return h * 3600 + mi * 60 + s
 
 
+def ydl_base_opts() -> dict:
+    """Shared yt-dlp options. A cookies file (CLIPS_COOKIES_FILE) gets past
+    YouTube's bot wall on datacenter IPs; absent, we go without."""
+    opts = {"noplaylist": True, "quiet": True, "no_warnings": True}
+    if settings.clips_cookies_file and os.path.exists(settings.clips_cookies_file):
+        opts["cookiefile"] = settings.clips_cookies_file
+    return opts
+
+
 # ── phase 1: ingest ──────────────────────────────────────────────────────────
 def _ingest(session: Session, job: ClipsJob, storage, workdir: str) -> str:
     if job.source_key:
@@ -165,12 +174,10 @@ def _ingest(session: Session, job: ClipsJob, storage, workdir: str) -> str:
 
     path = os.path.join(workdir, "source.mp4")
     opts = {
+        **ydl_base_opts(),
         "outtmpl": path,
         "format": "bv*[height<=1080]+ba/b[height<=1080]/b",
         "merge_output_format": "mp4",
-        "noplaylist": True,
-        "quiet": True,
-        "no_warnings": True,
         # yt-dlp needs ffmpeg to merge video+audio; ours is the bundled
         # imageio-ffmpeg binary, not on PATH.
         "ffmpeg_location": imageio_ffmpeg.get_ffmpeg_exe(),
