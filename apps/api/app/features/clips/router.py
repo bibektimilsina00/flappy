@@ -23,6 +23,18 @@ router = APIRouter(prefix="/clips", tags=["clips"])
 URL_RE = re.compile(r"^https?://", re.IGNORECASE)
 
 
+def _oembed(url: str) -> dict | None:
+    import httpx
+
+    try:
+        r = httpx.get(
+            "https://www.youtube.com/oembed", params={"url": url, "format": "json"}, timeout=5
+        )
+        return r.json() if r.status_code == 200 else None
+    except Exception:
+        return None
+
+
 def _job_out(job: ClipsJob, storage, with_transcript: bool = False) -> dict:
     out = {
         "id": str(job.id),
@@ -93,11 +105,26 @@ def probe_source(
 
     from apps.api.app.features.clips.pipeline import friendly_link_error, ydl_base_opts
 
+    url = body.source_url.strip()
     try:
         with yt_dlp.YoutubeDL(ydl_base_opts()) as ydl:
-            info = ydl.extract_info(body.source_url.strip(), download=False)
+            info = ydl.extract_info(url, download=False)
     except Exception as exc:
-        raise HTTPException(status_code=422, detail=friendly_link_error(exc)) from exc
+        friendly = friendly_link_error(exc)
+        if "upload the file" in friendly:
+            # Bot-walled: YouTube's public oEmbed still serves metadata, so the
+            # UI can show a card pointing the user at the upload path.
+            meta = _oembed(url)
+            if meta:
+                return {
+                    "title": meta.get("title"),
+                    "duration": None,
+                    "thumbnail": meta.get("thumbnail_url"),
+                    "height": None,
+                    "blocked": True,
+                    "message": friendly,
+                }
+        raise HTTPException(status_code=422, detail=friendly) from exc
     return {
         "title": info.get("title"),
         "duration": info.get("duration"),

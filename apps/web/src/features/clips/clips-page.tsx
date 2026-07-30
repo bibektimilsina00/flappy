@@ -6,6 +6,7 @@ import {
   Check,
   ChevronDown,
   Clapperboard,
+  ExternalLink,
   Film,
   Flame,
   FolderOpen,
@@ -137,6 +138,13 @@ export function ClipsPage() {
   const [jobs, setJobs] = useState<ClipsJob[] | null>(null);
   // Two-step flow: pick a source, then configure before the job starts.
   const [step, setStep] = useState<"input" | "config">("input");
+  // Link the platform refuses to hand over — shown as a card steering to upload.
+  const [blocked, setBlocked] = useState<{
+    url: string;
+    title: string | null;
+    thumbnail: string | null;
+    message: string;
+  } | null>(null);
   const [source, setSource] = useState<{ source_url?: string; source_key?: string } | null>(null);
   const [meta, setMeta] = useState<SourceMeta | null>(null);
   const [title, setTitle] = useState("");
@@ -235,6 +243,7 @@ export function ClipsPage() {
     if (!file) return;
     setBusy(`Uploading ${file.name}…`);
     setError(null);
+    setBlocked(null);
     try {
       const { source_key } = await uploadClipsSource(file);
       setSource({ source_key });
@@ -257,8 +266,18 @@ export function ClipsPage() {
     }
     setBusy("Reading link…");
     setError(null);
+    setBlocked(null);
     try {
       const m = await probeClipsSource(url);
+      if (m.blocked) {
+        setBlocked({
+          url,
+          title: m.title,
+          thumbnail: m.thumbnail,
+          message: m.message ?? "This video can't be fetched — upload the file instead.",
+        });
+        return;
+      }
       setSource({ source_url: url });
       setMeta(m);
       setTitle(m.title ?? "");
@@ -380,6 +399,51 @@ export function ClipsPage() {
             </div>
           ) : null}
         </div>
+
+        {/* blocked link — card steering to download-then-upload */}
+        {blocked ? (
+          <div className="mt-4 flex items-center gap-4 rounded-2xl border border-amber-400/25 bg-amber-400/[0.04] p-4">
+            {blocked.thumbnail ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={blocked.thumbnail}
+                alt=""
+                className="h-20 w-32 shrink-0 rounded-lg object-cover"
+              />
+            ) : null}
+            <div className="min-w-0 flex-1">
+              {blocked.title ? (
+                <p className="truncate text-sm font-semibold">{blocked.title}</p>
+              ) : null}
+              <p className="mt-1 text-xs leading-relaxed text-amber-200/90">{blocked.message}</p>
+              <div className="mt-2 flex items-center gap-2">
+                <a
+                  href={blocked.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-white/5"
+                >
+                  <ExternalLink className="size-3.5" /> Open on YouTube
+                </a>
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-teal-400 px-3 py-1.5 text-xs font-semibold text-black transition-colors hover:bg-teal-300"
+                >
+                  <Upload className="size-3.5" /> Upload the file
+                </button>
+              </div>
+            </div>
+            <button
+              type="button"
+              aria-label="Dismiss"
+              onClick={() => setBlocked(null)}
+              className="self-start text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <XCircle className="size-4" />
+            </button>
+          </div>
+        ) : null}
 
         {/* big browse / drop zone */}
         <button

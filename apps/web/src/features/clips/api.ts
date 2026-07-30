@@ -123,11 +123,15 @@ export interface ClipsParams {
 }
 
 // Read a link's metadata (title/thumb/duration) before starting a job.
+// blocked=true: the platform refuses server-side fetching (e.g. YouTube's bot
+// wall) — metadata is still returned so the UI can point at the upload path.
 export function probeClipsSource(source_url: string): Promise<{
   title: string | null;
   duration: number | null;
   thumbnail: string | null;
   height: number | null;
+  blocked?: boolean;
+  message?: string;
 }> {
   return api("/clips/probe", { method: "POST", body: JSON.stringify({ source_url }) });
 }
