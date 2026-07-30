@@ -1,11 +1,11 @@
-# Kinomill Clips — Automated Video Repurposing & Short-Form Clipping
+# Riocut Clips — Automated Video Repurposing & Short-Form Clipping
 
 Turn one long video into N platform-ready vertical clips: paste a link or drop a file,
-Kinomill transcribes it, an LLM picks the strongest moments, ffmpeg cuts/reframes/captions
+Riocut transcribes it, an LLM picks the strongest moments, ffmpeg cuts/reframes/captions
 them, and the results land in the same media pool the canvas and timeline editor already
 share.
 
-This plan adapts the generic spec to Kinomill's actual system: FastAPI feature modules,
+This plan adapts the generic spec to Riocut's actual system: FastAPI feature modules,
 Celery worker, MinIO storage, Postgres + alembic, the OpenRouter adapter with the
 existing credit guardrails, the EditorDoc/ffmpeg render pipeline, and the Next.js
 `(app)` shell with the left sidebar.
@@ -188,7 +188,7 @@ schedule pipeline grows an optional account per post.
   YouTube Data API enabled + `youtube.upload` scope), TikTok and Meta get their
   own env keys (`TIKTOK_CLIENT_KEY/SECRET`, `FACEBOOK_APP_ID/SECRET`). One Meta
   connect discovers Facebook pages AND their linked Instagram business accounts.
-  Callback is a popup that posts `kinomill:social-connected` back to the app.
+  Callback is a popup that posts `riocut:social-connected` back to the app.
   Unconfigured providers surface honestly as "awaiting app approval".
 - **Publishers** (`social/publishers.py`): YouTube resumable upload,
   TikTok FILE_UPLOAD direct post, Instagram Reels container + publish (pull from

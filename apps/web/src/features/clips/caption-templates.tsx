@@ -118,12 +118,17 @@ export interface UserTemplate {
   def: CustomCaptionStyle;
 }
 
-const LS_KEY = "kinomill-caption-templates";
+const LS_KEY = "riocut-caption-templates";
 
 export function loadTemplates(): UserTemplate[] {
   try {
-    // rebrand migration: fall back to the old flappy-era key
-    return JSON.parse(localStorage.getItem(LS_KEY) ?? localStorage.getItem("flappy-caption-templates") ?? "[]");
+    // rebrand migration: fall back to the older-era keys
+    return JSON.parse(
+      localStorage.getItem(LS_KEY) ??
+        localStorage.getItem("kinomill-caption-templates") ??
+        localStorage.getItem("flappy-caption-templates") ??
+        "[]",
+    );
   } catch {
     return [];
   }

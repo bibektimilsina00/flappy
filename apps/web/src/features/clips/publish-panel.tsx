@@ -68,7 +68,7 @@ export function PublishPanel({
   // The OAuth popup pings us when the callback lands.
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
-      if (e.data === "kinomill:social-connected") load();
+      if (e.data === "riocut:social-connected") load();
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
@@ -95,7 +95,7 @@ export function PublishPanel({
   const connect = (provider: string) => {
     setError(null);
     socialConnectUrl(provider)
-      .then(({ url }) => window.open(url, "kinomill-connect", "width=640,height=760"))
+      .then(({ url }) => window.open(url, "riocut-connect", "width=640,height=760"))
       .catch((e) => setError(e instanceof Error ? e.message : "Could not start the connection"));
   };
 

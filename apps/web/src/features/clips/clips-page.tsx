@@ -175,7 +175,7 @@ export function ClipsPage() {
       .then(({ job_id }) => router.replace(`/clips/${job_id}`))
       .catch(() => {
         try {
-          const d = JSON.parse(localStorage.getItem(`kinomill-clips-draft-${projectId}`) ?? "");
+          const d = JSON.parse(localStorage.getItem(`riocut-clips-draft-${projectId}`) ?? "");
           setSource(d.source);
           setMeta(d.meta);
           setTitle(d.title ?? "");
@@ -191,7 +191,7 @@ export function ClipsPage() {
   // Keep the draft saved while configuring; cleared on start / back.
   useEffect(() => {
     if (step !== "config" || !source || !projectId) return;
-    localStorage.setItem(`kinomill-clips-draft-${projectId}`, JSON.stringify({ source, meta, title, params }));
+    localStorage.setItem(`riocut-clips-draft-${projectId}`, JSON.stringify({ source, meta, title, params }));
   }, [step, source, meta, title, params, projectId]);
 
   const ensureProject = useCallback(
@@ -220,7 +220,7 @@ export function ClipsPage() {
         source_title: title.trim() || undefined,
         params,
       });
-      if (projectId) localStorage.removeItem(`kinomill-clips-draft-${projectId}`);
+      if (projectId) localStorage.removeItem(`riocut-clips-draft-${projectId}`);
       // The project (created or renamed server-side) and its clips link changed.
       void qc.invalidateQueries({ queryKey: ["workflows"] });
       void qc.invalidateQueries({ queryKey: ["clips-by-workflow"] });
@@ -272,7 +272,7 @@ export function ClipsPage() {
   };
 
   const backToInput = () => {
-    if (projectId) localStorage.removeItem(`kinomill-clips-draft-${projectId}`);
+    if (projectId) localStorage.removeItem(`riocut-clips-draft-${projectId}`);
     setStep("input");
     setSource(null);
     setMeta(null);
@@ -296,7 +296,7 @@ export function ClipsPage() {
           </span>
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
-          Paste a link or drop a file. Kinomill listens to every word, finds the strongest moments, and
+          Paste a link or drop a file. Riocut listens to every word, finds the strongest moments, and
           hands you captioned, face-framed clips ready to post.
         </p>
       </div>

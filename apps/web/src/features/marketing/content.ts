@@ -1,9 +1,9 @@
 // ── Single source of truth for all marketing copy. Rename the brand here. ──
 export const BRAND = {
-  name: "Kinomill",
+  name: "Riocut",
   tagline: "Prompt to finished video, on one canvas.",
   appUrl: "/login", // "Start free" / "Sign in" → the app's auth entry
-  email: "hello@kinomill.studio",
+  email: "hello@riocut.studio",
   social: { x: "#", youtube: "#", discord: "#" },
 };
 
@@ -54,7 +54,7 @@ export const STATS = [
 ];
 
 export const FEATURES = [
-  { icon: "Scissors", visual: "bars", title: "AI Clips", desc: "Drop in a long video. Kinomill transcribes every word, finds the strongest moments, and cuts captioned vertical clips with virality scores." },
+  { icon: "Scissors", visual: "bars", title: "AI Clips", desc: "Drop in a long video. Riocut transcribes every word, finds the strongest moments, and cuts captioned vertical clips with virality scores." },
   { icon: "Workflow", visual: "canvas", title: "Node canvas", desc: "Wire prompts, images, and clips into a visual graph. Every node is a model call; every edge passes media downstream." },
   { icon: "Clapperboard", visual: "timeline", title: "Magnetic timeline", desc: "A Final-Cut-style editor that never leaves a gap. Insert makes room, delete closes it, trims ripple — frame-perfect." },
   { icon: "Sparkles", visual: "nodes", title: "Every model, one place", desc: "Text-to-image, text-to-video, image-to-video, and extend — switch models from a single menu without new accounts." },
@@ -140,7 +140,7 @@ export const FEATURE_ROWS = [
   {
     eyebrow: "AI Clips",
     title: "One long video. Ten viral clips.",
-    desc: "Kinomill listens to every word of your podcast or stream, scores each moment for hook strength and completeness, then renders vertical clips with karaoke captions, face-aware framing, and a posting schedule. Review, tweak a caption, and ship.",
+    desc: "Riocut listens to every word of your podcast or stream, scores each moment for hook strength and completeness, then renders vertical clips with karaoke captions, face-aware framing, and a posting schedule. Review, tweak a caption, and ship.",
     bullets: ["Whisper-accurate transcripts, word by word", "Virality scores with the reasoning shown", "Caption templates — or design your own", "Bulk schedule straight to a posting queue"],
     media: { tone: "teal", label: "AI clipping", play: true } as const,
     reverse: false,
@@ -163,14 +163,14 @@ export const COMPARE = {
     points: ["Generate in one app, export, re-import to edit", "Juggle a dozen model subscriptions", "Manual timelines that leave gaps", "Scrubbing hour-long footage for clip-worthy moments", "Wait on a render farm", "Watermarks on anything free"],
   },
   now: {
-    title: "With Kinomill",
+    title: "With Riocut",
     points: ["Generate and edit on one canvas", "Every model behind a single login", "A magnetic timeline that's always clean", "AI finds, cuts, and captions the viral moments", "Cloud renders that stream back to you", "Clean exports at your resolution"],
   },
 };
 
 export const BLOG = [
   { title: "AI Clips: turn one video into a week of content", excerpt: "How the clipping engine scores moments, writes captions, and schedules your posting queue.", category: "Product", date: "Jul 2026", tone: "teal" },
-  { title: "Introducing Kinomill: one canvas for AI video", excerpt: "Why we fused a node-based generator and a real editor into a single workspace.", category: "Product", date: "Jul 2026", tone: "violet" },
+  { title: "Introducing Riocut: one canvas for AI video", excerpt: "Why we fused a node-based generator and a real editor into a single workspace.", category: "Product", date: "Jul 2026", tone: "violet" },
   { title: "How the magnetic timeline works", excerpt: "A look under the hood at frame-perfect, gap-free editing — and why it matters.", category: "Engineering", date: "Jul 2026", tone: "teal" },
   { title: "Image-to-video: from a still to a shot", excerpt: "A step-by-step walkthrough of animating a single frame into moving footage.", category: "Tutorial", date: "Jun 2026", tone: "indigo" },
   { title: "Picking the right model for the job", excerpt: "Free vs premium, speed vs quality — a practical guide to the model menu.", category: "Guide", date: "Jun 2026", tone: "amber" },
@@ -229,8 +229,8 @@ export const PRICING = [
 ];
 
 export const FAQ = [
-  { q: "How does AI clipping work?", a: "Paste a link or upload a video up to 30 minutes. Kinomill transcribes it word by word, an AI picks the most engaging self-contained moments, and each one renders as a vertical clip with animated captions, face-aware framing, and a virality score explaining the pick. You can trim, restyle captions, bulk-schedule, or open any clip in the full editor." },
-  { q: "What is Kinomill, exactly?", a: "A single workspace for AI video: a node canvas where you generate footage by chaining models, and a magnetic timeline where you cut it together. Both share one media pool." },
+  { q: "How does AI clipping work?", a: "Paste a link or upload a video up to 30 minutes. Riocut transcribes it word by word, an AI picks the most engaging self-contained moments, and each one renders as a vertical clip with animated captions, face-aware framing, and a virality score explaining the pick. You can trim, restyle captions, bulk-schedule, or open any clip in the full editor." },
+  { q: "What is Riocut, exactly?", a: "A single workspace for AI video: a node canvas where you generate footage by chaining models, and a magnetic timeline where you cut it together. Both share one media pool." },
   { q: "Which AI models can I use?", a: "Text-to-image, text-to-video, image-to-video, and video-extend models from leading providers — all selectable from one menu. Free-tier models are included; premium models unlock on Pro." },
   { q: "Do I need any editing experience?", a: "No. The assistant can pick the model and generate for you, and the timeline is magnetic — it keeps everything gap-free automatically. Power users still get frame-level control." },
   { q: "How do credits work?", a: "Each generation costs credits based on the model. Free plans get a monthly allowance; Pro adds premium models and a bigger balance. You only spend credits when you generate." },

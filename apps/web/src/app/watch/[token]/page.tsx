@@ -30,7 +30,7 @@ export default function WatchPage({ params }: { params: Promise<{ token: string 
     <div className="dark flex min-h-screen flex-col bg-[#0f0f0f] text-foreground">
       <header className="flex items-center gap-2.5 px-6 py-4">
         <Logo className="size-7" />
-        <span className="text-[15px] font-bold tracking-tight">Kinomill</span>
+        <span className="text-[15px] font-bold tracking-tight">Riocut</span>
         {data ? <span className="ml-3 truncate text-sm text-muted-foreground">{data.title}</span> : null}
       </header>
 
@@ -87,7 +87,7 @@ function ReviewSidebar({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setName(localStorage.getItem("kinomill-review-name") ?? "");
+    setName(localStorage.getItem("riocut-review-name") ?? "");
   }, []);
 
   const submit = async () => {
@@ -96,7 +96,7 @@ function ReviewSidebar({
     setError(null);
     try {
       const at = currentTime();
-      localStorage.setItem("kinomill-review-name", name);
+      localStorage.setItem("riocut-review-name", name);
       const c = await addSharedComment(token, { author: name || "Anonymous", text: text.trim(), at });
       onAdd(c);
       setText("");

@@ -8,7 +8,7 @@ import { Container, Section, SectionHeading } from "@/features/marketing/ui";
 
 export const metadata: Metadata = {
   title: "Blog",
-  description: "Tutorials, product news, and guides from the Kinomill team.",
+  description: "Tutorials, product news, and guides from the Riocut team.",
 };
 
 export default function BlogPage() {
@@ -17,7 +17,7 @@ export default function BlogPage() {
     <>
       <Section className="pb-8 pt-16 sm:pt-20">
         <Container>
-          <SectionHeading eyebrow="Blog" title="Tutorials, news, and guides." sub="How to get the most out of Kinomill — plus what we're building next." />
+          <SectionHeading eyebrow="Blog" title="Tutorials, news, and guides." sub="How to get the most out of Riocut — plus what we're building next." />
         </Container>
       </Section>
 

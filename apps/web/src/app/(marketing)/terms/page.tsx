@@ -3,7 +3,7 @@ import { Legal } from "@/features/marketing/legal";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
-  description: "The terms that govern your use of Kinomill.",
+  description: "The terms that govern your use of Riocut.",
 };
 
 const CONTACT = "support@khareedlow.com";
@@ -13,8 +13,8 @@ export default function TermsPage() {
     <Legal title="Terms of Service" updated="July 30, 2026">
       <section>
         <p>
-          These Terms of Service ("Terms") govern your access to and use of the Kinomill website and application (the
-          "Service"), operated by Kinomill ("we", "us"). By creating an account or using the Service you agree to these
+          These Terms of Service ("Terms") govern your access to and use of the Riocut website and application (the
+          "Service"), operated by Riocut ("we", "us"). By creating an account or using the Service you agree to these
           Terms and to our <a href="/privacy">Privacy Policy</a>. If you do not agree, do not use the Service.
         </p>
       </section>
@@ -22,7 +22,7 @@ export default function TermsPage() {
       <section>
         <h2>1. The Service</h2>
         <p>
-          Kinomill is an AI video studio: it generates media with third-party AI models, provides a canvas and video
+          Riocut is an AI video studio: it generates media with third-party AI models, provides a canvas and video
           editor, repurposes long-form videos into short clips, and can publish or schedule posts to social accounts
           you connect. Features may change, improve, or be discontinued as the Service evolves.
         </p>
@@ -66,7 +66,7 @@ export default function TermsPage() {
       <section>
         <h2>4. Connected social accounts and publishing</h2>
         <ul>
-          <li>Connecting a social account authorizes Kinomill to publish to that account only when you initiate a post or configure a posting schedule.</li>
+          <li>Connecting a social account authorizes Riocut to publish to that account only when you initiate a post or configure a posting schedule.</li>
           <li>You are responsible for the content you publish and for complying with each platform's terms (YouTube, TikTok, Meta, X, LinkedIn).</li>
           <li>Platforms may rate-limit, reject, or remove posts; we surface their errors but cannot control their decisions.</li>
           <li>You can disconnect an account at any time, which deletes its stored tokens and stops future scheduled posts to it.</li>
@@ -77,7 +77,7 @@ export default function TermsPage() {
         <h2>5. Credits, plans, and payment</h2>
         <ul>
           <li>Some features consume credits. Credit costs are shown before you start a job; consumed credits are not refundable once processing has begun.</li>
-          <li>Free-plan output may include a Kinomill watermark.</li>
+          <li>Free-plan output may include a Riocut watermark.</li>
           <li>Paid plans and credit purchases are billed as described at checkout. Except where required by law, payments are non-refundable.</li>
           <li>We may adjust pricing and credit costs prospectively; changes never apply retroactively to credits you already purchased.</li>
         </ul>

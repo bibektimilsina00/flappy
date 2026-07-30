@@ -171,9 +171,9 @@ export function Features() {
     <Section id="features">
       <Container>
         <SectionHeading
-          eyebrow="Why Kinomill"
+          eyebrow="Why Riocut"
           title="One workspace for the whole pipeline."
-          sub="Generation and editing usually live in different tools. Kinomill puts them on the same canvas — nothing gets exported, re-imported, or lost in between."
+          sub="Generation and editing usually live in different tools. Riocut puts them on the same canvas — nothing gets exported, re-imported, or lost in between."
         />
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f) => (
@@ -231,7 +231,7 @@ export function Gallery() {
     <Section id="showcase">
       <Container>
         <SectionHeading
-          eyebrow="Made with Kinomill"
+          eyebrow="Made with Riocut"
           title="Templates for everything."
           sub="From AI-generated scenes to timeless classics, find a one-click start for any video. Drop your own examples in here."
           action={<Button href="/login">Try online</Button>}
@@ -308,7 +308,7 @@ export function Testimonials() {
           center={false}
           eyebrow="Voice of our users"
           title="Loved by creators worldwide."
-          sub="Kinomill helps creators produce amazing content quickly — here's what a few of them say."
+          sub="Riocut helps creators produce amazing content quickly — here's what a few of them say."
           action={<Button href="/login">Try online</Button>}
         />
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -408,7 +408,7 @@ export function ClipsShowcase() {
         <SectionHeading
           eyebrow="AI Clips"
           title="Turn one long video into a week of content."
-          sub="Paste a link. Kinomill transcribes every word, scores the strongest moments, and hands back captioned vertical clips — scheduled and ready to post."
+          sub="Paste a link. Riocut transcribes every word, scores the strongest moments, and hands back captioned vertical clips — scheduled and ready to post."
         />
         <div>
           <div className="mt-14 grid items-center gap-10 md:grid-cols-[1fr_auto_1.2fr]">
