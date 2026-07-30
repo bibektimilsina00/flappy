@@ -166,6 +166,29 @@ def ydl_base_opts() -> dict:
     return opts
 
 
+def friendly_link_error(exc: Exception) -> str:
+    """Turn yt-dlp's wall of text into something a user can act on."""
+    msg = str(exc)
+    if "Sign in to confirm" in msg or "not a bot" in msg:
+        return (
+            "YouTube is blocking this video from being fetched by our servers. "
+            "Please download the video to your device, then upload the file here instead."
+        )
+    if "Private video" in msg:
+        return "This video is private — only public videos can be imported."
+    if "age" in msg.lower() and "restrict" in msg.lower():
+        return (
+            "This video is age-restricted and can't be imported. "
+            "Download it and upload the file instead."
+        )
+    if "Video unavailable" in msg:
+        return "This video is unavailable — it may have been removed or region-locked."
+    # Generic: strip the "ERROR: [youtube] xyz:" prefix and any trailing docs links.
+    msg = re.sub(r"^ERROR:\s*(\[[^\]]+\]\s*)?([\w-]+:\s*)?", "", msg)
+    msg = msg.split(" See http")[0].split(" Use --")[0].strip()
+    return f"Could not read that link: {msg or 'unknown error'}"
+
+
 # ── phase 1: ingest ──────────────────────────────────────────────────────────
 def _ingest(session: Session, job: ClipsJob, storage, workdir: str) -> str:
     if job.source_key:
@@ -190,7 +213,7 @@ def _ingest(session: Session, job: ClipsJob, storage, workdir: str) -> str:
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(job.source_url, download=True)
     except Exception as exc:
-        raise ValueError(f"Could not fetch that link: {exc}") from exc
+        raise ValueError(friendly_link_error(exc)) from exc
     title = (info or {}).get("title")
     if not os.path.exists(path):
         raise ValueError("Download produced no video file.")
