@@ -7,8 +7,9 @@ riocut.com {
 		reverse_proxy api:8000
 	}
 
-	# MinIO presigned URLs (path-style: /<bucket>/<key>?sig)
-	handle /video-assets/* {
+	# MinIO path-style: /<bucket>/<key> for objects, /<bucket> for bucket ops
+	# (no trailing slash — HEAD/PUT bucket requests must reach MinIO too).
+	handle /video-assets* {
 		reverse_proxy minio:9000
 	}
 
