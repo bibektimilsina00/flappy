@@ -4,6 +4,7 @@ import { Providers } from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://riocut.com"),
   title: "Riocut",
   description: "The all-in-one AI video studio",
 };

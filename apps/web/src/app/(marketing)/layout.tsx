@@ -3,12 +3,32 @@ import { MarketingFooter } from "@/features/marketing/footer";
 import { MarketingNav } from "@/features/marketing/nav";
 import { BRAND } from "@/features/marketing/content";
 
+const DESCRIPTION =
+  "Riocut turns long videos into viral short clips and finished videos with AI — " +
+  "transcription, highlight detection, captions, face framing, and one-click " +
+  "publishing to YouTube, TikTok, Instagram, X, LinkedIn, and Facebook.";
+
 export const metadata: Metadata = {
   title: {
     default: `${BRAND.name} — ${BRAND.tagline}`,
     template: `%s · ${BRAND.name}`,
   },
-  description: BRAND.tagline,
+  description: DESCRIPTION,
+  alternates: { canonical: "./" },
+  openGraph: {
+    type: "website",
+    siteName: BRAND.name,
+    title: `${BRAND.name} — ${BRAND.tagline}`,
+    description: DESCRIPTION,
+    url: "./",
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: `${BRAND.name} — AI video studio` }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${BRAND.name} — ${BRAND.tagline}`,
+    description: DESCRIPTION,
+    images: ["/og.png"],
+  },
 };
 
 // Public marketing pages. Self-contained dark palette (mk-* tokens) — independent of
