@@ -47,7 +47,14 @@ def fresh_token(session: Session, account: SocialAccount) -> str:
 
 def publish(session: Session, account: SocialAccount, *, video_url: str, video_bytes, title: str, caption: str) -> str:
     token = fresh_token(session, account)
-    fn = {"youtube": _youtube, "tiktok": _tiktok, "instagram": _instagram, "facebook": _facebook}[account.platform]
+    fn = {
+        "youtube": _youtube,
+        "tiktok": _tiktok,
+        "instagram": _instagram,
+        "facebook": _facebook,
+        "x": _x,
+        "linkedin": _linkedin,
+    }[account.platform]
     return fn(account, token, video_url, video_bytes, title, caption)
 
 
@@ -143,6 +150,93 @@ def _instagram(account, token, video_url, video_bytes, title, caption) -> str:
         _raise(pub, "Instagram publish")
         link = client.get(f"{graph}/{pub.json()['id']}", params={"fields": "permalink", "access_token": token})
         return link.json().get("permalink") or f"https://www.instagram.com/{account.username or ''}"
+
+
+def _x(account, token, video_url, video_bytes, title, caption) -> str:
+    """v2 chunked media upload (INIT/APPEND/FINALIZE/STATUS), then the tweet."""
+    data = video_bytes()
+    headers = {"Authorization": f"Bearer {token}"}
+    upload = "https://api.x.com/2/media/upload"
+    with httpx.Client(timeout=600) as client:
+        init = client.post(
+            upload,
+            data={"command": "INIT", "total_bytes": len(data), "media_type": "video/mp4", "media_category": "tweet_video"},
+            headers=headers,
+        )
+        _raise(init, "X upload init")
+        j = init.json()
+        media_id = (j.get("data") or {}).get("id") or j.get("media_id_string")
+        chunk = 4 * 1024 * 1024
+        for i in range(0, len(data), chunk):
+            part = client.post(
+                upload,
+                data={"command": "APPEND", "media_id": media_id, "segment_index": i // chunk},
+                files={"media": data[i : i + chunk]},
+                headers=headers,
+            )
+            _raise(part, "X upload")
+        fin = client.post(upload, data={"command": "FINALIZE", "media_id": media_id}, headers=headers)
+        _raise(fin, "X upload finalize")
+        info = ((fin.json().get("data") or fin.json()) or {}).get("processing_info")
+        while info and info.get("state") in ("pending", "in_progress"):
+            time.sleep(info.get("check_after_secs") or 3)
+            st = client.get(upload, params={"command": "STATUS", "media_id": media_id}, headers=headers)
+            info = ((st.json().get("data") or st.json()) or {}).get("processing_info")
+        if info and info.get("state") == "failed":
+            raise RuntimeError(f"X could not process the video: {info}")
+        tweet = client.post(
+            "https://api.x.com/2/tweets",
+            json={"text": (caption or title or "")[:280], "media": {"media_ids": [str(media_id)]}},
+            headers=headers,
+        )
+        _raise(tweet, "X post")
+        return f"https://x.com/{account.username or 'i'}/status/{tweet.json()['data']['id']}"
+
+
+def _linkedin(account, token, video_url, video_bytes, title, caption) -> str:
+    """Assets API register-upload + PUT bytes, then a VIDEO ugcPost."""
+    person = (account.meta or {}).get("person_urn") or f"urn:li:person:{account.external_id}"
+    headers = {"Authorization": f"Bearer {token}", "X-Restli-Protocol-Version": "2.0.0"}
+    with httpx.Client(timeout=600) as client:
+        reg = client.post(
+            "https://api.linkedin.com/v2/assets?action=registerUpload",
+            json={
+                "registerUploadRequest": {
+                    "recipes": ["urn:li:digitalmediaRecipe:feedshare-video"],
+                    "owner": person,
+                    "serviceRelationships": [
+                        {"relationshipType": "OWNER", "identifier": "urn:li:userGeneratedContent"}
+                    ],
+                }
+            },
+            headers=headers,
+        )
+        _raise(reg, "LinkedIn upload register")
+        value = reg.json()["value"]
+        upload_url = value["uploadMechanism"]["com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"]["uploadUrl"]
+        up = client.put(upload_url, content=video_bytes(), headers={"Authorization": f"Bearer {token}"})
+        _raise(up, "LinkedIn upload")
+        post = client.post(
+            "https://api.linkedin.com/v2/ugcPosts",
+            json={
+                "author": person,
+                "lifecycleState": "PUBLISHED",
+                "specificContent": {
+                    "com.linkedin.ugc.ShareContent": {
+                        "shareCommentary": {"text": caption or title or ""},
+                        "shareMediaCategory": "VIDEO",
+                        "media": [
+                            {"status": "READY", "media": value["asset"], "title": {"text": (title or "Clip")[:200]}}
+                        ],
+                    }
+                },
+                "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"},
+            },
+            headers=headers,
+        )
+        _raise(post, "LinkedIn post")
+        urn = post.headers.get("x-restli-id") or post.json().get("id")
+        return f"https://www.linkedin.com/feed/update/{urn}"
 
 
 def _facebook(account, token, video_url, video_bytes, title, caption) -> str:

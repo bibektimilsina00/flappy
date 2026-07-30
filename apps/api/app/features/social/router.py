@@ -61,8 +61,9 @@ def connect(
         raise HTTPException(status_code=404, detail="Unknown platform")
     if not oauth.is_configured(platform):
         raise HTTPException(status_code=400, detail="This platform's app is still awaiting approval.")
-    state = create_access_token(f"social:{platform}:{workspace_id}")
-    return {"url": oauth.authorize_url(platform, state)}
+    verifier = uuid.uuid4().hex if oauth.PROVIDERS[platform].get("pkce") else ""
+    state = create_access_token(f"social:{platform}:{workspace_id}:{verifier}")
+    return {"url": oauth.authorize_url(platform, state, verifier or None)}
 
 
 @router.get("/{platform}/callback")
@@ -74,11 +75,12 @@ def callback(
     session: Session = Depends(get_session),
 ) -> HTMLResponse:
     parts = (decode_token(state) or "").split(":")
-    if error or not code or len(parts) != 3 or parts[0] != "social" or parts[1] != platform:
+    if error or not code or len(parts) not in (3, 4) or parts[0] != "social" or parts[1] != platform:
         return _popup("Connection failed — you can close this window.")
     workspace_id = uuid.UUID(parts[2])
+    verifier = parts[3] if len(parts) == 4 and parts[3] else None
     try:
-        found = oauth.discover_accounts(platform, oauth.exchange(platform, code))
+        found = oauth.discover_accounts(platform, oauth.exchange(platform, code, verifier))
     except Exception:  # noqa: BLE001 — platform errors land as a readable popup
         log.exception("social connect failed for %s", platform)
         return _popup("Connection failed — the platform rejected the request.")

@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     # "Instagram API with Instagram Login" (standalone, no Facebook page needed)
     instagram_app_id: str = ""
     instagram_app_secret: str = ""
+    x_client_id: str = ""
+    x_client_secret: str = ""
+    linkedin_client_id: str = ""
+    linkedin_client_secret: str = ""
 
 
 settings = Settings()

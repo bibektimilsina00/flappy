@@ -37,6 +37,22 @@ PROVIDERS: dict[str, dict] = {
         "extra": {},
         "keys": ("instagram_app_id", "instagram_app_secret"),
     },
+    "x": {
+        "authorize_url": "https://x.com/i/oauth2/authorize",
+        "token_url": "https://api.x.com/2/oauth2/token",
+        "scope": "tweet.read tweet.write users.read media.write offline.access",
+        "extra": {},
+        "keys": ("x_client_id", "x_client_secret"),
+        "pkce": True,  # X requires code_challenge; we use the plain method
+        "basic_auth": True,  # confidential clients authenticate the token call via Basic
+    },
+    "linkedin": {
+        "authorize_url": "https://www.linkedin.com/oauth/v2/authorization",
+        "token_url": "https://www.linkedin.com/oauth/v2/accessToken",
+        "scope": "openid profile w_member_social",
+        "extra": {},
+        "keys": ("linkedin_client_id", "linkedin_client_secret"),
+    },
     "facebook": {
         "authorize_url": "https://www.facebook.com/v19.0/dialog/oauth",
         "token_url": f"{GRAPH}/oauth/access_token",
@@ -45,7 +61,7 @@ PROVIDERS: dict[str, dict] = {
         "keys": ("facebook_app_id", "facebook_app_secret"),
     },
 }
-CONNECT_PLATFORMS = ("youtube", "tiktok", "instagram", "facebook")
+CONNECT_PLATFORMS = ("youtube", "tiktok", "instagram", "facebook", "x", "linkedin")
 
 
 def creds(provider: str) -> tuple[str, str]:
@@ -61,7 +77,7 @@ def redirect_uri(provider: str) -> str:
     return f"{settings.api_base_url}/api/v1/social/{provider}/callback"
 
 
-def authorize_url(provider: str, state: str) -> str:
+def authorize_url(provider: str, state: str, verifier: str | None = None) -> str:
     cfg = PROVIDERS[provider]
     params = {
         cfg.get("id_param", "client_id"): creds(provider)[0],
@@ -71,23 +87,27 @@ def authorize_url(provider: str, state: str) -> str:
         "state": state,
         **cfg["extra"],
     }
+    if cfg.get("pkce") and verifier:
+        params.update({"code_challenge": verifier, "code_challenge_method": "plain"})
     return f"{cfg['authorize_url']}?{urlencode(params)}"
 
 
 def _token_call(provider: str, data: dict) -> dict:
     cfg = PROVIDERS[provider]
     cid, csec = creds(provider)
-    data = {cfg.get("id_param", "client_id"): cid, "client_secret": csec, **data}
+    auth = (cid, csec) if cfg.get("basic_auth") else None
+    data = {cfg.get("id_param", "client_id"): cid, **({} if auth else {"client_secret": csec}), **data}
     with httpx.Client(timeout=20) as client:
-        res = client.post(cfg["token_url"], data=data, headers={"Accept": "application/json"})
+        res = client.post(cfg["token_url"], data=data, auth=auth, headers={"Accept": "application/json"})
         res.raise_for_status()
         return res.json()
 
 
-def exchange(provider: str, code: str) -> dict:
-    return _token_call(
-        provider, {"grant_type": "authorization_code", "code": code, "redirect_uri": redirect_uri(provider)}
-    )
+def exchange(provider: str, code: str, verifier: str | None = None) -> dict:
+    data = {"grant_type": "authorization_code", "code": code, "redirect_uri": redirect_uri(provider)}
+    if PROVIDERS[provider].get("pkce") and verifier:
+        data["code_verifier"] = verifier
+    return _token_call(provider, data)
 
 
 def refresh(provider: str, refresh_token: str) -> dict:
@@ -146,6 +166,43 @@ def discover_accounts(provider: str, tokens: dict) -> list[dict]:
                     "external_id": open_id,
                     "username": user.get("display_name"),
                     "avatar_url": user.get("avatar_url"),
+                }
+            ]
+
+        if provider == "x":
+            res = client.get(
+                "https://api.x.com/2/users/me",
+                params={"user.fields": "profile_image_url"},
+                headers={"Authorization": f"Bearer {access}"},
+            )
+            res.raise_for_status()
+            user = res.json().get("data") or {}
+            if not user.get("id"):
+                return []
+            return [
+                {
+                    **base,
+                    "platform": "x",
+                    "external_id": user["id"],
+                    "username": user.get("username"),
+                    "avatar_url": user.get("profile_image_url"),
+                }
+            ]
+
+        if provider == "linkedin":
+            res = client.get("https://api.linkedin.com/v2/userinfo", headers={"Authorization": f"Bearer {access}"})
+            res.raise_for_status()
+            user = res.json()
+            if not user.get("sub"):
+                return []
+            return [
+                {
+                    **base,
+                    "platform": "linkedin",
+                    "external_id": user["sub"],
+                    "username": user.get("name"),
+                    "avatar_url": user.get("picture"),
+                    "meta": {"person_urn": f"urn:li:person:{user['sub']}"},
                 }
             ]
 
