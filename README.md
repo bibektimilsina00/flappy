@@ -40,8 +40,10 @@ api start. Caddy is the single public port (80): `/api/*` → api,
 One-time setup:
 
 1. On the VPS (as root): `curl -fsSL https://raw.githubusercontent.com/bibektimilsina00/riocut/main/scripts/vps-setup.sh | bash`
-2. Fill `/opt/riocut/.env` (template: `deploy/env.prod.example`).
-3. Add a repo secret `VPS_SSH_KEY` — a private key whose public half is in the VPS `~/.ssh/authorized_keys`.
+2. Repo secret `VPS_SSH_KEY` — a private key whose public half is in the VPS `~/.ssh/authorized_keys`.
+3. Repo secret `ENV_FILE` — the full prod env (template: `deploy/env.prod.example`).
+   Locally: keep it as `.env.prod` (gitignored) and push changes with `make env-push`;
+   every deploy writes it to `/opt/riocut/.env`.
 
 ## Conventions
 

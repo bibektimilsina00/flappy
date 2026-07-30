@@ -1,4 +1,10 @@
-.PHONY: setup infra migrate revision api worker beat web dev lint test clean
+.PHONY: setup infra migrate revision api worker beat web dev lint test clean env-push
+
+# ── Prod secrets ────────────────────────────────────────────────────
+# .env.prod (gitignored) is the source of truth for the VPS env.
+# Edit it, run this, and the next deploy writes it to /opt/riocut/.env.
+env-push:
+	gh secret set ENV_FILE --repo bibektimilsina00/riocut < .env.prod
 
 # ── One-time setup ──────────────────────────────────────────────────
 setup:
