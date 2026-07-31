@@ -974,7 +974,7 @@ function LengthSelect({
 
   const label =
     value === "auto"
-      ? "Any length"
+      ? "Any"
       : LENGTH_BANDS.filter((b) => selected.includes(b.key))
           .map((b) => b.label)
           .slice(0, 2)
@@ -992,7 +992,7 @@ function LengthSelect({
           open ? "border-teal-400/50" : "border-white/10 hover:border-white/20",
         )}
       >
-        <span className="text-muted-foreground">Clip length</span>
+        <span className="whitespace-nowrap text-muted-foreground">Length</span>
         <span className="flex items-center gap-1.5 truncate font-medium">
           {label}
           <ChevronDown className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
@@ -1061,8 +1061,8 @@ function FieldSelect({
           open ? "border-teal-400/50" : "border-white/10 hover:border-white/20",
         )}
       >
-        <span className="text-muted-foreground">{label}</span>
-        <span className="flex items-center gap-1.5 font-medium">
+        <span className="whitespace-nowrap text-muted-foreground">{label}</span>
+        <span className="flex items-center gap-1.5 whitespace-nowrap font-medium">
           {display(value)}
           <ChevronDown className={cn("size-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
         </span>
