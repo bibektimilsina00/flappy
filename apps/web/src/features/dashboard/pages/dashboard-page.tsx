@@ -1,7 +1,6 @@
 "use client";
 
 import { useBalance } from "@/features/billing";
-import { CommunityWorks } from "@/features/community";
 import { RecentProjects } from "@/features/projects";
 import { useSession } from "@/stores/session";
 import { Composer } from "../components/composer";
@@ -33,7 +32,7 @@ export function DashboardPage() {
           />
         </div>
         <RecentProjects />
-        <CommunityWorks />
+        {/* Community works hidden until there's real community content. */}
       </div>
     </div>
   );

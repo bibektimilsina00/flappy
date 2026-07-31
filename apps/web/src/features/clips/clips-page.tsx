@@ -533,7 +533,7 @@ export function ClipsPage() {
       )}
         </div>
       </div>
-      {projectId ? <EditorModeTabs projectId={projectId} mode="clips" /> : null}
+      <EditorModeTabs projectId={projectId} mode="clips" />
     </div>
   );
 }

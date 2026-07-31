@@ -550,7 +550,7 @@ function CanvasWorkspace({ projectId, initialNodes, initialEdges }: CanvasWorksp
         ) : null}
         </div>
 
-        {projectId ? <EditorModeTabs projectId={projectId} mode="canvas" /> : null}
+        <EditorModeTabs projectId={projectId ?? null} mode="canvas" />
         </div>
         </ExecutionStatusProvider>
       </CanvasActionsProvider>

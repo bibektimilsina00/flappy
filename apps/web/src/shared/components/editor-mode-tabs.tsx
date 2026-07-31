@@ -13,15 +13,17 @@ const ACCENT = "#14b8a6";
  * to the linked job when one exists, else to the project-scoped clips landing.
  */
 const TABS = [
-  { id: "canvas", label: "Canvas", Icon: Component, to: (id: string) => `/canvas?project=${id}` },
-  { id: "video", label: "Editor", Icon: Clapperboard, to: (id: string) => `/video-editor?project=${id}` },
+  { id: "canvas", label: "Canvas", Icon: Component, to: (id: string | null) => (id ? `/canvas?project=${id}` : "/canvas") },
+  { id: "video", label: "Editor", Icon: Clapperboard, to: (id: string | null) => (id ? `/video-editor?project=${id}` : "/video-editor") },
 ] as const;
 
-export function EditorModeTabs({ projectId, mode }: { projectId: string; mode: "canvas" | "video" | "clips" }) {
+// projectId null = no project yet; the tabs still switch between the bare pages.
+export function EditorModeTabs({ projectId, mode }: { projectId: string | null; mode: "canvas" | "video" | "clips" }) {
   const { data: clipsLink } = useQuery({
     queryKey: ["clips-by-workflow", projectId],
-    queryFn: () => jobByWorkflow(projectId).catch(() => null),
+    queryFn: () => jobByWorkflow(projectId as string).catch(() => null),
     staleTime: 5 * 60_000,
+    enabled: Boolean(projectId),
   });
 
   const tabs = [
@@ -30,8 +32,12 @@ export function EditorModeTabs({ projectId, mode }: { projectId: string; mode: "
       id: "clips" as const,
       label: "Clips",
       Icon: Scissors,
-      // No job yet -> the clips landing scoped to this project (paste/upload there).
-      href: clipsLink?.job_id ? `/clips/${clipsLink.job_id}` : `/clips?project=${projectId}`,
+      // Linked job first, then the project-scoped landing, then the bare page.
+      href: clipsLink?.job_id
+        ? `/clips/${clipsLink.job_id}`
+        : projectId
+          ? `/clips?project=${projectId}`
+          : "/clips",
     },
   ];
 
