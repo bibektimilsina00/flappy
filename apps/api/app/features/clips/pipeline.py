@@ -351,12 +351,12 @@ def _select(job: ClipsJob, transcript: list[dict], duration: float) -> list[dict
     else:
         length_rule = f"Each segment must be {band[0]}-{band[1]} seconds long. "
 
-    # Condense very long transcripts so small-context models still fit: merge
-    # adjacent segments into ~60 blocks (timing precision comes from snapping
+    # Condense very long transcripts so the prompt stays a sane size: merge
+    # adjacent segments into ~150 blocks (timing precision comes from snapping
     # to word boundaries later, not from these lines).
     condensed = transcript
-    if len(transcript) > 120:
-        block = max(2, len(transcript) // 60)
+    if len(transcript) > 200:
+        block = max(2, len(transcript) // 150)
         condensed = [
             {
                 "start": chunk[0]["start"],
@@ -368,16 +368,36 @@ def _select(job: ClipsJob, transcript: list[dict], duration: float) -> list[dict
 
     lines = "\n".join(f"[{s['start']:.0f}-{s['end']:.0f}] {s['text']}" for s in condensed)
     prompt = (
-        "You are a short-form video editor. Below is a timestamped transcript "
-        f"({duration:.0f}s total). Pick the {count} best self-contained segments to "
-        "publish as vertical clips. Prioritize: a strong hook in the first 3 seconds, "
-        "a complete idea that needs no outside context, and high engagement "
-        "(dense speech, emotion, concrete takeaways). "
+        "You are an expert short-form video editor who has cut thousands of viral "
+        "TikTok/Reels/Shorts clips. Below is a timestamped transcript "
+        f"({duration:.0f}s total). Pick the {count} segments most likely to stop "
+        "the scroll.\n\n"
+        "What makes a winning clip, in priority order:\n"
+        "1. HOOK: the first spoken line grabs with zero context — a bold claim, a "
+        "surprising number, a direct question, a confession, the start of a story "
+        "or conflict. Start the clip exactly where that line begins; never on "
+        "filler, never mid-idea.\n"
+        "2. SELF-CONTAINED: a viewer who never saw the full video understands and "
+        "feels something. Needs outside setup -> skip it.\n"
+        "3. PAYOFF: the clip resolves — a punchline, an answer, a takeaway, an "
+        "emotional peak. End right after the payoff lands; never trail off.\n"
+        "4. ENERGY: dense speech, real emotion (laughter, anger, awe), specifics "
+        "over generalities.\n\n"
+        "Never pick: channel intros or outros, greetings, sponsor reads or ads, "
+        "like-and-subscribe moments, housekeeping, rambling without a point. "
+        "Pick distinct moments — spread across the whole video when quality "
+        "allows, never two clips making the same point.\n\n"
         + (f"The user asked to focus on: {focus}. " if focus else "")
         + length_rule
-        + "Respond with ONLY a JSON array, no prose, each item: "
-        '{"start": <sec>, "end": <sec>, "title": "<catchy 4-8 word title>", '
-        '"score": <0-100 virality estimate>, "reason": "<one line why>"}'
+        + "\n\nScore honestly: 90+ exceptional shareable moment, 70-89 strong, "
+        "50-69 decent, under 50 filler. Title: 4-8 words, curiosity-driven but "
+        "true to the content, in the same language the speaker uses.\n"
+        "Timestamps are seconds. Transcript lines may be coarse blocks — estimate "
+        "start/end for the exact sentences you mean; boundaries get snapped to "
+        "word timings afterwards.\n\n"
+        "Respond with ONLY a JSON array, no prose, each item: "
+        '{"start": <sec>, "end": <sec>, "title": "<title>", '
+        '"score": <0-100>, "reason": "<one line why>"}'
         "\n\nTranscript:\n" + lines
     )
 
