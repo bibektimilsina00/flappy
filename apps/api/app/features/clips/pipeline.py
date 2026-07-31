@@ -7,6 +7,7 @@ through the existing OpenRouter adapter; transcription is local faster-whisper.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -659,8 +660,17 @@ def burn_clip_captions(job: ClipsJob, clip: dict, style: str, storage) -> str | 
     clip has no speech. Caller persists the job row."""
     from apps.api.app.features.clips.captions import FONTS_DIR, build_ass
 
+    headline_cfg = (job.params or {}).get("headline")
+    # A user-typed title wins over the clip's AI title, for every clip.
+    headline_text = ((headline_cfg or {}).get("text") or "").strip() or clip.get("title")
+
     burned = clip.get("burned") or {}
-    cache_key = f"{style}#v{BURN_VERSION}"
+    # Title is part of the burn identity — retyping it must re-burn, not
+    # replay a cache entry carrying the old text.
+    hl_sig = hashlib.md5(
+        f"{(headline_cfg or {}).get('enabled')}|{headline_text or ''}".encode()
+    ).hexdigest()[:8]
+    cache_key = f"{style}#v{BURN_VERSION}#h{hl_sig}"
     if cache_key in burned:
         return burned[cache_key]
 
@@ -669,8 +679,6 @@ def burn_clip_captions(job: ClipsJob, clip: dict, style: str, storage) -> str | 
     style_def = (
         ((job.params or {}).get("caption_custom") or "clean") if style == "custom" else style
     )
-    headline_cfg = (job.params or {}).get("headline")
-    headline_text = (headline_cfg or {}).get("text") or clip.get("title")
     ass = build_ass(
         job.transcript or [],
         clip["start"],

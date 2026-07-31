@@ -142,7 +142,9 @@ export function ClipPlayer({
             : headline?.enabled
               ? headline
               : null;
-        const text = ((h as { text?: string } | null)?.text ?? "").trim() || clip.title;
+        // Job-level typed title wins everywhere; template text next; AI title last.
+        const text =
+          (headline?.text ?? "").trim() || ((h as { text?: string } | null)?.text ?? "").trim() || clip.title;
         return cc.on && h && text ? (
           <div className="pointer-events-none absolute inset-x-3 top-[5%] flex justify-center">
             <span
