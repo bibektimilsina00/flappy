@@ -21,3 +21,6 @@ celerybeat-schedule*
 # local secret backup — never commit
 env_backup
 *_backup
+
+# local yt-dlp cookies — never commit
+.ytdlp-cookies.txt

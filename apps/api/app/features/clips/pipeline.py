@@ -320,7 +320,11 @@ def _transcribe(path: str, on_progress=None) -> tuple[list[dict], float]:
 def _select(job: ClipsJob, transcript: list[dict], duration: float) -> list[dict]:
     params = job.params or {}
     count = params.get("count", "auto")
-    count = DEFAULT_COUNT if count in (None, "auto") else max(1, min(10, int(count)))
+    if count in (None, "auto"):
+        # Scale with the source: ~1 clip per 4 min, between 3 and 10.
+        count = max(3, min(10, int(duration // 240))) if duration else DEFAULT_COUNT
+    else:
+        count = max(1, min(10, int(count)))
     duration_pref = params.get("duration") or "auto"
     if isinstance(duration_pref, list):
         chosen = [DURATION_BANDS[b] for b in duration_pref if b in DURATION_BANDS]
