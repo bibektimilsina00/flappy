@@ -105,14 +105,14 @@ def run_pipeline(session: Session, job: ClipsJob, charge) -> None:
     """Execute all phases; raises on failure (caller records the error).
     `charge(credits, label)` books usage through the billing ledger."""
     storage = _storage()
+    # Free plan: shorter sources (transcription CPU is the scarce resource).
+    limit_min = 30 if is_free_plan(session, job.workspace_id) else MAX_SOURCE_MINUTES
     with tempfile.TemporaryDirectory() as workdir:
         _set(session, job, status="running", phase="ingest", progress=0.0)
         source = _ingest(session, job, storage, workdir)
         probed = _probe_duration(source)
-        if probed and probed > MAX_SOURCE_MINUTES * 60:
-            raise ValueError(
-                f"Source is {probed / 60:.0f} min — the limit is {MAX_SOURCE_MINUTES} min."
-            )
+        if probed and probed > limit_min * 60:
+            raise ValueError(f"Source is {probed / 60:.0f} min — the limit is {limit_min} min.")
         # Poster frame + early duration so the progress page has something to show.
         thumb_key = _thumbnail(job, source, storage, workdir)
         _set(
@@ -128,10 +128,8 @@ def run_pipeline(session: Session, job: ClipsJob, charge) -> None:
             _set(session, job, progress=frac, transcript=partial)
 
         transcript, duration = _transcribe(source, on_progress)
-        if duration > MAX_SOURCE_MINUTES * 60:
-            raise ValueError(
-                f"Source is {duration / 60:.0f} min — the limit is {MAX_SOURCE_MINUTES} min."
-            )
+        if duration > limit_min * 60:
+            raise ValueError(f"Source is {duration / 60:.0f} min — the limit is {limit_min} min.")
         if not transcript:
             raise ValueError("No speech found in the source video.")
         charge(ingest_credits(duration), "clips-ingest")

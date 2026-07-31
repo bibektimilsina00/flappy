@@ -8,9 +8,9 @@ import { useSession } from "@/stores/session";
 
 const PRO_PERKS = [
   "2,500 credits every month",
-  "1080p HD exports",
-  "No watermark on clips",
-  "Priority support",
+  "Paste video links directly",
+  "AI video generation",
+  "2-hour sources · 1080p · no watermark",
 ];
 
 export default function Page() {

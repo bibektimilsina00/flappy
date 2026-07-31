@@ -505,7 +505,7 @@ export function ClipsPage() {
 
         {error ? <p className="mt-3 text-center text-xs text-red-400">{error}</p> : null}
         <p className="mt-3 text-center text-[11px] text-muted-foreground/50">
-          Sources up to 2 hours · only import content you have the rights to use
+          Sources up to 2 hours (30 min on Free) · only import content you have the rights to use
         </p>
       </div>
 

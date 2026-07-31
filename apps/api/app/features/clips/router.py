@@ -93,17 +93,27 @@ class ProbeRequest(BaseModel):
     source_url: str
 
 
+PRO_LINK_MSG = (
+    "Importing by link is a Pro feature — upload the video file instead (free), or upgrade to Pro."
+)
+
+
 @router.post("/probe")
 def probe_source(
     body: ProbeRequest,
-    _workspace_id: uuid.UUID = Depends(current_workspace_id),
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
     _user: User = Depends(get_current_user),
 ) -> dict:
     """Read a link's metadata (no download) so the configure step can show
     title/thumbnail/duration before the job starts."""
     if not URL_RE.match(body.source_url.strip()):
         raise HTTPException(status_code=422, detail="That doesn't look like a valid link.")
-    from apps.api.app.features.clips.pipeline import friendly_link_error, ydl_extract
+    from apps.api.app.features.clips.pipeline import friendly_link_error, is_free_plan, ydl_extract
+
+    # Link ingestion rides paid proxy bandwidth — Pro only.
+    if is_free_plan(session, workspace_id):
+        raise HTTPException(status_code=402, detail=PRO_LINK_MSG)
 
     url = body.source_url.strip()
     try:
@@ -155,7 +165,16 @@ def create_job(
     if body.source_url and not URL_RE.match(body.source_url.strip()):
         raise HTTPException(status_code=422, detail="That doesn't look like a valid link.")
 
-    from apps.api.app.features.clips.pipeline import estimate_credits
+    from apps.api.app.features.clips.pipeline import estimate_credits, is_free_plan
+
+    free = is_free_plan(session, workspace_id)
+    if free and body.source_url:
+        raise HTTPException(status_code=402, detail=PRO_LINK_MSG)
+    if free and body.source_duration and body.source_duration > 30 * 60:
+        raise HTTPException(
+            status_code=402,
+            detail="Free plan sources are capped at 30 minutes — upgrade to Pro for up to 2 hours.",
+        )
 
     params = body.params or {}
     estimated = estimate_credits(body.source_duration, params.get("count", "auto"))
