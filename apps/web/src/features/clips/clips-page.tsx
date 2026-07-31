@@ -465,7 +465,7 @@ export function ClipsPage() {
             <span className="text-foreground/90">or drag &amp; drop</span>
           </span>
           <span className="mt-1 text-xs text-muted-foreground">
-            Supported file type: video · up to 500 MB
+            Supported file type: video · up to 2 GB
           </span>
         </button>
 
@@ -491,7 +491,7 @@ export function ClipsPage() {
 
         {error ? <p className="mt-3 text-center text-xs text-red-400">{error}</p> : null}
         <p className="mt-3 text-center text-[11px] text-muted-foreground/50">
-          Sources up to 30 minutes · only import content you have the rights to use
+          Sources up to 2 hours · only import content you have the rights to use
         </p>
       </div>
 
@@ -658,7 +658,7 @@ function ConfigPanel({
   onStart: () => void;
   onBack: () => void;
 }) {
-  const tooLong = (meta?.duration ?? 0) > 30 * 60;
+  const tooLong = (meta?.duration ?? 0) > 120 * 60;
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [cost, setCost] = useState<number | null>(null);
   const { data: balance } = useBalance();
@@ -715,7 +715,7 @@ function ConfigPanel({
 
       {tooLong ? (
         <p className="rounded-xl border border-amber-400/20 bg-amber-400/5 px-4 py-2.5 text-xs text-amber-300">
-          This video is longer than the 30-minute limit — the job will fail. Pick a shorter source.
+          This video is longer than the 2-hour limit — the job will fail. Pick a shorter source.
         </p>
       ) : null}
 

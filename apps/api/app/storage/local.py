@@ -19,6 +19,13 @@ class LocalStorage:
         self._path(key).write_bytes(data)
         return key
 
+    def put_stream(self, key: str, fileobj, content_type: str = "application/octet-stream") -> str:
+        import shutil
+
+        with self._path(key).open("wb") as f:
+            shutil.copyfileobj(fileobj, f)
+        return key
+
     def get(self, key: str) -> bytes:
         return self._path(key).read_bytes()
 

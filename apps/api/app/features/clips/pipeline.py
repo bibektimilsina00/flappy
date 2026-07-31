@@ -27,7 +27,7 @@ from apps.api.app.integrations.registry import get_adapter, resolve_model
 
 log = logging.getLogger(__name__)
 
-MAX_SOURCE_MINUTES = 30
+MAX_SOURCE_MINUTES = 120
 DEFAULT_COUNT = 5
 DURATION_BANDS = {
     # legacy single-select keys

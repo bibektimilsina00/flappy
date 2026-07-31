@@ -31,6 +31,13 @@ class S3Storage:
         self._client.put_object(Bucket=self._bucket, Key=key, Body=data, ContentType=content_type)
         return key
 
+    def put_stream(self, key: str, fileobj, content_type: str = "application/octet-stream") -> str:
+        # Chunked multipart upload — large files never fully enter memory.
+        self._client.upload_fileobj(
+            fileobj, self._bucket, key, ExtraArgs={"ContentType": content_type}
+        )
+        return key
+
     def get(self, key: str) -> bytes:
         return self._client.get_object(Bucket=self._bucket, Key=key)["Body"].read()
 
