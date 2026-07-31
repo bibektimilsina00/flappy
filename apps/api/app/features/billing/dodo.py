@@ -35,6 +35,11 @@ def _products() -> dict[str, str]:
             "plus": settings.dodo_product_plus,
             "pro": settings.dodo_product_pro,
             "ultra": settings.dodo_product_ultra,
+            "studio_s": settings.dodo_product_studio_s,
+            "studio_m": settings.dodo_product_studio_m,
+            "studio_l": settings.dodo_product_studio_l,
+            "studio_xl": settings.dodo_product_studio_xl,
+            "studio_max": settings.dodo_product_studio_max,
         }.items()
         if pid
     }

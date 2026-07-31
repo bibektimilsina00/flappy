@@ -6,61 +6,40 @@ import { type Plan, PLANS, STUDIO_SIZES } from "@/features/pricing/plans";
 import { cn } from "@/lib/cn";
 import { BRAND } from "./content";
 
-// Recolored port of the in-app pricing (same PLANS data) into the marketing theme.
+// Marketing-themed render of the shared PLANS ladder. Monthly billing only.
 export function MarketingPricing() {
-  const [yearly, setYearly] = useState(true);
   const [studioSize, setStudioSize] = useState(0);
 
   return (
     <div>
-      <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-mk-accent">Pricing</p>
-          <h1 className="mt-3 text-4xl font-bold tracking-tight text-mk-fg md:text-5xl">Plans built for AI creators</h1>
-          <p className="mt-3 max-w-2xl text-mk-muted">
-            More credits, stronger models, faster generation and commercial rights — for shorts, ads, films, animation and social videos.
-          </p>
-        </div>
-        <BillingToggle yearly={yearly} onChange={setYearly} />
+      <div className="mb-10">
+        <p className="text-sm font-semibold text-mk-accent">Pricing</p>
+        <h1 className="mt-3 text-4xl font-bold tracking-tight text-mk-fg md:text-5xl">Plans built for AI creators</h1>
+        <p className="mt-3 max-w-2xl text-mk-muted">
+          More credits, stronger models, faster generation and longer sources — for shorts, ads, films, and social video.
+        </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {PLANS.map((plan) => (
-          <PlanCard key={plan.id} plan={plan} yearly={yearly} studioSize={studioSize} onStudioSize={setStudioSize} />
+          <PlanCard key={plan.id} plan={plan} studioSize={studioSize} onStudioSize={setStudioSize} />
         ))}
       </div>
+      <p className="mt-6 text-sm text-mk-muted">
+        Also free forever: uploads &amp; non-YouTube links, 30-minute sources, 100 credits every month.{" "}
+        <a href={BRAND.appUrl} className="text-mk-accent underline underline-offset-2">
+          Start free
+        </a>
+      </p>
     </div>
   );
 }
 
-function BillingToggle({ yearly, onChange }: { yearly: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <div className="flex items-center gap-1 self-start rounded-full border border-mk-border bg-mk-surface p-1">
-      <button
-        type="button"
-        onClick={() => onChange(false)}
-        className={cn("rounded-full px-4 py-1.5 text-sm font-medium transition-colors", !yearly ? "bg-mk-surface2 text-mk-fg" : "text-mk-muted")}
-      >
-        Monthly
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange(true)}
-        className={cn("flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-colors", yearly ? "bg-mk-surface2 text-mk-fg" : "text-mk-muted")}
-      >
-        Yearly
-        <span className="rounded-full bg-mk-accent px-1.5 py-0.5 text-[10px] font-semibold text-mk-accentfg">-60%</span>
-      </button>
-    </div>
-  );
-}
-
-function PlanCard({ plan, yearly, studioSize, onStudioSize }: { plan: Plan; yearly: boolean; studioSize: number; onStudioSize: (i: number) => void }) {
+function PlanCard({ plan, studioSize, onStudioSize }: { plan: Plan; studioSize: number; onStudioSize: (i: number) => void }) {
   const isStudio = plan.id === "studio";
   const mult = isStudio ? STUDIO_SIZES[studioSize].mult : 1;
-  const price = (yearly ? plan.yearlyMonthly : plan.monthly) * mult;
-  const yearlyTotal = plan.yearlyTotal * mult;
-  const savePerYear = plan.monthly * 12 * mult - yearlyTotal;
+  const price = plan.monthly * mult;
+  const credits = plan.credits * mult;
 
   return (
     <div className={cn("flex flex-col rounded-2xl bg-mk-surface p-6", plan.popular ? "border-2 border-mk-accent" : "border border-mk-border")}>
@@ -71,23 +50,10 @@ function PlanCard({ plan, yearly, studioSize, onStudioSize }: { plan: Plan; year
       <p className="mb-5 min-h-10 text-sm text-mk-muted">{plan.tagline}</p>
 
       <div className="mb-1 flex items-baseline gap-2">
-        <span className="text-4xl font-bold text-mk-fg">${price}</span>
+        <span className="text-4xl font-bold text-mk-fg">${price.toLocaleString()}</span>
         <span className="text-mk-muted">/month</span>
-        {yearly ? <span className="text-sm text-mk-faint line-through">${plan.monthly * mult}</span> : null}
       </div>
-      {yearly ? (
-        <>
-          <div className="mb-1">
-            <span className="rounded-full bg-mk-surface2 px-2 py-0.5 text-sm font-medium text-mk-fg">${yearlyTotal}</span>{" "}
-            <span className="text-sm text-mk-muted">billed yearly</span>
-          </div>
-          <p className="text-sm font-medium text-mk-accent">
-            Annual plan {plan.offPct}% off · Save ${savePerYear.toLocaleString()}/year
-          </p>
-        </>
-      ) : (
-        <p className="text-sm text-mk-muted">Billed monthly · cancel anytime</p>
-      )}
+      <p className="text-sm text-mk-muted">Billed monthly · cancel anytime</p>
 
       {isStudio ? (
         <div className="mt-5 flex items-center gap-1 rounded-full border border-mk-border bg-mk-bg p-1">
@@ -96,7 +62,10 @@ function PlanCard({ plan, yearly, studioSize, onStudioSize }: { plan: Plan; year
               key={s.label}
               type="button"
               onClick={() => onStudioSize(i)}
-              className={cn("flex-1 rounded-full px-2 py-1 text-xs font-medium transition-colors", i === studioSize ? "bg-mk-accent text-mk-accentfg" : "text-mk-muted")}
+              className={cn(
+                "flex-1 rounded-full px-2 py-1 text-xs font-medium transition-colors",
+                i === studioSize ? "bg-mk-accent text-mk-accentfg" : "text-mk-muted hover:text-mk-fg",
+              )}
             >
               {s.label}
             </button>
@@ -115,7 +84,7 @@ function PlanCard({ plan, yearly, studioSize, onStudioSize }: { plan: Plan; year
       </a>
 
       <ul className="mt-6 space-y-3 border-t border-mk-border pt-5 text-sm">
-        {(isStudio && studioSize > 0 ? [`${(85000 * mult).toLocaleString()} credits / month`, ...plan.features.slice(1)] : plan.features).map((f) => (
+        {[`${credits.toLocaleString()} credits / month`, ...plan.features.slice(1)].map((f) => (
           <li key={f} className="flex gap-2.5">
             <Check className="mt-0.5 size-4 shrink-0 text-mk-accent" />
             <span className="text-mk-fg/90">{f}</span>

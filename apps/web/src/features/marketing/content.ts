@@ -237,12 +237,12 @@ export const PRICING = [
   },
   {
     name: "Studio",
-    price: "Custom",
-    period: "let's talk",
-    blurb: "For teams and agencies at scale.",
-    cta: "Contact sales",
+    price: "$140+",
+    period: "per month",
+    blurb: "For series, films, and ads — sized S to MAX.",
+    cta: "Pick a size",
     highlight: false,
-    features: ["Everything in Ultra", "Shared workspaces & seats", "Volume credits & billing", "SSO & admin controls", "Dedicated support"],
+    features: ["From 20,000 credits every month", "Everything in Ultra", "Volume pricing (S / M / L / XL / MAX)", "Invoice support", "Dedicated support"],
   },
 ];
 

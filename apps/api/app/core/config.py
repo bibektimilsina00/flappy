@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     dodo_product_plus: str = ""
     dodo_product_pro: str = ""
     dodo_product_ultra: str = ""
+    dodo_product_studio_s: str = ""
+    dodo_product_studio_m: str = ""
+    dodo_product_studio_l: str = ""
+    dodo_product_studio_xl: str = ""
+    dodo_product_studio_max: str = ""
     free_monthly_credits: float = 100.0  # free plan tops up to this monthly
 
     # Assistant model (empty -> openrouter/free, which works on the free tier).

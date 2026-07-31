@@ -1,13 +1,12 @@
-// Subscription tiers. Monthly = full price; Yearly = discounted effective /mo,
-// billed once a year. Prices set a touch below comparable studios.
+// Subscription tiers — the ONE frontend source of truth, mirroring the
+// backend ladder in apps/api/app/features/billing/plans.py.
+// Monthly billing only (yearly returns when yearly products exist).
 export interface Plan {
   id: string;
   name: string;
   tagline: string;
-  monthly: number; // full monthly price
-  yearlyMonthly: number; // effective /mo on the annual plan
-  yearlyTotal: number; // charged once per year
-  offPct: number; // annual discount vs monthly
+  monthly: number; // $/month
+  credits: number; // granted each billing cycle
   popular?: boolean;
   features: string[];
 }
@@ -16,78 +15,63 @@ export const PLANS: Plan[] = [
   {
     id: "plus",
     name: "Plus",
-    tagline: "Best for occasional video production.",
-    monthly: 8,
-    yearlyMonthly: 5,
-    yearlyTotal: 60,
-    offPct: 37,
+    tagline: "Best for occasional clipping and posting.",
+    monthly: 12,
+    credits: 1200,
     features: [
-      "5,000 credits / month",
-      "≈ 833 images or 32 videos",
-      "Access to premium models (Seedance, Nano Banana)",
-      "2K / 4K HD video output",
-      "Watermark-free exports",
-      "10% bonus on credit packs",
-      "Faster generation",
-      "Automatic refund on failed generations",
+      "1,200 credits / month",
+      "YouTube link import",
+      "AI video generation (standard models)",
+      "Sources up to 1 hour",
+      "1080p HD, watermark-free",
     ],
   },
   {
     id: "pro",
     name: "Pro",
-    tagline: "Best for social media video and light ad production.",
-    monthly: 30,
-    yearlyMonthly: 18,
-    yearlyTotal: 216,
-    offPct: 40,
+    tagline: "Best for creators shipping video every week.",
+    monthly: 28,
+    credits: 3200,
+    popular: true,
     features: [
-      "18,000 credits / month",
-      "≈ 3,000 images or 116 videos",
+      "3,200 credits / month",
       "Everything in Plus",
-      "20% bonus on credit packs",
-      "Faster generation",
-      "Commercial usage rights",
-      "Invoice support",
+      "Premium video models (Veo, Kling & more)",
+      "Sources up to 2 hours",
+      "Auto-schedule & direct publishing",
+      "Email support",
     ],
   },
   {
     id: "ultra",
     name: "Ultra",
     tagline: "Built for professional productions.",
-    monthly: 75,
-    yearlyMonthly: 39,
-    yearlyTotal: 468,
-    offPct: 48,
+    monthly: 76,
+    credits: 10000,
     features: [
-      "45,000 credits / month",
-      "≈ 7,500 images or 290 videos",
+      "10,000 credits / month",
       "Everything in Pro",
-      "35% bonus on credit packs",
-      "Priority generation speed",
-      "Commercial usage rights",
-      "Invoice support",
+      "Highest generation priority",
+      "Early access to new models",
     ],
   },
   {
     id: "studio",
     name: "Studio",
-    tagline: "Best for series, films, and ads.",
-    monthly: 140,
-    yearlyMonthly: 55,
-    yearlyTotal: 660,
-    offPct: 60,
-    popular: true,
+    tagline: "Best for series, films, and ads — pick your size.",
+    monthly: 140, // base (S); scales with STUDIO_SIZES.mult
+    credits: 20000, // base (S); scales with STUDIO_SIZES.mult
     features: [
-      "85,000 credits / month",
+      "20,000+ credits / month — scales with size",
       "Everything in Ultra",
-      "45% bonus on credit packs",
-      "Commercial usage rights",
+      "Volume pricing from S to MAX",
       "Invoice support",
+      "Dedicated support",
     ],
   },
 ];
 
-// Studio scales up via a size slider (credits × price grow together).
+// Studio scales via the size selector (credits × price grow together).
 export const STUDIO_SIZES = [
   { label: "S", mult: 1 },
   { label: "M", mult: 2 },

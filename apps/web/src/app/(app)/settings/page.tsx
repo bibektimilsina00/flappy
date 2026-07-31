@@ -4,6 +4,7 @@ import { Check, Crown, Loader2, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useBalance } from "@/features/billing";
 import { startUpgrade } from "@/features/billing/services/billing-api";
+import { STUDIO_SIZES } from "@/features/pricing/plans";
 import { useSession } from "@/stores/session";
 
 const TIERS: {
@@ -44,6 +45,7 @@ export default function Page() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fromCheckout, setFromCheckout] = useState(false);
+  const [studioSize, setStudioSize] = useState(0);
   const plan = balance?.plan ?? "free";
   const isPaid = plan !== "free";
 
@@ -59,7 +61,7 @@ export default function Page() {
     return () => clearInterval(t);
   }, [refetch]);
 
-  const upgrade = async (tier: "plus" | "pro" | "ultra") => {
+  const upgrade = async (tier: string) => {
     setBusy(tier);
     setError(null);
     try {
@@ -109,6 +111,7 @@ export default function Page() {
 
       {/* upgrade tiers */}
       {!isPaid ? (
+        <>
         <section className="mt-4 grid gap-3 sm:grid-cols-3">
           {TIERS.map((t) => (
             <div
@@ -147,6 +150,50 @@ export default function Page() {
             </div>
           ))}
         </section>
+
+        {/* Studio — sized volume tier */}
+        <section className="mt-3 rounded-2xl border border-white/10 bg-[#161616] p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="font-semibold">
+                Studio{" "}
+                <span className="ml-1 text-sm font-normal text-muted-foreground">
+                  ${(140 * STUDIO_SIZES[studioSize].mult).toLocaleString()}/mo
+                </span>
+              </p>
+              <p className="mt-0.5 text-xs text-teal-300">
+                {(20000 * STUDIO_SIZES[studioSize].mult).toLocaleString()} credits/mo · everything
+                in Pro · invoice & dedicated support
+              </p>
+            </div>
+            <div className="flex items-center gap-1 rounded-full border border-white/10 bg-black/30 p-1">
+              {STUDIO_SIZES.map((s, i) => (
+                <button
+                  key={s.label}
+                  type="button"
+                  onClick={() => setStudioSize(i)}
+                  className={
+                    i === studioSize
+                      ? "rounded-full bg-teal-400 px-3 py-1 text-xs font-semibold text-black"
+                      : "rounded-full px-3 py-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                  }
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => void upgrade(`studio_${STUDIO_SIZES[studioSize].label.toLowerCase()}`)}
+              className="flex items-center gap-2 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold transition-colors hover:bg-white/5 disabled:opacity-60"
+            >
+              {busy?.startsWith("studio") ? <Loader2 className="size-4 animate-spin" /> : null}
+              Get Studio {STUDIO_SIZES[studioSize].label}
+            </button>
+          </div>
+        </section>
+        </>
       ) : null}
       {error ? <p className="mt-3 text-xs text-red-400">{error}</p> : null}
     </div>
