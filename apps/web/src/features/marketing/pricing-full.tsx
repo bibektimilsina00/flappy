@@ -74,7 +74,7 @@ function PlanCard({ plan, studioSize, onStudioSize }: { plan: Plan; studioSize: 
       ) : null}
 
       <a
-        href={BRAND.appUrl}
+        href={`/settings?upgrade=${isStudio ? `studio_${STUDIO_SIZES[studioSize].label.toLowerCase()}` : plan.id}`}
         className={cn(
           "mt-5 w-full rounded-lg py-2.5 text-center text-sm font-semibold transition-opacity hover:opacity-90",
           plan.popular ? "bg-mk-accent text-mk-accentfg" : "bg-mk-surface2 text-mk-fg",

@@ -61,6 +61,15 @@ export default function Page() {
     return () => clearInterval(t);
   }, [refetch]);
 
+  // Arrived from a pricing card (?upgrade=<tier>): go straight to checkout.
+  useEffect(() => {
+    const tier = new URLSearchParams(window.location.search).get("upgrade");
+    if (!tier || balance === undefined || balance.plan !== "free") return;
+    window.history.replaceState(null, "", "/settings"); // once only
+    void upgrade(tier);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [balance]);
+
   const upgrade = async (tier: string) => {
     setBusy(tier);
     setError(null);

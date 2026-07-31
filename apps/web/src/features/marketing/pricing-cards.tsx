@@ -23,7 +23,17 @@ export function PricingCards() {
             <span className="pb-1 text-sm text-mk-muted">/ {tier.period}</span>
           </div>
           <p className="mt-3 text-sm text-mk-muted">{tier.blurb}</p>
-          <Button href={tier.name === "Studio" ? "/pricing" : BRAND.appUrl} variant={tier.highlight ? "primary" : "secondary"} className="mt-6 w-full">
+          <Button
+            href={
+              tier.name === "Studio"
+                ? "/pricing"
+                : tier.name === "Free"
+                  ? BRAND.appUrl
+                  : `/settings?upgrade=${tier.name.toLowerCase()}`
+            }
+            variant={tier.highlight ? "primary" : "secondary"}
+            className="mt-6 w-full"
+          >
             {tier.cta}
           </Button>
           <ul className="mt-7 flex flex-col gap-3 border-t border-mk-border pt-6">
