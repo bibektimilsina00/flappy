@@ -785,6 +785,7 @@ function ConfigPanel({
           headline={params.headline?.enabled ? params.headline : null}
           ratio={params.ratio}
           layout={params.layout ?? "fit"}
+          watermark={isFree}
           onChange={(patch) => setParams((p) => ({ ...p, ...patch }))}
         />
 

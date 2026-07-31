@@ -183,6 +183,7 @@ export function CaptionStylePicker({
   headline,
   ratio = "9:16",
   layout = "fit",
+  watermark = false,
   onChange,
 }: {
   captions: boolean;
@@ -191,6 +192,7 @@ export function CaptionStylePicker({
   headline?: { bg: string; color: string; text?: string } | null;
   ratio?: string;
   layout?: string;
+  watermark?: boolean;
   onChange: (patch: { captions: boolean; caption_style?: string; caption_custom?: CustomCaptionStyle | null }) => void;
 }) {
   const [tab, setTab] = useState<"featured" | "mine">("featured");
@@ -278,6 +280,15 @@ export function CaptionStylePicker({
       {active ? (
         <span className="absolute left-2 top-2 z-10 grid size-6 place-items-center rounded-full bg-teal-400 text-black">
           <Check className="size-3.5" />
+        </span>
+      ) : null}
+      {watermark ? (
+        // Mirrors the free-plan render watermark (top-left, subtle).
+        <span
+          className="pointer-events-none absolute z-[6] text-[7px] font-semibold text-white/60 [text-shadow:1px_1px_2px_rgba(0,0,0,0.6)]"
+          style={fitMode ? { left: "5%", top: `calc(${topBar * 100}% + 5px)` } : { left: "5%", top: "3%" }}
+        >
+          riocut.com
         </span>
       ) : null}
       {headline ? (
