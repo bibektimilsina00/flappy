@@ -149,8 +149,6 @@ export function ClipsPage() {
     thumbnail: string | null;
     message: string;
   } | null>(null);
-  // Free plan pasted a YouTube link — upsell card, not an error.
-  const [proGate, setProGate] = useState(false);
   const [source, setSource] = useState<{ source_url?: string; source_key?: string } | null>(null);
   const [meta, setMeta] = useState<SourceMeta | null>(null);
   const [title, setTitle] = useState("");
@@ -274,7 +272,6 @@ export function ClipsPage() {
     setBusy("Reading link…");
     setError(null);
     setBlocked(null);
-    setProGate(false);
     try {
       const m = await probeClipsSource(url);
       if (m.blocked) {
@@ -292,9 +289,7 @@ export function ClipsPage() {
       setStep("config");
       void ensureProject(m.title ?? "Clips project");
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Could not read that link";
-      if (msg.includes("paid plan")) setProGate(true);
-      else setError(msg);
+      setError(e instanceof Error ? e.message : "Could not read that link");
     } finally {
       setBusy(null);
     }
@@ -410,46 +405,7 @@ export function ClipsPage() {
           ) : null}
         </div>
 
-        {/* free plan + YouTube link — upsell card, not an error */}
-        {proGate ? (
-          <div className="mt-4 flex items-center gap-4 rounded-2xl border border-teal-400/25 bg-teal-400/[0.05] p-4">
-            <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-teal-400/15">
-              <Crown className="size-5 text-teal-300" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold">Import YouTube links instantly with a paid plan</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                From $12/mo — paste any YouTube link and clips just happen. On the free plan, upload
-                the video file instead; TikTok, Vimeo &amp; other links work free too.
-              </p>
-              <div className="mt-2.5 flex items-center gap-2">
-                <a
-                  href="/settings"
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-teal-400 px-3 py-1.5 text-xs font-semibold text-black transition-colors hover:bg-teal-300"
-                >
-                  <Crown className="size-3.5" /> See plans
-                </a>
-                <button
-                  type="button"
-                  onClick={() => fileRef.current?.click()}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-white/5"
-                >
-                  <Upload className="size-3.5" /> Upload the file
-                </button>
-              </div>
-            </div>
-            <button
-              type="button"
-              aria-label="Dismiss"
-              onClick={() => setProGate(false)}
-              className="self-start text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <XCircle className="size-4" />
-            </button>
-          </div>
-        ) : null}
-
-        {/* blocked link — card steering to download-then-upload */}
+        {/* blocked link — card steering to upload/upgrade */}
         {blocked ? (
           <div className="mt-4 flex items-center gap-4 rounded-2xl border border-amber-400/25 bg-amber-400/[0.04] p-4">
             {blocked.thumbnail ? (
@@ -465,7 +421,15 @@ export function ClipsPage() {
                 <p className="truncate text-sm font-semibold">{blocked.title}</p>
               ) : null}
               <p className="mt-1 text-xs leading-relaxed text-amber-200/90">{blocked.message}</p>
-              <div className="mt-2 flex items-center gap-2">
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {blocked.message.includes("paid plan") ? (
+                  <a
+                    href="/settings"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-teal-400 px-3 py-1.5 text-xs font-semibold text-black transition-colors hover:bg-teal-300"
+                  >
+                    <Crown className="size-3.5" /> Upgrade — from $12/mo
+                  </a>
+                ) : null}
                 <a
                   href={blocked.url}
                   target="_blank"
@@ -477,7 +441,12 @@ export function ClipsPage() {
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-teal-400 px-3 py-1.5 text-xs font-semibold text-black transition-colors hover:bg-teal-300"
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                    blocked.message.includes("paid plan")
+                      ? "border border-white/15 font-medium hover:bg-white/5"
+                      : "bg-teal-400 text-black hover:bg-teal-300",
+                  )}
                 >
                   <Upload className="size-3.5" /> Upload the file
                 </button>

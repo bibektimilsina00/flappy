@@ -114,10 +114,20 @@ def probe_source(
     from apps.api.app.features.clips.pipeline import friendly_link_error, is_free_plan, ydl_extract
 
     url = body.source_url.strip()
-    # YouTube rides paid proxy bandwidth — Pro only. Other platforms extract
-    # direct (no proxy), so free users keep them.
+    # YouTube rides paid proxy bandwidth — paid plans only. Free users still
+    # get the rich card (oEmbed metadata) steering to upload/upgrade.
     free = is_free_plan(session, workspace_id)
     if free and YOUTUBE_RE.search(url):
+        meta = _oembed(url)
+        if meta:
+            return {
+                "title": meta.get("title"),
+                "duration": None,
+                "thumbnail": meta.get("thumbnail_url"),
+                "height": None,
+                "blocked": True,
+                "message": PRO_LINK_MSG,
+            }
         raise HTTPException(status_code=402, detail=PRO_LINK_MSG)
 
     try:
