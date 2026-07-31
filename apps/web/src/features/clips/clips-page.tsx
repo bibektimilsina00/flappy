@@ -437,7 +437,7 @@ export function ClipsPage() {
                 </button>
               </div>
               <p className="mt-2 text-[11px] text-muted-foreground">
-                Tip: you can download the video with{" "}
+                Tip: use tools like{" "}
                 <a
                   href="https://app.ytdown.to/en38/"
                   target="_blank"
@@ -446,7 +446,7 @@ export function ClipsPage() {
                 >
                   ytdown.to
                 </a>{" "}
-                (third-party site — watch out for its ads), then drop the file here.
+                to download the video, then drop the file here.
               </p>
             </div>
             <button
