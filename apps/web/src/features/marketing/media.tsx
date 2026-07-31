@@ -15,6 +15,11 @@ const TONES: Record<string, string> = {
 const ORDER = ["teal", "indigo", "violet", "amber", "rose"];
 export const toneAt = (i: number) => ORDER[i % ORDER.length];
 
+// Stock stand-in imagery (Unsplash CDN, free license) until real product
+// media replaces it — swap by changing the `src`/`img` at the call site.
+export const unsplash = (id: string, w = 900) =>
+  `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&q=80`;
+
 export function Poster({
   tone = "teal",
   ratio = "16 / 9",

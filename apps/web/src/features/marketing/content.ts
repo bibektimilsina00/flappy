@@ -84,7 +84,7 @@ export const TOOL_TABS = [
     title: "Every model, one canvas",
     desc: "Turn a prompt or a still into footage. Chain text, image, and video models and let media flow between them.",
     bullets: ["Text to image & video", "Image to video", "Extend any clip", "Swap models instantly"],
-    media: "Generation on the canvas",
+    media: "Generation on the canvas", img: "1620712943543-bcc4688e7485",
   },
   {
     n: "02",
@@ -92,7 +92,7 @@ export const TOOL_TABS = [
     title: "A magnetic timeline",
     desc: "Cut, trim, and arrange on a Final-Cut-style timeline that never leaves an accidental gap.",
     bullets: ["Gap-free magnetic edits", "Frame-accurate trims", "Split & ripple", "Multi-track layers"],
-    media: "Timeline editing",
+    media: "Timeline editing", img: "1574717024653-61fd2cf4d44d",
   },
   {
     n: "03",
@@ -100,7 +100,7 @@ export const TOOL_TABS = [
     title: "Long video in, viral clips out",
     desc: "Paste a link or upload a video. The AI reads the transcript, picks the moments with hooks, and hands back captioned, face-framed clips — scored and scheduled.",
     bullets: ["AI moment selection + virality scores", "Word-by-word animated captions", "Face-aware vertical framing", "Auto-schedule the posting queue"],
-    media: "AI clipping",
+    media: "AI clipping", img: "1611162616475-46b635cb6868",
   },
   {
     n: "04",
@@ -108,7 +108,7 @@ export const TOOL_TABS = [
     title: "Assistant & connected clips",
     desc: "Describe what you want in plain language, and keep captions, audio, and overlays locked to their shot.",
     bullets: ["Prompt-to-shot assistant", "Connected captions & audio", "Voiceover & music", "One-click presets"],
-    media: "AI assistant",
+    media: "AI assistant", img: "1511671782779-c97d3d27a1d4",
   },
   {
     n: "05",
@@ -116,7 +116,7 @@ export const TOOL_TABS = [
     title: "Ship it anywhere",
     desc: "Render a clean MP4 in the exact ratio you need — vertical for social, wide for the screen, up to 4K.",
     bullets: ["9:16 · 1:1 · 16:9", "Up to 4K", "No watermark on Pro", "Fast cloud render"],
-    media: "Export & share",
+    media: "Export & share", img: "1611262588024-d12430b98920",
   },
 ];
 
@@ -134,7 +134,7 @@ export const FEATURE_ROWS = [
     title: "Cut like a pro, without the learning curve.",
     desc: "A Final-Cut-style timeline that keeps itself tidy. Insert makes room, delete closes the gap, trims ripple — all frame-perfect. Captions, voiceover, and overlays stay locked to their shot.",
     bullets: ["Gap-free magnetic editing", "Frame-accurate trims & splits", "Connected captions & audio", "Instant preview, clean export"],
-    media: { tone: "slate", label: "Timeline editor", play: true } as const,
+    media: { tone: "slate", label: "Timeline editor", play: true, img: "1574717024653-61fd2cf4d44d" } as const,
     reverse: true,
   },
   {
@@ -142,7 +142,7 @@ export const FEATURE_ROWS = [
     title: "One long video. Ten viral clips.",
     desc: "Riocut listens to every word of your podcast or stream, scores each moment for hook strength and completeness, then renders vertical clips with karaoke captions, face-aware framing, and a posting schedule. Review, tweak a caption, and ship.",
     bullets: ["Whisper-accurate transcripts, word by word", "Virality scores with the reasoning shown", "Caption templates — or design your own", "Bulk schedule straight to a posting queue"],
-    media: { tone: "teal", label: "AI clipping", play: true } as const,
+    media: { tone: "teal", label: "AI clipping", play: true, img: "1611162616475-46b635cb6868" } as const,
     reverse: false,
   },
   {
@@ -150,7 +150,7 @@ export const FEATURE_ROWS = [
     title: "Describe it in a sentence. Ship it.",
     desc: "Not sure which model to use? Tell the assistant what you want. It picks the mode and model, writes the prompt, and generates — then hands you a clip you can drop straight onto the timeline.",
     bullets: ["Plain-language prompts", "Auto-selects the right model", "One-click generate", "Refine on the canvas"],
-    media: { tone: "violet", label: "AI assistant", play: false } as const,
+    media: { tone: "violet", label: "AI assistant", play: false, img: "1620712943543-bcc4688e7485" } as const,
     reverse: true,
   },
 ];
@@ -179,13 +179,13 @@ export const BLOG = [
 ];
 
 export const USE_CASES = [
-  { icon: "Megaphone", title: "Ads & promos", desc: "Spin up scroll-stopping product spots in an afternoon, not a week." },
-  { icon: "Music", title: "Music & lyric videos", desc: "Visualize a track with generated scenes cut to the beat." },
-  { icon: "GraduationCap", title: "Explainers", desc: "Script, storyboard, and animate a concept end-to-end." },
-  { icon: "Clapperboard", title: "Short films", desc: "Pre-viz or produce entire scenes from a single canvas." },
-  { icon: "Store", title: "Social content", desc: "Batch vertical clips for every platform from one project." },
-  { icon: "Music", title: "Podcast clipping", desc: "Every episode becomes a stack of captioned, scored shorts." },
-  { icon: "Newspaper", title: "News & recaps", desc: "Turn a headline into a narrated, illustrated segment." },
+  { icon: "Megaphone", title: "Ads & promos", desc: "Spin up scroll-stopping product spots in an afternoon, not a week.", img: "1533750349088-cd871a92f312" },
+  { icon: "Music", title: "Music & lyric videos", desc: "Visualize a track with generated scenes cut to the beat.", img: "1470225620780-dba8ba36b745" },
+  { icon: "GraduationCap", title: "Explainers", desc: "Script, storyboard, and animate a concept end-to-end.", img: "1509062522246-3755977927d7" },
+  { icon: "Clapperboard", title: "Short films", desc: "Pre-viz or produce entire scenes from a single canvas.", img: "1478720568477-152d9b164e26" },
+  { icon: "Store", title: "Social content", desc: "Batch vertical clips for every platform from one project.", img: "1611162617474-5b21e879e113" },
+  { icon: "Music", title: "Podcast clipping", desc: "Every episode becomes a stack of captioned, scored shorts.", img: "1590602847861-f357a9332bbc" },
+  { icon: "Newspaper", title: "News & recaps", desc: "Turn a headline into a narrated, illustrated segment.", img: "1504711434969-e33886168f5c" },
 ];
 
 export const TESTIMONIALS = [

@@ -4,7 +4,7 @@ import { COMPARE, FEATURE_ROWS, FEATURES, HERO, LOGOS, MODELS, STATS, STEPS, TES
 import { cn } from "@/lib/cn";
 import { FaqList } from "./faq";
 import { Icon } from "./icon";
-import { Poster, toneAt } from "./media";
+import { Poster, toneAt, unsplash } from "./media";
 import { Visual } from "./menu-visuals";
 import { PricingCards } from "./pricing-cards";
 import { ProductMock } from "./product-mock";
@@ -49,8 +49,8 @@ export function Hero() {
 
         <div className="mk-in relative mx-auto mt-16 max-w-5xl" style={{ animationDelay: "360ms" }}>
           {/* generated-clip thumbnails peeking from behind, gently floating (wide screens) */}
-          <Poster tone="violet" ratio="9 / 16" style={{ "--mk-r": "-8deg" } as React.CSSProperties} className="mk-float pointer-events-none absolute -left-20 top-4 hidden w-24 shadow-2xl 2xl:block" />
-          <Poster tone="rose" ratio="9 / 16" style={{ "--mk-r": "8deg", animationDelay: "1.2s" } as React.CSSProperties} className="mk-float pointer-events-none absolute -right-20 top-10 hidden w-24 shadow-2xl 2xl:block" />
+          <Poster src={unsplash("1470225620780-dba8ba36b745", 400)} ratio="9 / 16" style={{ "--mk-r": "-8deg" } as React.CSSProperties} className="mk-float pointer-events-none absolute -left-20 top-4 hidden w-24 shadow-2xl 2xl:block" />
+          <Poster src={unsplash("1492691527719-9d1e07e534b4", 400)} ratio="9 / 16" style={{ "--mk-r": "8deg", animationDelay: "1.2s" } as React.CSSProperties} className="mk-float pointer-events-none absolute -right-20 top-10 hidden w-24 shadow-2xl 2xl:block" />
           <ProductMock className="relative z-10 shadow-2xl shadow-black/40" />
         </div>
       </Container>
@@ -84,7 +84,7 @@ export function FeatureRows() {
                 </div>
               </div>
               <div className={row.reverse ? "lg:order-1" : undefined}>
-                {row.media === "mock" ? <ProductMock /> : <Poster tone={row.media.tone} label={row.media.label} play={row.media.play} ratio="16 / 10" />}
+                {row.media === "mock" ? <ProductMock /> : <Poster src={unsplash(row.media.img, 900)} label={row.media.label} play={row.media.play} ratio="16 / 10" />}
               </div>
             </div>
           ))}
@@ -214,16 +214,16 @@ export function HowItWorks() {
 }
 
 const GALLERY = [
-  { label: "Product ad", views: "873K" },
-  { label: "Music video", views: "934K" },
-  { label: "Explainer", views: "293K" },
-  { label: "Short film", views: "129K" },
-  { label: "Social clip", views: "243K" },
-  { label: "Fashion promo", views: "512K" },
-  { label: "Travel reel", views: "418K" },
-  { label: "Recap", views: "187K" },
-  { label: "Trailer", views: "356K" },
-  { label: "Tutorial", views: "204K" },
+  { label: "Product ad", views: "873K", img: "1523275335684-37898b6baf30" },
+  { label: "Music video", views: "934K", img: "1493225457124-a3eb161ffa5f" },
+  { label: "Explainer", views: "293K", img: "1531482615713-2afd69097998" },
+  { label: "Short film", views: "129K", img: "1485846234645-a62644f84728" },
+  { label: "Social clip", views: "243K", img: "1611262588024-d12430b98920" },
+  { label: "Fashion promo", views: "512K", img: "1483985988355-763728e1935b" },
+  { label: "Travel reel", views: "418K", img: "1476514525535-07fb3b4ae5f1" },
+  { label: "Recap", views: "187K", img: "1495020689067-958852a7765e" },
+  { label: "Trailer", views: "356K", img: "1489599849927-2ee91cede3ba" },
+  { label: "Tutorial", views: "204K", img: "1501504905252-473c47e087f8" },
 ];
 
 export function Gallery() {
@@ -241,6 +241,7 @@ export function Gallery() {
             <Poster
               key={g.label}
               tone={toneAt(i)}
+              src={unsplash(g.img, 600)}
               ratio="3 / 4"
               play
               label={g.label}
@@ -282,7 +283,7 @@ export function UseCases() {
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {USE_CASES.map((u, i) => (
             <div key={u.title} className="group overflow-hidden rounded-2xl border border-mk-border bg-mk-surface transition-colors hover:border-mk-borders">
-              <Poster tone={toneAt(i)} ratio="16 / 9" play className="rounded-none border-0 border-b border-mk-border" />
+              <Poster src={unsplash(u.img, 800)} ratio="16 / 9" play className="rounded-none border-0 border-b border-mk-border" />
               <div className="flex items-start gap-3 p-5">
                 <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-mk-accent/10 text-mk-accent">
                   <Icon name={u.icon} className="size-4" />
@@ -398,9 +399,9 @@ export function CTA() {
 // ── AI Clips showcase: the repurposing pipeline, illustrated ──
 export function ClipsShowcase() {
   const cards = [
-    { tone: "violet", score: 92, caption: ["the", "wild", "part", "is…"], r: "-7deg", lift: "" },
-    { tone: "teal", score: 88, caption: ["nobody", "talks", "about"], r: "0deg", lift: "-translate-y-4" },
-    { tone: "amber", score: 81, caption: ["here's", "the", "secret"], r: "7deg", lift: "" },
+    { img: "1571019613454-1cb2f99b2d8b", score: 92, caption: ["the", "wild", "part", "is…"], r: "-7deg", lift: "" },
+    { img: "1504674900247-0877df9cc836", score: 88, caption: ["nobody", "talks", "about"], r: "0deg", lift: "-translate-y-4" },
+    { img: "1611162617213-7d7a39e9b1d7", score: 81, caption: ["here's", "the", "secret"], r: "7deg", lift: "" },
   ];
   return (
     <Section id="clips" className="border-y border-mk-border bg-mk-surface/40">
@@ -415,7 +416,7 @@ export function ClipsShowcase() {
             {/* source */}
             <div className="mx-auto w-full max-w-[340px]">
               <div className="relative overflow-hidden rounded-2xl border border-mk-border shadow-2xl" style={{ aspectRatio: "16 / 9" }}>
-                <Poster tone="slate" ratio="16 / 9" className="absolute inset-0 w-full" />
+                <Poster src={unsplash("1478737270239-2f02b77fc618", 700)} ratio="16 / 9" className="absolute inset-0 w-full" />
                 <div className="absolute inset-0 grid place-items-center">
                   <span className="grid size-12 place-items-center rounded-full bg-white/10 backdrop-blur">
                     <Play className="ml-0.5 size-5 fill-white text-white" />
@@ -442,7 +443,7 @@ export function ClipsShowcase() {
                   className={cn("mk-float relative h-56 w-32 overflow-hidden rounded-2xl border border-mk-border shadow-2xl", c.lift)}
                   style={{ "--mk-r": c.r, animationDelay: `${i * 0.6}s` } as React.CSSProperties}
                 >
-                  <Poster tone={c.tone} ratio="9 / 16" className="absolute inset-0 w-full" />
+                  <Poster src={unsplash(c.img, 400)} ratio="9 / 16" className="absolute inset-0 w-full" />
                   <span className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold text-white">
                     🔥 {c.score}
                   </span>
