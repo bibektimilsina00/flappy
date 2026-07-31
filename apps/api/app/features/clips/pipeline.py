@@ -34,7 +34,7 @@ DURATION_BANDS = {
     "short": (15, 30),
     "medium": (30, 60),
     "long": (60, 90),
-    "auto": (10, 90),
+    "auto": (10, 180),
     # multi-select bands (reference-style length filter)
     "lt30": (10, 30),
     "30-60": (30, 60),
@@ -344,9 +344,11 @@ def _select(job: ClipsJob, transcript: list[dict], duration: float) -> list[dict
         # Default product promise: ready-to-post TikTok/Reels length, AI-decided.
         length_rule = (
             "Choose each clip's length by topic completeness — the moment it stops "
-            "being gripping, cut. Target the short-form sweet spot of 20-45 seconds "
-            "(perfect for TikTok/Reels/Shorts); never shorter than 10s or longer "
-            "than 90s, and never pad a clip to make it longer. "
+            "being gripping, cut. Punchy moments work best at 20-45 seconds; let a "
+            "complete story, explanation, or exchange run 60-120 seconds when it "
+            "stays gripping the whole way — never cut a payoff to hit a length. "
+            "Hard limits: never shorter than 10s, never longer than 180s, and "
+            "never pad a clip to make it longer. "
         )
     else:
         length_rule = f"Each segment must be {band[0]}-{band[1]} seconds long. "
