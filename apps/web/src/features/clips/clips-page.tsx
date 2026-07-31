@@ -435,6 +435,18 @@ export function ClipsPage() {
                   <Upload className="size-3.5" /> Upload the file
                 </button>
               </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Tip: you can download the video with{" "}
+                <a
+                  href="https://app.ytdown.to/en38/"
+                  target="_blank"
+                  rel="nofollow noopener noreferrer"
+                  className="underline underline-offset-2 hover:text-foreground"
+                >
+                  ytdown.to
+                </a>{" "}
+                (third-party site — watch out for its ads), then drop the file here.
+              </p>
             </div>
             <button
               type="button"
