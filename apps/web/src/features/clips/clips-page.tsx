@@ -46,6 +46,7 @@ import {
 
 const DEFAULTS: ClipsParams = {
   quality: "1080p",
+  layout: "fit",
   count: "auto",
   duration: "auto",
   ratio: "9:16",
@@ -732,7 +733,14 @@ function ConfigPanel({
       ) : null}
 
       {/* format fields — standalone row above the group */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <FieldSelect
+            label="Layout"
+            value={params.layout ?? "fit"}
+            options={["fit", "fill"]}
+            display={(v) => (v === "fit" ? "Fit (no crop)" : "Fill (crop)")}
+            onChange={(v) => setParams((p) => ({ ...p, layout: v as ClipsParams["layout"] }))}
+          />
         <FieldSelect
             label="Quality"
             value={params.quality ?? "1080p"}
@@ -775,6 +783,8 @@ function ConfigPanel({
           style={params.caption_style}
           custom={params.caption_custom ?? null}
           headline={params.headline?.enabled ? params.headline : null}
+          ratio={params.ratio}
+          layout={params.layout ?? "fit"}
           onChange={(patch) => setParams((p) => ({ ...p, ...patch }))}
         />
 

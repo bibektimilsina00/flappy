@@ -196,6 +196,7 @@ def build_ass(
     edits: list[dict] | None = None,
     headline_text: str | None = None,
     headline_cfg: dict | None = None,
+    band: float | None = None,
 ) -> str | None:
     """ASS subtitle document for one clip; None when there's nothing to show.
     `style` is a preset name or a custom template dict. A custom dict with
@@ -216,8 +217,14 @@ def build_ass(
 
     fontsize = round(height * p["size"] / 400)  # style sizes are per 400px of height
     align_base = {"left": 1, "center": 2, "right": 3}.get(p.get("align", "center"), 2)
-    alignment = align_base + 3 if p.get("middle") else align_base  # middle row vs bottom row
-    margin_v = 0 if p.get("middle") else round(height * 0.16)
+    if band:
+        # Fit layout: the video is letterboxed, `band` = top/bottom bar height
+        # as a fraction. Captions sit in the bottom bar just under the video.
+        alignment = align_base
+        margin_v = max(round(height * 0.03), round(height * band - fontsize * 3.4))
+    else:
+        alignment = align_base + 3 if p.get("middle") else align_base  # middle vs bottom row
+        margin_v = 0 if p.get("middle") else round(height * 0.16)
 
     header = (
         "[Script Info]\nScriptType: v4.00+\n"
@@ -232,20 +239,23 @@ def build_ass(
     )
     if show_headline:
         head_size = round(height * 15 / 400)
+        # Fit layout centres the title in the top bar; overlay mode keeps it
+        # near the top edge of the video.
+        head_margin = round(height * band * 0.35) if band else round(height * 0.06)
         head_fg = hex_to_ass(str(headline.get("color") or "#000000"))
         bg_raw = headline.get("bg") or "#FFFFFF"
         if bg_raw == "none":
             # outlined text, no box (e.g. yellow headline variant)
             header += (
                 f"Style: Head,{FONT_NAME},{head_size},{head_fg},{head_fg},&H00000000,&H00000000,"
-                f"-1,0,0,0,100,100,0,0,1,3,0,8,60,60,{round(height * 0.06)},1\n"
+                f"-1,0,0,0,100,100,0,0,1,3,0,8,60,60,{head_margin},1\n"
             )
         else:
             head_bg = hex_to_ass(str(bg_raw))
             # BorderStyle 4 = opaque box behind the line; alignment 8 = top-center.
             header += (
                 f"Style: Head,{FONT_NAME},{head_size},{head_fg},{head_fg},{head_bg},{head_bg},"
-                f"-1,0,0,0,100,100,0,0,4,3,0,8,60,60,{round(height * 0.06)},1\n"
+                f"-1,0,0,0,100,100,0,0,4,3,0,8,60,60,{head_margin},1\n"
             )
     header += "\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
 

@@ -119,10 +119,22 @@ def run_pipeline(session: Session, job: ClipsJob, charge) -> None:
         _set(session, job, transcript=transcript, phase="render", progress=0.0)
 
         watermark = is_free_plan(session, job.workspace_id)
+        # Fit layout letterboxes the source — captions/title get positioned in
+        # the bars, so remember the band on every clip.
+        params = job.params or {}
+        band = fit_band(params, _probe_dims(source)) if _layout(params) == "fit" else None
         clips = []
         for i, seg in enumerate(segments):
             key = _render_clip(job, source, seg, i, workdir, storage, watermark)
-            clips.append({**seg, "id": uuid.uuid4().hex, "key": key, "clean": True})
+            clips.append(
+                {
+                    **seg,
+                    "id": uuid.uuid4().hex,
+                    "key": key,
+                    "clean": True,
+                    **({"band": band} if band else {}),
+                }
+            )
             _set(session, job, progress=(i + 1) / len(segments), clips=clips)
         charge(settings.clips_credits_per_clip * len(clips), "clips-render")
 
@@ -140,6 +152,33 @@ def _storage():
     from apps.api.app.storage.factory import get_storage
 
     return get_storage()
+
+
+def _probe_dims(path: str) -> tuple[int, int] | None:
+    """Source WxH from ffmpeg's banner — drives fit-layout caption bands."""
+    proc = subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-i", path], capture_output=True)
+    m = re.search(rb"Stream .*Video.* (\d{2,5})x(\d{2,5})", proc.stderr)
+    return (int(m.group(1)), int(m.group(2))) if m else None
+
+
+def fit_band(params: dict, src_dims: tuple[int, int] | None) -> float | None:
+    """Top-bar height as a fraction of output height when the source is
+    letterboxed (fit layout); None when the video fills the frame."""
+    if src_dims is None:
+        return None
+    w, h = RATIO_SIZES.get(params.get("ratio") or "9:16", RATIO_SIZES["9:16"])
+    sw, sh = src_dims
+    if not sw or not sh:
+        return None
+    video_h = w * sh / sw  # width-fit height
+    if video_h >= h - 8:
+        return None
+    return round((h - video_h) / 2 / h, 4)
+
+
+def _layout(params: dict) -> str:
+    custom = (params.get("caption_custom") or {}) if params.get("caption_style") == "custom" else {}
+    return params.get("layout") or custom.get("layout") or "auto"
 
 
 def _probe_duration(path: str) -> float | None:
@@ -561,18 +600,16 @@ def render_clip_file(
     out = os.path.join(workdir, "render.mp4")
     exe = imageio_ffmpeg.get_ffmpeg_exe()
 
-    # Layout: auto = cover-crop following the face; fill = center cover-crop;
-    # fit = letterbox onto the template's background colour.
+    # Layout: fit = letterbox at the source's ratio (TikTok repost style);
+    # fill/auto = cover-crop, with auto following the face.
     custom = (params.get("caption_custom") or {}) if params.get("caption_style") == "custom" else {}
-    layout = custom.get("layout") or "auto"
+    layout = _layout(params)
     if layout == "fit":
         bgc = str(custom.get("bg") or "#000000").lstrip("#")[:6] or "000000"
         vf = f"scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=0x{bgc},fps=30"
-        if watermark:
-            vf += watermark_filter()
     else:
         x_expr = "(in_w-out_w)/2"
-        if layout == "auto" and params.get("framing", True):
+        if layout in ("auto", "fill") and params.get("framing", True):
             from apps.api.app.features.clips.framing import face_center_fraction
 
             center = face_center_fraction(source, seg["start"], seg["end"])
@@ -644,6 +681,7 @@ def burn_clip_captions(job: ClipsJob, clip: dict, style: str, storage) -> str | 
         clip.get("caption_edits"),
         headline_text=headline_text,
         headline_cfg=headline_cfg,
+        band=clip.get("band"),
     )
     logo_b64 = None
     if isinstance(style_def, dict):

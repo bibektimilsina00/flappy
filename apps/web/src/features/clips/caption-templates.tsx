@@ -166,17 +166,31 @@ export function CaptionSample({
 
 // ── the tabbed picker (Featured | My templates) ──────────────────────────────
 
+// Real footage stand-in so previews look like actual clips (mirrors the
+// marketing site's stock imagery).
+const PREVIEW_IMG =
+  "https://images.unsplash.com/photo-1478737270239-2f02b77fc618?auto=format&fit=crop&w=600&q=80";
+const RATIO_DIMS: Record<string, [number, number]> = {
+  "9:16": [148, 250],
+  "1:1": [210, 210],
+  "16:9": [300, 169],
+};
+
 export function CaptionStylePicker({
   captions,
   style,
   custom,
   headline,
+  ratio = "9:16",
+  layout = "fit",
   onChange,
 }: {
   captions: boolean;
   style: string;
   custom: CustomCaptionStyle | null;
   headline?: { bg: string; color: string; text?: string } | null;
+  ratio?: string;
+  layout?: string;
   onChange: (patch: { captions: boolean; caption_style?: string; caption_custom?: CustomCaptionStyle | null }) => void;
 }) {
   const [tab, setTab] = useState<"featured" | "mine">("featured");
@@ -218,6 +232,13 @@ export function CaptionStylePicker({
     persistTemplates(list);
   };
 
+  // Card mirrors the render: chosen ratio shapes the card; fit letterboxes
+  // the footage with title/captions in the bars, fill covers the frame.
+  const [cw, ch] = RATIO_DIMS[ratio] ?? RATIO_DIMS["9:16"];
+  const videoFrac = Math.min(1, (cw * 9) / 16 / ch);
+  const fitMode = layout !== "fill" && videoFrac < 0.96;
+  const topBar = (1 - videoFrac) / 2;
+
   const card = (
     key: string,
     name: string,
@@ -231,12 +252,29 @@ export function CaptionStylePicker({
       key={key}
       type="button"
       onClick={onClick}
+      style={{ width: cw, height: ch }}
       className={cn(
-        "group relative h-[250px] w-[148px] shrink-0 snap-start overflow-hidden rounded-2xl border-2 text-left transition-all",
+        "group relative shrink-0 snap-start overflow-hidden rounded-2xl border-2 text-left transition-all",
         active ? "border-teal-400 shadow-[0_0_20px_-6px_rgba(45,212,191,0.5)]" : "border-white/10 hover:border-white/30",
       )}
     >
       <div className={cn("absolute inset-0 bg-gradient-to-br", bg)} />
+      {fitMode ? (
+        // biome-ignore lint/a11y/useAltText: decorative preview footage
+        // biome-ignore lint/nursery/noImgElement: static preview image
+        <img
+          src={PREVIEW_IMG}
+          className="absolute left-0 w-full object-cover"
+          style={{ top: `${topBar * 100}%`, height: `${videoFrac * 100}%` }}
+        />
+      ) : (
+        <>
+          {/* biome-ignore lint/a11y/useAltText: decorative preview footage */}
+          {/* biome-ignore lint/nursery/noImgElement: static preview image */}
+          <img src={PREVIEW_IMG} className="absolute inset-0 size-full object-cover" />
+          <div className={cn("absolute inset-0 bg-gradient-to-br opacity-60", bg)} />
+        </>
+      )}
       {active ? (
         <span className="absolute left-2 top-2 z-10 grid size-6 place-items-center rounded-full bg-teal-400 text-black">
           <Check className="size-3.5" />
@@ -245,16 +283,26 @@ export function CaptionStylePicker({
       {headline ? (
         <span
           className={cn(
-            "absolute inset-x-2 top-2.5 z-[5] mx-auto w-fit max-w-full truncate rounded px-1.5 py-0.5 text-center text-[8px] font-extrabold uppercase",
+            "absolute inset-x-2 z-[5] mx-auto w-fit max-w-full truncate rounded px-1.5 py-0.5 text-center text-[8px] font-extrabold uppercase",
             headline.bg === "none" && "[text-shadow:0_1px_2px_rgba(0,0,0,0.9)]",
           )}
-          style={{ background: headline.bg === "none" ? "transparent" : headline.bg, color: headline.color }}
+          style={{
+            top: fitMode ? `${topBar * 35}%` : 10,
+            background: headline.bg === "none" ? "transparent" : headline.bg,
+            color: headline.color,
+          }}
         >
           {headline.text?.trim() || "Your clip title"}
         </span>
       ) : null}
       {css ? (
-        <span className={cn("absolute inset-x-2 flex justify-center", css.middle ? "top-1/2 -translate-y-1/2" : "bottom-14")}>
+        <span
+          className={cn(
+            "absolute inset-x-2 flex justify-center",
+            !fitMode && (css.middle ? "top-1/2 -translate-y-1/2" : "bottom-14"),
+          )}
+          style={fitMode ? { top: `${(0.5 + videoFrac / 2) * 100 + 2}%` } : undefined}
+        >
           <CaptionSample css={css} />
         </span>
       ) : (
