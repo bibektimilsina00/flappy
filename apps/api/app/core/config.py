@@ -37,6 +37,13 @@ class Settings(BaseSettings):
     # Spend guardrail (real provider USD). 0 disables the daily cap.
     daily_spend_cap_usd: float = 0.0
 
+    # Dodo Payments (merchant of record). Empty = payments disabled.
+    dodo_api_key: str = ""
+    dodo_webhook_key: str = ""
+    dodo_environment: str = "test_mode"  # test_mode | live_mode
+    dodo_product_pro: str = ""  # Pro subscription product id
+    pro_monthly_credits: float = 2000.0  # granted on activation + each renewal
+
     # Assistant model (empty -> openrouter/free, which works on the free tier).
     assistant_model: str = ""
 

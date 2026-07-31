@@ -19,6 +19,16 @@ def get_or_create(session: Session, workspace_id: uuid.UUID) -> Credit:
     return credit
 
 
+def add_credits(session: Session, workspace_id: uuid.UUID, amount: float) -> None:
+    get_or_create(session, workspace_id)
+    session.exec(
+        update(Credit)
+        .where(Credit.workspace_id == workspace_id)
+        .values(balance=Credit.balance + amount)
+    )
+    session.commit()
+
+
 def balance(session: Session, workspace_id: uuid.UUID) -> float:
     credit = session.exec(select(Credit).where(Credit.workspace_id == workspace_id)).first()
     return credit.balance if credit else 0.0
