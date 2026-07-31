@@ -8,7 +8,7 @@ import { useSession } from "@/stores/session";
 
 const PRO_PERKS = [
   "2,500 credits every month",
-  "Paste video links directly",
+  "YouTube link import",
   "AI video generation",
   "2-hour sources · 1080p · no watermark",
 ];

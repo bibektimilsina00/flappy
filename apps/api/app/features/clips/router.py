@@ -93,8 +93,10 @@ class ProbeRequest(BaseModel):
     source_url: str
 
 
+YOUTUBE_RE = re.compile(r"(youtube\.com|youtu\.be)", re.IGNORECASE)
 PRO_LINK_MSG = (
-    "Importing by link is a Pro feature — upload the video file instead (free), or upgrade to Pro."
+    "YouTube link import is a Pro feature — upload the video file instead (free), "
+    "or upgrade to Pro. Links from other platforms work on the free plan."
 )
 
 
@@ -111,13 +113,15 @@ def probe_source(
         raise HTTPException(status_code=422, detail="That doesn't look like a valid link.")
     from apps.api.app.features.clips.pipeline import friendly_link_error, is_free_plan, ydl_extract
 
-    # Link ingestion rides paid proxy bandwidth — Pro only.
-    if is_free_plan(session, workspace_id):
+    url = body.source_url.strip()
+    # YouTube rides paid proxy bandwidth — Pro only. Other platforms extract
+    # direct (no proxy), so free users keep them.
+    free = is_free_plan(session, workspace_id)
+    if free and YOUTUBE_RE.search(url):
         raise HTTPException(status_code=402, detail=PRO_LINK_MSG)
 
-    url = body.source_url.strip()
     try:
-        info = ydl_extract(url, download=False)
+        info = ydl_extract(url, download=False, allow_proxy=not free)
     except Exception as exc:
         friendly = friendly_link_error(exc)
         if "upload the file" in friendly:
@@ -168,7 +172,7 @@ def create_job(
     from apps.api.app.features.clips.pipeline import estimate_credits, is_free_plan
 
     free = is_free_plan(session, workspace_id)
-    if free and body.source_url:
+    if free and body.source_url and YOUTUBE_RE.search(body.source_url):
         raise HTTPException(status_code=402, detail=PRO_LINK_MSG)
     if free and body.source_duration and body.source_duration > 30 * 60:
         raise HTTPException(

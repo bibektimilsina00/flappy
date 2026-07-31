@@ -231,9 +231,12 @@ def ydl_base_opts() -> dict:
     return opts
 
 
-def ydl_extract(url: str, download: bool, extra_opts: dict | None = None) -> dict:
+def ydl_extract(
+    url: str, download: bool, extra_opts: dict | None = None, allow_proxy: bool = True
+) -> dict:
     """Try direct first (free bandwidth); retry through the residential proxy
-    only when the direct attempt fails — paid GB is spent purely on rescues."""
+    only when the direct attempt fails — paid GB is spent purely on rescues.
+    allow_proxy=False (free plan) never touches the proxy."""
     import yt_dlp
 
     opts = {**ydl_base_opts(), **(extra_opts or {})}
@@ -242,7 +245,7 @@ def ydl_extract(url: str, download: bool, extra_opts: dict | None = None) -> dic
         with yt_dlp.YoutubeDL(opts) as ydl:
             return ydl.extract_info(url, download=download)
     except Exception:
-        if not proxy:
+        if not proxy or not allow_proxy:
             raise
         log.info("yt-dlp direct failed for %s; retrying via proxy", url)
         with yt_dlp.YoutubeDL({**opts, "proxy": proxy}) as ydl:
@@ -281,10 +284,10 @@ def _ingest(session: Session, job: ClipsJob, storage, workdir: str) -> str:
         return path
 
     path = os.path.join(workdir, "source.mp4")
-    # Free plan is hard-capped at 720p (half the proxy bandwidth) regardless of
-    # what the client sent; paid gets the quality they picked (default 1080p).
+    # Free plan: hard 720p cap and no proxy rescue — paid bandwidth is Pro's.
+    free = is_free_plan(session, job.workspace_id)
     requested = 720 if (job.params or {}).get("quality") == "720p" else 1080
-    cap = 720 if is_free_plan(session, job.workspace_id) else requested
+    cap = 720 if free else requested
     extra = {
         "outtmpl": path,
         "format": f"bv*[height<={cap}]+ba/b[height<={cap}]/b",
@@ -294,7 +297,7 @@ def _ingest(session: Session, job: ClipsJob, storage, workdir: str) -> str:
         "ffmpeg_location": imageio_ffmpeg.get_ffmpeg_exe(),
     }
     try:
-        info = ydl_extract(job.source_url, download=True, extra_opts=extra)
+        info = ydl_extract(job.source_url, download=True, extra_opts=extra, allow_proxy=not free)
     except Exception as exc:
         raise ValueError(friendly_link_error(exc)) from exc
     title = (info or {}).get("title")

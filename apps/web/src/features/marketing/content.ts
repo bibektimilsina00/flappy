@@ -206,7 +206,7 @@ export const PRICING = [
     blurb: "Everything you need to try the full pipeline.",
     cta: "Start free",
     highlight: false,
-    features: ["100 free credits every month", "AI Clips from uploaded videos", "Sources up to 30 minutes", "Canvas + timeline editor (free models)", "720p exports with watermark", "Community support"],
+    features: ["100 free credits every month", "AI Clips from uploads & links (TikTok, Vimeo & more)", "Sources up to 30 minutes", "Canvas + timeline editor (free models)", "720p exports with watermark", "Community support"],
   },
   {
     name: "Pro",
@@ -215,7 +215,7 @@ export const PRICING = [
     blurb: "For creators shipping video every week.",
     cta: "Go Pro",
     highlight: true,
-    features: ["Everything in Free", "2,500 credits every month", "Paste any video link — YouTube & more", "AI video generation + premium models", "Sources up to 2 hours", "1080p HD, no watermark", "Auto-schedule & direct publishing", "Email support"],
+    features: ["Everything in Free", "2,500 credits every month", "YouTube link import", "AI video generation + premium models", "Sources up to 2 hours", "1080p HD, no watermark", "Auto-schedule & direct publishing", "Email support"],
   },
   {
     name: "Studio",
