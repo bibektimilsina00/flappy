@@ -95,8 +95,8 @@ class ProbeRequest(BaseModel):
 
 YOUTUBE_RE = re.compile(r"(youtube\.com|youtu\.be)", re.IGNORECASE)
 PRO_LINK_MSG = (
-    "YouTube link import is a Pro feature — upload the video file instead (free), "
-    "or upgrade to Pro. Links from other platforms work on the free plan."
+    "YouTube link import needs a paid plan — upload the video file instead (free), "
+    "or upgrade from $12/mo. Links from other platforms work on the free plan."
 )
 
 
