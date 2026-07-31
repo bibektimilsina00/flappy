@@ -5,7 +5,7 @@ import { Button } from "./ui";
 
 export function PricingCards() {
   return (
-    <div className="grid gap-5 lg:grid-cols-3">
+    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-5">
       {PRICING.map((tier) => (
         <div
           key={tier.name}

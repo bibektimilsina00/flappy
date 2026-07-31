@@ -27,20 +27,36 @@ log = logging.getLogger(__name__)
 _BASE = {"test_mode": "https://test.dodopayments.com", "live_mode": "https://live.dodopayments.com"}
 
 
+def _products() -> dict[str, str]:
+    """tier -> Dodo product id (only tiers that are configured)."""
+    return {
+        tier: pid
+        for tier, pid in {
+            "plus": settings.dodo_product_plus,
+            "pro": settings.dodo_product_pro,
+            "ultra": settings.dodo_product_ultra,
+        }.items()
+        if pid
+    }
+
+
 def enabled() -> bool:
-    return bool(settings.dodo_api_key and settings.dodo_product_pro)
+    return bool(settings.dodo_api_key and _products())
 
 
-def create_pro_checkout(user: User, workspace_id: uuid.UUID) -> str:
-    """Create a hosted checkout session for the Pro subscription; returns its URL."""
+def create_checkout(user: User, workspace_id: uuid.UUID, tier: str) -> str:
+    """Hosted checkout session for a paid tier; returns its URL."""
+    product_id = _products().get(tier)
+    if not product_id:
+        raise ValueError(f"tier {tier} not configured")
     base = _BASE.get(settings.dodo_environment, _BASE["test_mode"])
     r = httpx.post(
         f"{base}/checkouts",
         headers={"Authorization": f"Bearer {settings.dodo_api_key}"},
         json={
-            "product_cart": [{"product_id": settings.dodo_product_pro, "quantity": 1}],
+            "product_cart": [{"product_id": product_id, "quantity": 1}],
             "customer": {"email": user.email, "name": user.name or user.email},
-            "metadata": {"workspace_id": str(workspace_id)},
+            "metadata": {"workspace_id": str(workspace_id), "tier": tier},
             "return_url": f"{settings.frontend_url}/settings?checkout=done",
         },
         timeout=20,
@@ -113,13 +129,19 @@ def handle_event(session: Session, event: dict, webhook_id: str) -> None:
     if ws is None:
         return
     if etype in ("subscription.active", "subscription.renewed"):
-        ws.plan = "pro"
+        from apps.api.app.features.billing.plans import monthly_credits
+
+        # Tier from our checkout metadata; fall back to matching the product id.
+        tier = (data.get("metadata") or {}).get("tier")
+        if tier not in _products():
+            pid = data.get("product_id") or ""
+            tier = next((t for t, p in _products().items() if p == pid), "pro")
+        ws.plan = tier
         session.add(ws)
-        repository.add_credits(session, ws_id, settings.pro_monthly_credits)
+        grant = monthly_credits(tier)
+        repository.add_credits(session, ws_id, grant)
         session.commit()
-        log.info(
-            "workspace %s -> pro (%s), +%s credits", ws_id, etype, settings.pro_monthly_credits
-        )
+        log.info("workspace %s -> %s (%s), +%s credits", ws_id, tier, etype, grant)
     elif etype in (
         "subscription.on_hold",
         "subscription.failed",

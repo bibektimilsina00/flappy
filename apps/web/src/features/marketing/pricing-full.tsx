@@ -24,7 +24,7 @@ export function MarketingPricing() {
         <BillingToggle yearly={yearly} onChange={setYearly} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {PLANS.map((plan) => (
           <PlanCard key={plan.id} plan={plan} yearly={yearly} studioSize={studioSize} onStudioSize={setStudioSize} />
         ))}

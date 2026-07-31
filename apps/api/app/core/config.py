@@ -41,8 +41,10 @@ class Settings(BaseSettings):
     dodo_api_key: str = ""
     dodo_webhook_key: str = ""
     dodo_environment: str = "test_mode"  # test_mode | live_mode
-    dodo_product_pro: str = ""  # Pro subscription product id
-    pro_monthly_credits: float = 2500.0  # granted on activation + each renewal
+    # Subscription product ids from the Dodo dashboard, one per paid tier.
+    dodo_product_plus: str = ""
+    dodo_product_pro: str = ""
+    dodo_product_ultra: str = ""
     free_monthly_credits: float = 100.0  # free plan tops up to this monthly
 
     # Assistant model (empty -> openrouter/free, which works on the free tier).

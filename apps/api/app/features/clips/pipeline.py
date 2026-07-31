@@ -81,11 +81,15 @@ def watermark_filter() -> str:
     )
 
 
-def is_free_plan(session: Session, workspace_id) -> bool:
+def workspace_plan(session: Session, workspace_id) -> str:
     from apps.api.app.features.workspaces import repository as workspaces_repo
 
     ws = workspaces_repo.get(session, workspace_id)
-    return (ws.plan if ws else "free") == "free"
+    return ws.plan if ws else "free"
+
+
+def is_free_plan(session: Session, workspace_id) -> bool:
+    return workspace_plan(session, workspace_id) == "free"
 
 
 _whisper_model = None  # loaded once per worker process
@@ -105,8 +109,10 @@ def run_pipeline(session: Session, job: ClipsJob, charge) -> None:
     """Execute all phases; raises on failure (caller records the error).
     `charge(credits, label)` books usage through the billing ledger."""
     storage = _storage()
-    # Free plan: shorter sources (transcription CPU is the scarce resource).
-    limit_min = 30 if is_free_plan(session, job.workspace_id) else MAX_SOURCE_MINUTES
+    # Lower tiers get shorter sources (transcription CPU is the scarce resource).
+    from apps.api.app.features.billing.plans import source_limit_min
+
+    limit_min = source_limit_min(workspace_plan(session, job.workspace_id))
     with tempfile.TemporaryDirectory() as workdir:
         _set(session, job, status="running", phase="ingest", progress=0.0)
         source = _ingest(session, job, storage, workdir)

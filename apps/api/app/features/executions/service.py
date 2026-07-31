@@ -57,21 +57,26 @@ def create_execution(
     if workflow is None:
         raise HTTPException(status_code=404, detail="Workflow not found")
 
-    # Guardrail 0: paid-plan features. Video generation is the expensive kind
-    # (real provider dollars per run) — Pro only; premium models likewise.
+    # Guardrail 0: paid-plan features. Video generation (real provider dollars
+    # per run) needs any paid tier; premium models need Pro or Ultra.
+    from apps.api.app.features.billing.plans import PREMIUM_MODEL_TIERS
+
     workspace = workspaces_repo.get(session, workspace_id)
-    if workspace is None or workspace.plan == "free":
+    plan = workspace.plan if workspace else "free"
+    if plan == "free":
         for node in _run_nodes(workflow.graph, node_id):
             if node.get("type") in ("video", "world"):
                 raise HTTPException(
                     status_code=402,
-                    detail="Video generation is a Pro feature — upgrade to generate video.",
+                    detail="Video generation needs a paid plan — upgrade to generate video.",
                 )
+    if plan not in PREMIUM_MODEL_TIERS:
+        for node in _run_nodes(workflow.graph, node_id):
             model = resolve_model(node.get("type"), (node.get("data") or {}).get("model"))
             if model is not None and not is_free(model):
                 raise HTTPException(
                     status_code=402,
-                    detail=f"{model.name} is a premium model — upgrade your plan to use it.",
+                    detail=f"{model.name} is a premium model — Pro and Ultra plans only.",
                 )
 
     # Guardrail 1: never start a run the workspace can't pay for (credits).

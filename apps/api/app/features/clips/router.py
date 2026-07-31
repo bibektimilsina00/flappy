@@ -169,15 +169,17 @@ def create_job(
     if body.source_url and not URL_RE.match(body.source_url.strip()):
         raise HTTPException(status_code=422, detail="That doesn't look like a valid link.")
 
-    from apps.api.app.features.clips.pipeline import estimate_credits, is_free_plan
+    from apps.api.app.features.billing.plans import source_limit_min
+    from apps.api.app.features.clips.pipeline import estimate_credits, workspace_plan
 
-    free = is_free_plan(session, workspace_id)
-    if free and body.source_url and YOUTUBE_RE.search(body.source_url):
+    plan = workspace_plan(session, workspace_id)
+    if plan == "free" and body.source_url and YOUTUBE_RE.search(body.source_url):
         raise HTTPException(status_code=402, detail=PRO_LINK_MSG)
-    if free and body.source_duration and body.source_duration > 30 * 60:
+    limit = source_limit_min(plan)
+    if body.source_duration and body.source_duration > limit * 60:
         raise HTTPException(
             status_code=402,
-            detail="Free plan sources are capped at 30 minutes — upgrade to Pro for up to 2 hours.",
+            detail=f"Your plan's sources are capped at {limit} minutes — upgrade for longer videos.",
         )
 
     params = body.params or {}
