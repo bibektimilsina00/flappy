@@ -407,7 +407,7 @@ export function ClipsPage() {
 
         {/* blocked link — card steering to upload/upgrade */}
         {blocked ? (
-          <div className="mt-4 flex items-center gap-4 rounded-2xl border border-amber-400/25 bg-amber-400/[0.04] p-4">
+          <div className="mt-4 flex items-start gap-4 rounded-2xl border border-amber-400/25 bg-amber-400/[0.04] p-4">
             {blocked.thumbnail ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
