@@ -229,6 +229,7 @@ export function ClipsPage() {
         ...source,
         workflow_id: projectId ?? undefined,
         source_title: title.trim() || undefined,
+        source_duration: meta?.duration ?? undefined,
         params,
       });
       if (projectId) localStorage.removeItem(`riocut-clips-draft-${projectId}`);
@@ -240,7 +241,7 @@ export function ClipsPage() {
       setError(e instanceof Error ? e.message : "Could not start the job");
       setBusy(null);
     }
-  }, [source, title, params, projectId, router, qc]);
+  }, [source, title, params, meta, projectId, router, qc]);
 
   const onFile = useCallback(async (file: File | undefined) => {
     if (!file) return;
@@ -677,10 +678,10 @@ function ConfigPanel({
   const { data: balance } = useBalance();
 
   useEffect(() => {
-    estimateClipsCost(params.count)
+    estimateClipsCost(params.count, meta?.duration)
       .then(({ credits }) => setCost(credits))
       .catch(() => setCost(null));
-  }, [params.count]);
+  }, [params.count, meta?.duration]);
   const insufficient = cost !== null && balance !== undefined && balance.balance < cost;
   const isFree = (balance?.plan ?? "free") === "free";
   // Free plan can't hold a paid-only quality (e.g. restored draft or default).

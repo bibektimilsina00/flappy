@@ -144,14 +144,18 @@ export function createClipsJob(body: {
   source_url?: string;
   source_key?: string;
   source_title?: string;
+  source_duration?: number;
   workflow_id?: string;
   params: ClipsParams;
 }): Promise<ClipsJob> {
   return api("/clips/jobs", { method: "POST", body: JSON.stringify(body) });
 }
 
-export function estimateClipsCost(count: number | "auto"): Promise<{ credits: number }> {
-  return api(`/clips/estimate?count=${count}`);
+export function estimateClipsCost(
+  count: number | "auto",
+  duration?: number | null,
+): Promise<{ credits: number }> {
+  return api(`/clips/estimate?count=${count}${duration ? `&duration=${duration}` : ""}`);
 }
 
 export function listClipsJobs(): Promise<ClipsJob[]> {

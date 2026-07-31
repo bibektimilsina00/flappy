@@ -14,4 +14,6 @@ celery_app.conf.task_track_started = True
 celery_app.conf.beat_schedule = {
     "cleanup-stuck": {"task": "cleanup_stuck", "schedule": 600.0},
     "promote-due-posts": {"task": "promote_due_posts", "schedule": 300.0},
+    # Daily sweep; each free workspace gets topped up once per 30 days.
+    "refill-free-credits": {"task": "refill_free_credits", "schedule": 86400.0},
 }

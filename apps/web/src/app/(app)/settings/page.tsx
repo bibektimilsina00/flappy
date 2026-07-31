@@ -7,7 +7,7 @@ import { startUpgrade } from "@/features/billing/services/billing-api";
 import { useSession } from "@/stores/session";
 
 const PRO_PERKS = [
-  "2,000 credits every month",
+  "2,500 credits every month",
   "1080p HD exports",
   "No watermark on clips",
   "Priority support",

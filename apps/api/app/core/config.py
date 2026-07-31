@@ -42,7 +42,8 @@ class Settings(BaseSettings):
     dodo_webhook_key: str = ""
     dodo_environment: str = "test_mode"  # test_mode | live_mode
     dodo_product_pro: str = ""  # Pro subscription product id
-    pro_monthly_credits: float = 2000.0  # granted on activation + each renewal
+    pro_monthly_credits: float = 2500.0  # granted on activation + each renewal
+    free_monthly_credits: float = 100.0  # free plan tops up to this monthly
 
     # Assistant model (empty -> openrouter/free, which works on the free tier).
     assistant_model: str = ""
@@ -57,8 +58,10 @@ class Settings(BaseSettings):
     # (empty = direct). Only ingest traffic goes through it.
     clips_proxy: str = ""
     clips_select_model: str = ""  # empty -> default text model
-    clips_credits_select: float = 1.0
-    clips_credits_per_clip: float = 2.0
+    # Credit standard: 1 credit ≈ $0.01 of value.
+    clips_credits_select: float = 5.0  # the LLM moment-selection call
+    clips_credits_per_clip: float = 10.0  # per rendered clip
+    clips_credits_per_2min: float = 1.0  # ingest+transcribe, per 2 min of source (min 5)
 
     # Social publishing OAuth apps (M5). YouTube reuses the Google app above.
     tiktok_client_key: str = ""

@@ -73,3 +73,31 @@ def promote_due_posts() -> None:
         celery_app.send_task("publish_post", args=[post_id])
     if due:
         log.info("schedule: %d posts due (%d auto-publishing)", len(due), len(auto))
+
+
+@celery_app.task(name="refill_free_credits")
+def refill_free_credits() -> None:
+    """Monthly free-plan grant: top the balance up to FREE_MONTHLY_CREDITS
+    every 30 days (top-up, not stacking — unused credits don't accumulate)."""
+    from apps.api.app.core.config import settings
+    from apps.api.app.features.billing.models import Credit
+    from apps.api.app.features.workspaces.models import Workspace
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    granted = 0
+    with Session(engine) as session:
+        rows = session.exec(
+            select(Credit, Workspace).where(
+                Workspace.id == Credit.workspace_id, Workspace.plan == "free"
+            )
+        ).all()
+        for credit, _ws in rows:
+            last = credit.last_grant_at or credit.created_at
+            if (now - last).days >= 30:
+                credit.balance = max(credit.balance, settings.free_monthly_credits)
+                credit.last_grant_at = now
+                session.add(credit)
+                granted += 1
+        session.commit()
+    if granted:
+        log.info("free-credit refill: %d workspaces topped up", granted)

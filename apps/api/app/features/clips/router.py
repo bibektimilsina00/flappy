@@ -10,11 +10,9 @@ from sqlmodel import Session
 
 from apps.api.app.api.deps import current_workspace_id, get_current_user, get_session
 from apps.api.app.core.celery import celery_app
-from apps.api.app.core.config import settings
 from apps.api.app.features.billing import service as billing_service
 from apps.api.app.features.clips import repository
 from apps.api.app.features.clips.models import ClipsJob
-from apps.api.app.features.clips.pipeline import DEFAULT_COUNT
 from apps.api.app.features.users.models import User
 from apps.api.app.storage.factory import get_storage
 
@@ -138,6 +136,7 @@ class JobCreate(BaseModel):
     source_url: str | None = None
     source_key: str | None = None
     source_title: str | None = None
+    source_duration: float | None = None  # seconds, from the probe — drives the cost check
     workflow_id: uuid.UUID | None = None  # link to an existing project (its Clips tab)
     params: dict = {}
 
@@ -156,10 +155,10 @@ def create_job(
     if body.source_url and not URL_RE.match(body.source_url.strip()):
         raise HTTPException(status_code=422, detail="That doesn't look like a valid link.")
 
+    from apps.api.app.features.clips.pipeline import estimate_credits
+
     params = body.params or {}
-    count = params.get("count", "auto")
-    est_clips = DEFAULT_COUNT if count in (None, "auto") else max(1, min(10, int(count)))
-    estimated = settings.clips_credits_select + settings.clips_credits_per_clip * est_clips
+    estimated = estimate_credits(body.source_duration, params.get("count", "auto"))
     if not billing_service.has_credits(session, workspace_id, estimated):
         raise HTTPException(
             status_code=402, detail=f"Not enough credits (about {estimated:.0f} needed)."
@@ -194,12 +193,14 @@ def create_job(
 @router.get("/estimate")
 def estimate_cost(
     count: str = "auto",
+    duration: float | None = None,
     _workspace_id: uuid.UUID = Depends(current_workspace_id),
     _user: User = Depends(get_current_user),
 ) -> dict:
-    """Credits a job with this clip count will charge (select + per-clip)."""
-    est_clips = DEFAULT_COUNT if count in ("auto", "", None) else max(1, min(10, int(count)))
-    return {"credits": settings.clips_credits_select + settings.clips_credits_per_clip * est_clips}
+    """Credits a job will roughly charge (ingest + select + per-clip)."""
+    from apps.api.app.features.clips.pipeline import estimate_credits
+
+    return {"credits": estimate_credits(duration, "auto" if count in ("auto", "") else count)}
 
 
 @router.get("/jobs")

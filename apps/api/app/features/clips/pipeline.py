@@ -46,6 +46,30 @@ DURATION_BANDS = {
 RATIO_SIZES = {"9:16": (1080, 1920), "1:1": (1080, 1080), "16:9": (1920, 1080)}
 
 
+# ── credit costing (single source of truth; 1 credit ≈ $0.01) ────────────────
+def auto_count_for(duration: float | None) -> int:
+    """Auto clip-count guidance: ~1 per 4 min, between 3 and 10."""
+    return max(3, min(10, int(duration // 240))) if duration else DEFAULT_COUNT
+
+
+def ingest_credits(duration: float | None) -> float:
+    """Ingest + transcribe fee: per 2 min of source, minimum 5."""
+    import math
+
+    per_2min = settings.clips_credits_per_2min
+    return max(5.0, math.ceil((duration or 0) / 120) * per_2min) if duration else 5.0
+
+
+def estimate_credits(duration: float | None, count) -> float:
+    """What a job will roughly charge: ingest + select + per-clip."""
+    n = auto_count_for(duration) if count in (None, "auto") else max(1, min(10, int(count)))
+    return (
+        ingest_credits(duration)
+        + settings.clips_credits_select
+        + settings.clips_credits_per_clip * n
+    )
+
+
 def watermark_filter() -> str:
     """Platform watermark for free-plan renders (Pro exports stay clean)."""
     from apps.api.app.features.clips.captions import FONTS_DIR
@@ -110,6 +134,7 @@ def run_pipeline(session: Session, job: ClipsJob, charge) -> None:
             )
         if not transcript:
             raise ValueError("No speech found in the source video.")
+        charge(ingest_credits(duration), "clips-ingest")
         _set(session, job, duration=duration, transcript=transcript, phase="select", progress=0.0)
 
         segments = _select(job, transcript, duration)
@@ -362,9 +387,9 @@ def _select(job: ClipsJob, transcript: list[dict], duration: float) -> list[dict
     count = params.get("count", "auto")
     auto = count in (None, "auto")
     if auto:
-        # Duration-scaled guidance (~1 per 4 min, 3-10); the model may exceed
-        # it up to 10 when the video is dense — the cap below is the law.
-        count = max(3, min(10, int(duration // 240))) if duration else DEFAULT_COUNT
+        # Duration-scaled guidance; the model may exceed it up to 10 when the
+        # video is dense — the cap below is the law.
+        count = auto_count_for(duration)
         count_phrase = (
             f"Pick around {count} segments most likely to stop the scroll — more "
             "(up to 10) if the video is packed with strong moments, fewer if it "

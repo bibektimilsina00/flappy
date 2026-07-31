@@ -1,10 +1,11 @@
 import uuid
+from datetime import datetime
 
 from sqlmodel import Field
 
 from apps.api.app.core.models import TimestampMixin
 
-INITIAL_CREDITS = 500.0
+INITIAL_CREDITS = 250.0  # welcome grant for new workspaces
 
 
 class Credit(TimestampMixin, table=True):
@@ -12,6 +13,8 @@ class Credit(TimestampMixin, table=True):
 
     workspace_id: uuid.UUID = Field(unique=True, index=True, nullable=False)
     balance: float = Field(default=INITIAL_CREDITS, nullable=False)
+    # Last monthly free-plan refill (None until the first one runs).
+    last_grant_at: datetime | None = Field(default=None, nullable=True)
 
 
 class UsageRecord(TimestampMixin, table=True):
