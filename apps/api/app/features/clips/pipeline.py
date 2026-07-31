@@ -320,11 +320,20 @@ def _transcribe(path: str, on_progress=None) -> tuple[list[dict], float]:
 def _select(job: ClipsJob, transcript: list[dict], duration: float) -> list[dict]:
     params = job.params or {}
     count = params.get("count", "auto")
-    if count in (None, "auto"):
-        # Scale with the source: ~1 clip per 4 min, between 3 and 10.
+    auto = count in (None, "auto")
+    if auto:
+        # Duration-scaled guidance (~1 per 4 min, 3-10); the model may exceed
+        # it up to 10 when the video is dense — the cap below is the law.
         count = max(3, min(10, int(duration // 240))) if duration else DEFAULT_COUNT
+        count_phrase = (
+            f"Pick around {count} segments most likely to stop the scroll — more "
+            "(up to 10) if the video is packed with strong moments, fewer if it "
+            "is thin. Quality over quota: never pad with weak picks."
+        )
     else:
         count = max(1, min(10, int(count)))
+        count_phrase = f"Pick the {count} segments most likely to stop the scroll."
+    max_clips = 10 if auto else count
     duration_pref = params.get("duration") or "auto"
     if isinstance(duration_pref, list):
         chosen = [DURATION_BANDS[b] for b in duration_pref if b in DURATION_BANDS]
@@ -376,8 +385,7 @@ def _select(job: ClipsJob, transcript: list[dict], duration: float) -> list[dict
     prompt = (
         "You are an expert short-form video editor who has cut thousands of viral "
         "TikTok/Reels/Shorts clips. Below is a timestamped transcript "
-        f"({duration:.0f}s total). Pick the {count} segments most likely to stop "
-        "the scroll.\n\n"
+        f"({duration:.0f}s total). {count_phrase}\n\n"
         "What makes a winning clip, in priority order:\n"
         "1. HOOK: the first spoken line grabs with zero context — a bold claim, a "
         "surprising number, a direct question, a confession, the start of a story "
@@ -437,7 +445,10 @@ def _select(job: ClipsJob, transcript: list[dict], duration: float) -> list[dict
     if not segments:
         log.warning("clips selection: using deterministic fallback (scores will be 50)")
         segments = fallback_selection(transcript, duration, band, count)
-    return segments[:count]
+    if len(segments) > max_clips:  # keep the strongest, back in timeline order
+        segments = sorted(segments, key=lambda s: -s.get("score", 0))[:max_clips]
+        segments.sort(key=lambda s: s["start"])
+    return segments
 
 
 def parse_selection(raw: str, duration: float, band: tuple[int, int]) -> list[dict]:
