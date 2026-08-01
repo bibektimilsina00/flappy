@@ -58,3 +58,42 @@ def add_member(session: Session, workspace_id: uuid.UUID, user_id: uuid.UUID) ->
         return
     session.add(WorkspaceMember(workspace_id=workspace_id, user_id=user_id))
     session.commit()
+
+
+def list_members(session: Session, workspace_id: uuid.UUID) -> list[dict]:
+    """Owner + invited members with names/emails, owner first."""
+    from apps.api.app.features.users.models import User
+
+    ws = session.get(Workspace, workspace_id)
+    out: list[dict] = []
+    if ws is not None:
+        owner = session.get(User, ws.owner_id)
+        if owner:
+            out.append(
+                {
+                    "user_id": str(owner.id),
+                    "name": owner.name,
+                    "email": owner.email,
+                    "role": "owner",
+                }
+            )
+    rows = session.exec(
+        select(User, WorkspaceMember.role)
+        .where(WorkspaceMember.workspace_id == workspace_id, User.id == WorkspaceMember.user_id)
+        .order_by(WorkspaceMember.created_at)  # type: ignore[arg-type]
+    ).all()
+    out.extend(
+        {"user_id": str(u.id), "name": u.name, "email": u.email, "role": role} for u, role in rows
+    )
+    return out
+
+
+def remove_member(session: Session, workspace_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    row = session.exec(
+        select(WorkspaceMember).where(
+            WorkspaceMember.workspace_id == workspace_id, WorkspaceMember.user_id == user_id
+        )
+    ).first()
+    if row is not None:
+        session.delete(row)
+        session.commit()

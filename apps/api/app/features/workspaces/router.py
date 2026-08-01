@@ -31,6 +31,9 @@ class WorkspaceCreate(BaseModel):
     name: str
 
 
+PAID_FEATURE_MSG = "needs a paid plan"
+
+
 @router.post("", response_model=WorkspaceRead, status_code=201)
 def create_workspace(
     body: WorkspaceCreate,
@@ -38,6 +41,13 @@ def create_workspace(
     session: Session = Depends(get_session),
 ):
     from apps.api.app.features.billing import service as billing_service
+
+    # One workspace on free; more when any owned workspace is on a paid plan.
+    owned = [w for w, role in repository.list_for_user(session, user.id) if role == "owner"]
+    if owned and all(w.plan == "free" for w in owned):
+        raise HTTPException(
+            status_code=402, detail=f"Multiple workspaces {PAID_FEATURE_MSG} — upgrade to add more."
+        )
 
     name = body.name.strip()[:80]
     if not name:
@@ -92,8 +102,34 @@ def create_invite(
     ws = session.get(Workspace, workspace_id)
     if ws is None or ws.owner_id != user.id:
         raise HTTPException(status_code=403, detail="Only the workspace owner can invite.")
+    if ws.plan == "free":
+        raise HTTPException(
+            status_code=402, detail=f"Inviting teammates {PAID_FEATURE_MSG} — upgrade to invite."
+        )
     token = create_access_token(f"ws-invite:{workspace_id}")
     return {"url": f"{settings.frontend_url}/invite/{token}"}
+
+
+@router.get("/current/members")
+def list_members(
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    session: Session = Depends(get_session),
+    _user: User = Depends(get_current_user),
+) -> list[dict]:
+    return repository.list_members(session, workspace_id)
+
+
+@router.delete("/current/members/{member_user_id}", status_code=204)
+def remove_member(
+    member_user_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    session: Session = Depends(get_session),
+):
+    ws = session.get(Workspace, workspace_id)
+    if ws is None or ws.owner_id != user.id:
+        raise HTTPException(status_code=403, detail="Only the workspace owner can remove members.")
+    repository.remove_member(session, workspace_id, member_user_id)
 
 
 class JoinRequest(BaseModel):

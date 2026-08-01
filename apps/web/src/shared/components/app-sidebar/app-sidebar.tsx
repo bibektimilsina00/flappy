@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, CreditCard, Link2, SlidersHorizontal, User } from "lucide-react";
+import { ArrowLeft, Building2, CreditCard, Link2, SlidersHorizontal, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { getWorkspace } from "@/features/account/api";
@@ -15,7 +15,10 @@ const SETTINGS_NAV: { group: string; items: { label: string; icon: typeof User; 
   { group: "Account", items: [{ label: "General", icon: User, href: "/settings/account" }] },
   {
     group: "Workspace",
-    items: [{ label: "Clip defaults", icon: SlidersHorizontal, href: "/settings/defaults" }],
+    items: [
+      { label: "Workspaces", icon: Building2, href: "/settings/workspaces" },
+      { label: "Clip defaults", icon: SlidersHorizontal, href: "/settings/defaults" },
+    ],
   },
   {
     group: "Subscription",

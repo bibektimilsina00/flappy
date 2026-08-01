@@ -1,15 +1,21 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Crown, Loader2, Pencil, Unlink, Zap } from "lucide-react";
+import { Check, Crown, Loader2, Pencil, Plus, Send, Unlink, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import {
   cancelSubscription,
   changePassword,
+  createInviteLink,
+  createWorkspace,
   getMe,
   getSpend,
   getUsage,
   getWorkspace,
+  listMembers,
+  listWorkspaces,
+  removeMember,
   updateMe,
   updateWorkspace,
 } from "@/features/account/api";
@@ -37,7 +43,17 @@ const HEADERS: Record<string, { title: string; sub: string }> = {
   billing: { title: "Billing", sub: "Your plan, credits, and usage." },
   connections: { title: "Social accounts", sub: "Connect platforms to publish clips directly." },
   defaults: { title: "Clip defaults", sub: "Pre-filled settings for every new clip job." },
+  workspaces: { title: "Workspaces", sub: "Switch, create, and manage teams and members." },
 };
+
+// Paid-feature 402s route to pricing instead of showing an error.
+function toPricingOn402(e: unknown): boolean {
+  if (e instanceof Error && e.message.includes("paid plan")) {
+    window.location.href = "/pricing";
+    return true;
+  }
+  return false;
+}
 
 // Rendered inside the app shell; the MAIN sidebar swaps to settings nav
 // (see app-sidebar.tsx) — this is just the active tab's content.
@@ -71,6 +87,8 @@ export function SettingsContent({ tab }: { tab: string }) {
           <ConnectionsTab />
         ) : tab === "defaults" ? (
           <DefaultsTab />
+        ) : tab === "workspaces" ? (
+          <WorkspacesTab />
         ) : (
           <AccountTab />
         )}
@@ -186,8 +204,6 @@ function AccountTab() {
         </div>
       </div>
 
-      <WorkspaceSection />
-
       {me?.auth_provider === "password" ? (
         <>
           <SectionLabel>Security</SectionLabel>
@@ -246,43 +262,179 @@ function AccountTab() {
   );
 }
 
-function WorkspaceSection() {
+// ── Workspaces ───────────────────────────────────────────────────────────────
+function WorkspacesTab() {
   const qc = useQueryClient();
-  const { data: ws } = useQuery({ queryKey: ["workspace"], queryFn: getWorkspace });
+  const { data: me } = useQuery({ queryKey: ["me"], queryFn: getMe });
+  const { data: workspaces } = useQuery({ queryKey: ["workspaces"], queryFn: listWorkspaces });
+  const { data: current } = useQuery({ queryKey: ["workspace"], queryFn: getWorkspace });
+  const { data: members } = useQuery({ queryKey: ["members"], queryFn: listMembers });
+
+  const activeId =
+    (typeof window !== "undefined" ? localStorage.getItem("active-workspace") : null) ??
+    current?.id;
+  const isOwner = current !== undefined && me !== undefined && members?.[0]?.user_id === me.id;
+
+  // create
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const create = useMutation({
+    mutationFn: (n: string) => createWorkspace(n),
+    onSuccess: (w) => {
+      localStorage.setItem("active-workspace", w.id);
+      window.location.reload();
+    },
+    onError: (e) => {
+      if (!toPricingOn402(e)) toast.error(e instanceof Error ? e.message : "Failed");
+    },
+  });
+
+  // rename current
   const [name, setName] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const rename = useMutation({
     mutationFn: (n: string) => updateWorkspace({ name: n }),
     onSuccess: (w) => {
       qc.setQueryData(["workspace"], w);
+      void qc.invalidateQueries({ queryKey: ["workspaces"] });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     },
   });
-  const shown = name ?? ws?.name ?? "";
-  const dirty = ws !== undefined && shown.trim() !== ws.name;
+  const shownName = name ?? current?.name ?? "";
+  const nameDirty = current !== undefined && shownName.trim() !== current.name;
+
+  // invite + member removal
+  const invite = useMutation({
+    mutationFn: createInviteLink,
+    onSuccess: async ({ url }) => {
+      await navigator.clipboard.writeText(url);
+      toast.success("Invite link copied — valid for 30 days");
+    },
+    onError: (e) => {
+      if (!toPricingOn402(e)) toast.error(e instanceof Error ? e.message : "Failed");
+    },
+  });
+  const remove = useMutation({
+    mutationFn: (userId: string) => removeMember(userId),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["members"] }),
+  });
 
   return (
-    <>
-      <SectionLabel>Workspace</SectionLabel>
-      <Row label="Workspace name" hint="Shown in the sidebar and to invited teammates">
+    <div>
+      <SectionLabel>Your workspaces</SectionLabel>
+      {(workspaces ?? []).map((w) => (
+        <Row
+          key={w.id}
+          label={w.name}
+          hint={`${w.plan === "free" ? "Free" : w.plan.replace("_", " ")} plan · ${w.role}`}
+        >
+          {w.id === activeId ? (
+            <span className="flex items-center gap-1.5 text-sm text-teal-300">
+              <Check className="size-4" /> Current
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.setItem("active-workspace", w.id);
+                window.location.reload();
+              }}
+              className="rounded-lg border border-white/15 px-3.5 py-1.5 text-xs font-medium transition-colors hover:bg-white/5"
+            >
+              Switch
+            </button>
+          )}
+        </Row>
+      ))}
+      {creating ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (newName.trim()) create.mutate(newName.trim());
+          }}
+          className="flex items-center gap-2 py-3"
+        >
+          {/* biome-ignore lint/a11y/noAutofocus: entering create mode is deliberate */}
+          <input
+            autoFocus
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="Workspace name"
+            className={cn(inputCls, "w-64")}
+          />
+          <button
+            type="submit"
+            disabled={!newName.trim() || create.isPending}
+            className="rounded-lg bg-teal-400 px-3.5 py-2 text-sm font-semibold text-black disabled:opacity-40"
+          >
+            {create.isPending ? <Loader2 className="size-4 animate-spin" /> : "Create"}
+          </button>
+        </form>
+      ) : (
+        <div className="py-3">
+          <button
+            type="button"
+            onClick={() => setCreating(true)}
+            className="flex items-center gap-2 rounded-lg border border-white/15 px-3.5 py-2 text-sm font-medium transition-colors hover:bg-white/5"
+          >
+            <Plus className="size-4" /> New workspace
+          </button>
+        </div>
+      )}
+
+      <SectionLabel>Current workspace</SectionLabel>
+      <Row label="Name" hint="Shown in the sidebar and to invited teammates">
         <div className="flex gap-2">
           <input
-            value={shown}
+            value={shownName}
             onChange={(e) => setName(e.target.value)}
             className={cn(inputCls, "w-56")}
           />
           <button
             type="button"
-            disabled={!dirty || rename.isPending}
-            onClick={() => rename.mutate(shown.trim())}
+            disabled={!nameDirty || rename.isPending}
+            onClick={() => rename.mutate(shownName.trim())}
             className="rounded-lg bg-teal-400 px-3.5 text-sm font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-40"
           >
             {rename.isPending ? <Loader2 className="size-4 animate-spin" /> : saved ? <Check className="size-4" /> : "Save"}
           </button>
         </div>
       </Row>
-    </>
+
+      <SectionLabel>Members</SectionLabel>
+      {(members ?? []).map((m) => (
+        <Row key={m.user_id} label={m.name} hint={m.email}>
+          {m.role === "owner" ? (
+            <span className="text-xs text-muted-foreground">Owner</span>
+          ) : isOwner ? (
+            <button
+              type="button"
+              disabled={remove.isPending}
+              onClick={() => remove.mutate(m.user_id)}
+              className="rounded-lg border border-white/15 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-red-400/40 hover:text-red-400"
+            >
+              Remove
+            </button>
+          ) : (
+            <span className="text-xs text-muted-foreground">Member</span>
+          )}
+        </Row>
+      ))}
+      {isOwner ? (
+        <div className="py-3">
+          <button
+            type="button"
+            disabled={invite.isPending}
+            onClick={() => invite.mutate()}
+            className="flex items-center gap-2 rounded-lg border border-white/15 px-3.5 py-2 text-sm font-medium transition-colors hover:bg-white/5"
+          >
+            {invite.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+            Invite teammates
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

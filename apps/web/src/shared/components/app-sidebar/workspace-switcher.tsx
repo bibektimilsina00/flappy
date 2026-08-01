@@ -48,9 +48,16 @@ export function WorkspaceSwitcher({ name, initial, collapsed, onToggle }: Worksp
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
+  // Paid-feature 402s (2nd workspace / invites on free) route to pricing.
+  const gate = (e: unknown, fallback: string) => {
+    if (e instanceof Error && e.message.includes("paid plan")) window.location.href = "/pricing";
+    else toast.error(e instanceof Error ? e.message : fallback);
+  };
+
   const create = useMutation({
     mutationFn: (n: string) => createWorkspace(n),
     onSuccess: (ws) => switchTo(ws.id),
+    onError: (e) => gate(e, "Could not create workspace"),
   });
 
   const invite = useMutation({
@@ -60,7 +67,7 @@ export function WorkspaceSwitcher({ name, initial, collapsed, onToggle }: Worksp
       toast.success("Invite link copied — valid for 30 days");
       setOpen(false);
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not create invite"),
+    onError: (e) => gate(e, "Could not create invite"),
   });
 
   if (collapsed) {

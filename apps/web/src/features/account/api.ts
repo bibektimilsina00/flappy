@@ -81,3 +81,18 @@ export function createInviteLink(): Promise<{ url: string }> {
 export function joinWorkspace(token: string): Promise<Workspace> {
   return api("/workspaces/join", { method: "POST", body: JSON.stringify({ token }) });
 }
+
+export interface WorkspaceMember {
+  user_id: string;
+  name: string;
+  email: string;
+  role: "owner" | "member";
+}
+
+export function listMembers(): Promise<WorkspaceMember[]> {
+  return api("/workspaces/current/members");
+}
+
+export function removeMember(userId: string): Promise<void> {
+  return api(`/workspaces/current/members/${userId}`, { method: "DELETE" });
+}
