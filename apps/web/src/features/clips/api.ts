@@ -238,23 +238,37 @@ export async function authDownload(path: string, filename: string): Promise<void
 }
 
 // Multipart, so it bypasses the JSON api helper (same pattern as editor uploads).
-export async function uploadClipsSource(file: File): Promise<{ source_key: string; name: string }> {
-  const token = useSession.getState().token;
-  const form = new FormData();
-  form.append("file", file);
-  const res = await fetch("/api/v1/clips/upload", {
-    method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    body: form,
+// XHR instead of fetch: fetch can't report upload progress.
+export function uploadClipsSource(
+  file: File,
+  onProgress?: (loaded: number, total: number) => void,
+): Promise<{ source_key: string; name: string }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/v1/clips/upload");
+    const token = useSession.getState().token;
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    const wsId = localStorage.getItem("active-workspace");
+    if (wsId) xhr.setRequestHeader("X-Workspace-Id", wsId);
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress?.(e.loaded, e.total);
+    };
+    xhr.onload = () => {
+      try {
+        const body = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300) resolve(body);
+        else reject(new Error(body?.detail ?? `Upload failed (${xhr.status})`));
+      } catch {
+        reject(new Error(`Upload failed (${xhr.status})`));
+      }
+    };
+    xhr.onerror = () => reject(new Error("Upload failed — check your connection."));
+
+    const form = new FormData();
+    form.append("file", file);
+    xhr.send(form);
   });
-  if (!res.ok) {
-    const detail = await res
-      .json()
-      .then((j) => j.detail)
-      .catch(() => null);
-    throw new Error(detail ?? `Upload failed (${res.status})`);
-  }
-  return res.json();
 }
 
 // --- Social publishing (M5) ---

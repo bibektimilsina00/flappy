@@ -153,6 +153,13 @@ export function ClipsPage() {
   const [source, setSource] = useState<{ source_url?: string; source_key?: string } | null>(null);
   const [meta, setMeta] = useState<SourceMeta | null>(null);
   const [title, setTitle] = useState("");
+  // Live upload progress (XHR reports loaded/total bytes).
+  const [upload, setUpload] = useState<{
+    name: string;
+    loaded: number;
+    total: number;
+    startedAt: number;
+  } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   // The linked project. Arrives via ?project= (a project's Clips tab) or is
   // created eagerly on paste/upload so the job is in recents before it starts.
@@ -260,8 +267,11 @@ export function ClipsPage() {
     setBusy(`Uploading ${file.name}…`);
     setError(null);
     setBlocked(null);
+    setUpload({ name: file.name, loaded: 0, total: file.size, startedAt: Date.now() });
     try {
-      const { source_key } = await uploadClipsSource(file);
+      const { source_key } = await uploadClipsSource(file, (loaded, total) =>
+        setUpload((u) => (u ? { ...u, loaded, total } : u)),
+      );
       setSource({ source_key });
       setMeta({ title: file.name.replace(/\.[^.]+$/, ""), duration: null, thumbnail: null, height: null });
       setTitle(file.name.replace(/\.[^.]+$/, ""));
@@ -271,6 +281,7 @@ export function ClipsPage() {
       setError(e instanceof Error ? e.message : "Upload failed");
     } finally {
       setBusy(null);
+      setUpload(null);
     }
   }, [ensureProject]);
 
@@ -415,6 +426,46 @@ export function ClipsPage() {
             </div>
           ) : null}
         </div>
+
+        {/* upload progress — bytes, %, speed, ETA */}
+        {upload ? (() => {
+          const pct = upload.total ? Math.min(100, (upload.loaded / upload.total) * 100) : 0;
+          const mb = (b: number) => (b / 1e6).toFixed(b >= 1e8 ? 0 : 1);
+          const elapsed = (Date.now() - upload.startedAt) / 1000;
+          const speed = elapsed > 0.5 ? upload.loaded / elapsed : 0; // bytes/s
+          const remaining = speed > 0 ? (upload.total - upload.loaded) / speed : null;
+          return (
+            <div className="mt-4 rounded-2xl border border-teal-400/25 bg-teal-400/[0.04] p-4">
+              <div className="flex items-center gap-3">
+                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-teal-400/15">
+                  <Upload className="size-5 text-teal-300" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold">{upload.name}</p>
+                  <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
+                    {mb(upload.loaded)} MB of {mb(upload.total)} MB
+                    {speed > 0 ? ` · ${mb(speed)} MB/s` : ""}
+                    {remaining !== null && remaining > 1
+                      ? ` · ${remaining > 90 ? `${Math.round(remaining / 60)} min` : `${Math.round(remaining)}s`} left`
+                      : ""}
+                  </p>
+                </div>
+                <span className="shrink-0 text-sm font-semibold tabular-nums text-teal-300">
+                  {pct.toFixed(0)}%
+                </span>
+              </div>
+              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-teal-400 transition-[width] duration-300"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              {pct >= 100 ? (
+                <p className="mt-2 text-xs text-muted-foreground">Processing on the server…</p>
+              ) : null}
+            </div>
+          );
+        })() : null}
 
         {/* blocked link — card steering to upload/upgrade */}
         {blocked ? (
