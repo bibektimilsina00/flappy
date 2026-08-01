@@ -238,37 +238,37 @@ export async function authDownload(path: string, filename: string): Promise<void
 }
 
 // Multipart, so it bypasses the JSON api helper (same pattern as editor uploads).
-// XHR instead of fetch: fetch can't report upload progress.
-export function uploadClipsSource(
+// Direct-to-R2 upload: the API signs a PUT URL, the browser sends the bytes
+// straight to the nearest Cloudflare edge (XHR for upload progress).
+export async function uploadClipsSource(
   file: File,
   onProgress?: (loaded: number, total: number) => void,
 ): Promise<{ source_key: string; name: string }> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/api/v1/clips/upload");
-    const token = useSession.getState().token;
-    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-    const wsId = localStorage.getItem("active-workspace");
-    if (wsId) xhr.setRequestHeader("X-Workspace-Id", wsId);
+  const contentType = file.type || "video/mp4";
+  const { source_key, url } = await api<{ source_key: string; url: string }>(
+    "/clips/upload-url",
+    {
+      method: "POST",
+      body: JSON.stringify({ filename: file.name, content_type: contentType, size: file.size }),
+    },
+  );
 
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", url);
+    xhr.setRequestHeader("Content-Type", contentType); // must match the signature
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress?.(e.loaded, e.total);
     };
-    xhr.onload = () => {
-      try {
-        const body = JSON.parse(xhr.responseText);
-        if (xhr.status >= 200 && xhr.status < 300) resolve(body);
-        else reject(new Error(body?.detail ?? `Upload failed (${xhr.status})`));
-      } catch {
-        reject(new Error(`Upload failed (${xhr.status})`));
-      }
-    };
+    xhr.onload = () =>
+      xhr.status >= 200 && xhr.status < 300
+        ? resolve()
+        : reject(new Error(`Upload failed (${xhr.status})`));
     xhr.onerror = () => reject(new Error("Upload failed — check your connection."));
-
-    const form = new FormData();
-    form.append("file", file);
-    xhr.send(form);
+    xhr.send(file);
   });
+
+  return { source_key, name: file.name };
 }
 
 // --- Social publishing (M5) ---

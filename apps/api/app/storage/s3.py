@@ -42,6 +42,15 @@ class S3Storage:
     def get(self, key: str) -> bytes:
         return self._client.get_object(Bucket=self._bucket, Key=key)["Body"].read()
 
+    def upload_url(self, key: str, content_type: str, ttl: int = 3600) -> str:
+        """Presigned PUT so browsers upload straight to storage (R2 edge) —
+        the client must send the same Content-Type header."""
+        return self._client.generate_presigned_url(
+            "put_object",
+            Params={"Bucket": self._bucket, "Key": key, "ContentType": content_type},
+            ExpiresIn=ttl,
+        )
+
     def url(self, key: str) -> str:
         # Presigned GET so the browser can load the asset without a public bucket.
         return self._client.generate_presigned_url(

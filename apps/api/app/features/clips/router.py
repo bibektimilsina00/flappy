@@ -4,7 +4,7 @@ import re
 import uuid
 from datetime import UTC
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
 
@@ -62,31 +62,27 @@ def _job_out(job: ClipsJob, storage, with_transcript: bool = False) -> dict:
     return out
 
 
-@router.post("/upload")
-async def upload_source(
-    file: UploadFile = File(...),
-    session: Session = Depends(get_session),
+class UploadUrlRequest(BaseModel):
+    filename: str
+    content_type: str
+    size: int
+
+
+@router.post("/upload-url")
+def create_upload_url(
+    body: UploadUrlRequest,
     workspace_id: uuid.UUID = Depends(current_workspace_id),
     _user: User = Depends(get_current_user),
 ) -> dict:
-    ctype = file.content_type or ""
-    if not ctype.startswith("video/"):
-        raise HTTPException(status_code=415, detail=f"Not a video file: {ctype or 'unknown type'}")
-    # Starlette spools the upload to a temp file — size-check and stream from
-    # there so a 2 GB source never sits in memory on this small box.
-    file.file.seek(0, 2)
-    size = file.file.tell()
-    file.file.seek(0)
-    if size > 2 * 1024 * 1024 * 1024:
+    """Presigned PUT for direct browser -> R2 uploads: the file never
+    transits this server, and users hit their nearest Cloudflare edge."""
+    if not body.content_type.startswith("video/"):
+        raise HTTPException(status_code=415, detail=f"Not a video file: {body.content_type}")
+    if body.size > 2 * 1024 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="File too large (max 2 GB).")
-    ext = (
-        file.filename.rsplit(".", 1)[-1].lower()
-        if file.filename and "." in file.filename
-        else "mp4"
-    )
+    ext = body.filename.rsplit(".", 1)[-1].lower() if "." in body.filename else "mp4"
     key = f"{workspace_id}/clips/uploads/{uuid.uuid4()}.{ext}"
-    get_storage().put_stream(key, file.file, ctype)
-    return {"source_key": key, "name": file.filename}
+    return {"source_key": key, "url": get_storage().upload_url(key, body.content_type)}
 
 
 class ProbeRequest(BaseModel):
