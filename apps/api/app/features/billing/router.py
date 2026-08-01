@@ -24,12 +24,17 @@ def start_upgrade(
     body: UpgradeRequest,
     user: User = Depends(get_current_user),
     workspace_id: uuid.UUID = Depends(current_workspace_id),
+    session: Session = Depends(get_session),
 ) -> dict:
-    """Hosted checkout URL for a paid tier (plus | pro | ultra)."""
+    """Hosted checkout URL for a paid tier (plus | pro | ultra | studio_*)."""
     if body.tier not in plans.PAID_TIERS:
         raise HTTPException(status_code=422, detail="Unknown plan.")
     if not dodo.enabled():
         raise HTTPException(status_code=503, detail="Payments are not configured yet.")
+    ws = workspaces_repo.get(session, workspace_id)
+    if ws and ws.plan != "free":
+        # No double subscriptions — tier changes go through support/Dodo for now.
+        raise HTTPException(status_code=409, detail="Already on a paid plan.")
     try:
         return {"checkout_url": dodo.create_checkout(user, workspace_id, body.tier)}
     except Exception as exc:

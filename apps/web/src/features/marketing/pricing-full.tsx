@@ -3,6 +3,7 @@
 import { Check } from "lucide-react";
 import { useState } from "react";
 import { type Plan, PLANS, STUDIO_SIZES } from "@/features/pricing/plans";
+import { UpgradeCta } from "@/features/pricing/upgrade-cta";
 import { cn } from "@/lib/cn";
 import { BRAND } from "./content";
 
@@ -73,15 +74,15 @@ function PlanCard({ plan, studioSize, onStudioSize }: { plan: Plan; studioSize: 
         </div>
       ) : null}
 
-      <a
-        href={`/settings?upgrade=${isStudio ? `studio_${STUDIO_SIZES[studioSize].label.toLowerCase()}` : plan.id}`}
+      <UpgradeCta
+        tier={isStudio ? `studio_${STUDIO_SIZES[studioSize].label.toLowerCase()}` : plan.id}
         className={cn(
-          "mt-5 w-full rounded-lg py-2.5 text-center text-sm font-semibold transition-opacity hover:opacity-90",
+          "mt-5 flex w-full items-center justify-center rounded-lg py-2.5 text-center text-sm font-semibold transition-opacity hover:opacity-90",
           plan.popular ? "bg-mk-accent text-mk-accentfg" : "bg-mk-surface2 text-mk-fg",
         )}
       >
         Get started
-      </a>
+      </UpgradeCta>
 
       <ul className="mt-6 space-y-3 border-t border-mk-border pt-5 text-sm">
         {[`${credits.toLocaleString()} credits / month`, ...plan.features.slice(1)].map((f) => (

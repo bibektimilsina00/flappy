@@ -1,4 +1,5 @@
 import { Check } from "lucide-react";
+import { UpgradeCta } from "@/features/pricing/upgrade-cta";
 import { cn } from "@/lib/cn";
 import { BRAND, PRICING } from "./content";
 import { Button } from "./ui";
@@ -23,19 +24,27 @@ export function PricingCards() {
             <span className="pb-1 text-sm text-mk-muted">/ {tier.period}</span>
           </div>
           <p className="mt-3 text-sm text-mk-muted">{tier.blurb}</p>
-          <Button
-            href={
-              tier.name === "Studio"
-                ? "/pricing"
-                : tier.name === "Free"
-                  ? BRAND.appUrl
-                  : `/settings?upgrade=${tier.name.toLowerCase()}`
-            }
-            variant={tier.highlight ? "primary" : "secondary"}
-            className="mt-6 w-full"
-          >
-            {tier.cta}
-          </Button>
+          {tier.name === "Studio" || tier.name === "Free" ? (
+            <Button
+              href={tier.name === "Studio" ? "/pricing" : BRAND.appUrl}
+              variant={tier.highlight ? "primary" : "secondary"}
+              className="mt-6 w-full"
+            >
+              {tier.cta}
+            </Button>
+          ) : (
+            <UpgradeCta
+              tier={tier.name.toLowerCase()}
+              className={cn(
+                "mt-6 inline-flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-colors duration-150",
+                tier.highlight
+                  ? "bg-mk-accent text-mk-accentfg hover:bg-[#12a596]"
+                  : "border border-mk-borders bg-transparent text-mk-fg hover:bg-mk-surface",
+              )}
+            >
+              {tier.cta}
+            </UpgradeCta>
+          )}
           <ul className="mt-7 flex flex-col gap-3 border-t border-mk-border pt-6">
             {tier.features.map((f) => (
               <li key={f} className="flex items-start gap-2.5 text-sm">
