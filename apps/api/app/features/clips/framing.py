@@ -58,7 +58,22 @@ def face_center_fraction(source: str, start: float, end: float) -> float | None:
             t = start + span * (i + 0.5) / SAMPLES
             frame = os.path.join(d, f"f{i}.jpg")
             proc = subprocess.run(
-                [exe, "-y", "-ss", f"{t:.2f}", "-i", source, "-frames:v", "1", "-q:v", "4", frame],
+                # 640px is plenty for YuNet — smaller jpegs, faster detect.
+                [
+                    exe,
+                    "-y",
+                    "-ss",
+                    f"{t:.2f}",
+                    "-i",
+                    source,
+                    "-frames:v",
+                    "1",
+                    "-vf",
+                    "scale='min(640,iw)':-2",
+                    "-q:v",
+                    "4",
+                    frame,
+                ],
                 capture_output=True,
                 timeout=60,
             )

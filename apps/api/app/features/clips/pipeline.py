@@ -15,6 +15,7 @@ import re
 import subprocess
 import tempfile
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC
 
 import imageio_ffmpeg
@@ -165,18 +166,36 @@ def run_pipeline(session: Session, job: ClipsJob, charge) -> None:
         params = job.params or {}
         band = fit_band(params, _probe_dims(source)) if _layout(params) == "fit" else None
         clips = []
-        for i, seg in enumerate(segments):
-            key = _render_clip(job, source, seg, i, workdir, storage, watermark)
-            clips.append(
-                {
-                    **seg,
-                    "id": uuid.uuid4().hex,
-                    "key": key,
-                    "clean": True,
-                    **({"band": band} if band else {}),
-                }
-            )
-            _set(session, job, progress=(i + 1) / len(segments), clips=clips)
+
+        def flush(item) -> None:
+            fut, clip = item
+            fut.result()  # clip goes live only after its upload finished
+            clips.append(clip)
+            _set(session, job, progress=len(clips) / len(segments), clips=clips)
+
+        # Upload clip N while clip N+1 encodes — the single core is otherwise
+        # idle during the R2 round-trip.
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            pending = None
+            for i, seg in enumerate(segments):
+                key = f"{job.workspace_id}/clips/{job.id}/clip-{i}.mp4"
+                out = _encode_clip(
+                    job, source, seg, os.path.join(workdir, f"clip-{i}.mp4"), watermark
+                )
+                if pending:
+                    flush(pending)
+                pending = (
+                    pool.submit(_upload_file, storage, out, key),
+                    {
+                        **seg,
+                        "id": uuid.uuid4().hex,
+                        "key": key,
+                        "clean": True,
+                        **({"band": band} if band else {}),
+                    },
+                )
+            if pending:
+                flush(pending)
         charge(settings.clips_credits_per_clip * len(clips), "clips-render")
 
     _set(session, job, status="completed", progress=1.0)
@@ -679,24 +698,9 @@ def fallback_selection(
 
 
 # ── phase 4: render (cut + cover-crop + optional caption burn) ──────────────
-def _render_clip(
-    job: ClipsJob,
-    source: str,
-    seg: dict,
-    index: int,
-    workdir: str,
-    storage,
-    watermark: bool = False,
-) -> str:
-    return render_clip_file(
-        job,
-        source,
-        seg,
-        workdir,
-        storage,
-        key=f"{job.workspace_id}/clips/{job.id}/clip-{index}.mp4",
-        watermark=watermark,
-    )
+def _upload_file(storage, path: str, key: str) -> None:
+    with open(path, "rb") as f:
+        storage.put_stream(key, f, "video/mp4")
 
 
 def render_clip_file(
@@ -706,12 +710,18 @@ def render_clip_file(
     master (no burned captions). Captions live as a layer: overlaid in the web
     player, burned on demand at download (burn_clip_captions), and handed to
     the editor as separate text clips."""
+    out = _encode_clip(job, source, seg, os.path.join(workdir, "render.mp4"), watermark)
+    _upload_file(storage, out, key)
+    return key
+
+
+def _encode_clip(job: ClipsJob, source: str, seg: dict, out: str, watermark: bool = False) -> str:
     params = job.params or {}
     w, h = RATIO_SIZES.get(params.get("ratio") or "9:16", RATIO_SIZES["9:16"])
     if watermark:
         # Free plan exports at 720p (as priced) — also ~2x faster to encode.
         w, h = round(w * 2 / 3), round(h * 2 / 3)
-    out = os.path.join(workdir, "render.mp4")
+    workdir = os.path.dirname(out)
     exe = imageio_ffmpeg.get_ffmpeg_exe()
 
     # Layout: fit = letterbox at the source's ratio (TikTok repost style);
@@ -747,7 +757,7 @@ def render_clip_file(
         "-c:v",
         "libx264",
         "-preset",
-        "veryfast",
+        "superfast",
         "-pix_fmt",
         "yuv420p",
         "-c:a",
@@ -759,9 +769,7 @@ def render_clip_file(
     proc = subprocess.run(cmd, capture_output=True, timeout=600)
     if proc.returncode != 0 or not os.path.exists(out) or os.path.getsize(out) == 0:
         raise RuntimeError(f"Clip render failed: {proc.stderr.decode(errors='ignore')[-300:]}")
-    with open(out, "rb") as f:
-        storage.put(key, f.read(), "video/mp4")
-    return key
+    return out
 
 
 BURN_VERSION = 2  # bump to invalidate cached caption burns (font/style engine changes)
