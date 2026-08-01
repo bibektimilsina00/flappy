@@ -4,11 +4,47 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from apps.api.app.api.deps import current_workspace_id, get_session
+from apps.api.app.api.deps import current_workspace_id, get_current_user, get_session
+from apps.api.app.core.config import settings
+from apps.api.app.core.security import create_access_token, decode_token
+from apps.api.app.features.users.models import User
+from apps.api.app.features.workspaces import repository
 from apps.api.app.features.workspaces.models import Workspace
 from apps.api.app.features.workspaces.schemas import WorkspaceRead
 
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
+
+
+@router.get("")
+def list_workspaces(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> list[dict]:
+    """Every workspace the user can act in (owned + invited), with role."""
+    return [
+        {"id": str(w.id), "name": w.name, "plan": w.plan, "role": role}
+        for w, role in repository.list_for_user(session, user.id)
+    ]
+
+
+class WorkspaceCreate(BaseModel):
+    name: str
+
+
+@router.post("", response_model=WorkspaceRead, status_code=201)
+def create_workspace(
+    body: WorkspaceCreate,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    from apps.api.app.features.billing import service as billing_service
+
+    name = body.name.strip()[:80]
+    if not name:
+        raise HTTPException(status_code=422, detail="Name can't be empty.")
+    ws = repository.add(session, Workspace(name=name, owner_id=user.id))
+    billing_service.seed_workspace(session, ws.id)  # fresh free-plan credits
+    return ws
 
 
 @router.get("/current", response_model=WorkspaceRead)
@@ -43,4 +79,39 @@ def update_workspace(
     session.add(ws)
     session.commit()
     session.refresh(ws)
+    return ws
+
+
+# ── invites (stateless: signed token, 30-day expiry via TOKEN_TTL) ───────────
+@router.post("/current/invite")
+def create_invite(
+    user: User = Depends(get_current_user),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    session: Session = Depends(get_session),
+) -> dict:
+    ws = session.get(Workspace, workspace_id)
+    if ws is None or ws.owner_id != user.id:
+        raise HTTPException(status_code=403, detail="Only the workspace owner can invite.")
+    token = create_access_token(f"ws-invite:{workspace_id}")
+    return {"url": f"{settings.frontend_url}/invite/{token}"}
+
+
+class JoinRequest(BaseModel):
+    token: str
+
+
+@router.post("/join", response_model=WorkspaceRead)
+def join_workspace(
+    body: JoinRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    subject = decode_token(body.token)
+    if not subject or not subject.startswith("ws-invite:"):
+        raise HTTPException(status_code=400, detail="Invalid or expired invite link.")
+    wid = uuid.UUID(subject.removeprefix("ws-invite:"))
+    ws = session.get(Workspace, wid)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="That workspace no longer exists.")
+    repository.add_member(session, wid, user.id)
     return ws

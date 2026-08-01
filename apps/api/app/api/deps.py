@@ -2,7 +2,7 @@
 
 import uuid
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import Session
 
@@ -39,7 +39,18 @@ def get_current_user(
 def current_workspace_id(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
+    x_workspace_id: str | None = Header(default=None, alias="X-Workspace-Id"),
 ) -> uuid.UUID:
+    """The active workspace: the X-Workspace-Id header (validated against
+    ownership/membership), else the user's first owned workspace."""
+    if x_workspace_id:
+        try:
+            wid = uuid.UUID(x_workspace_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid workspace id") from None
+        if workspaces_repo.can_access(session, wid, user.id):
+            return wid
+        raise HTTPException(status_code=403, detail="Not a member of that workspace")
     workspace = workspaces_repo.get_by_owner(session, user.id)
     if workspace is None:
         raise HTTPException(status_code=400, detail="No workspace for user")

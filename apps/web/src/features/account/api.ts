@@ -58,3 +58,26 @@ export function updateWorkspace(body: {
 }): Promise<Workspace> {
   return api("/workspaces/current", { method: "PATCH", body: JSON.stringify(body) });
 }
+
+export interface WorkspaceListItem {
+  id: string;
+  name: string;
+  plan: string;
+  role: "owner" | "member";
+}
+
+export function listWorkspaces(): Promise<WorkspaceListItem[]> {
+  return api("/workspaces");
+}
+
+export function createWorkspace(name: string): Promise<Workspace> {
+  return api("/workspaces", { method: "POST", body: JSON.stringify({ name }) });
+}
+
+export function createInviteLink(): Promise<{ url: string }> {
+  return api("/workspaces/current/invite", { method: "POST" });
+}
+
+export function joinWorkspace(token: string): Promise<Workspace> {
+  return api("/workspaces/join", { method: "POST", body: JSON.stringify({ token }) });
+}

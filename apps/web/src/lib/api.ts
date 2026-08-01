@@ -4,12 +4,15 @@ import { useSession } from "@/stores/session";
 // Attaches the JWT, clears the session on 401, surfaces the API error detail.
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const token = useSession.getState().token;
+  // Active workspace (workspace switcher). Absent -> backend uses the first owned one.
+  const wsId = typeof window !== "undefined" ? localStorage.getItem("active-workspace") : null;
 
   const res = await fetch(`/api/v1${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(wsId ? { "X-Workspace-Id": wsId } : {}),
       ...init?.headers,
     },
   });

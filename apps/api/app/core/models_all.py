@@ -18,4 +18,4 @@ from apps.api.app.features.video_editor.models import (  # noqa: F401
     VideoEditorProject,
 )
 from apps.api.app.features.workflows.models import Workflow  # noqa: F401
-from apps.api.app.features.workspaces.models import Workspace  # noqa: F401
+from apps.api.app.features.workspaces.models import Workspace, WorkspaceMember  # noqa: F401
