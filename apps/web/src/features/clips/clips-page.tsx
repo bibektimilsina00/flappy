@@ -424,7 +424,7 @@ export function ClipsPage() {
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {blocked.message.includes("paid plan") ? (
                   <a
-                    href="/settings"
+                    href="/pricing"
                     className="inline-flex items-center gap-1.5 rounded-lg bg-teal-400 px-3 py-1.5 text-xs font-semibold text-black transition-colors hover:bg-teal-300"
                   >
                     <Crown className="size-3.5" /> Upgrade — from $12/mo
