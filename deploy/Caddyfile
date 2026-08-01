@@ -7,12 +7,6 @@ riocut.com {
 		reverse_proxy api:8000
 	}
 
-	# MinIO path-style: /<bucket>/<key> for objects, /<bucket> for bucket ops
-	# (no trailing slash — HEAD/PUT bucket requests must reach MinIO too).
-	handle /video-assets* {
-		reverse_proxy minio:9000
-	}
-
 	handle {
 		reverse_proxy web:3000
 	}
