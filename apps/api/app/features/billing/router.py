@@ -54,6 +54,48 @@ async def dodo_webhook(request: Request, session: Session = Depends(get_session)
     return {"received": True}
 
 
+@router.post("/cancel", status_code=204)
+def cancel_subscription(
+    _user: User = Depends(get_current_user),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    session: Session = Depends(get_session),
+):
+    """Cancel at period end — access and credits keep until then; the webhook
+    downgrades the plan when Dodo ends the subscription."""
+    ws = workspaces_repo.get(session, workspace_id)
+    if ws is None or ws.plan == "free":
+        raise HTTPException(status_code=400, detail="No active subscription.")
+    if not ws.subscription_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Subscription reference missing — email hello@riocut.studio to cancel.",
+        )
+    try:
+        dodo.cancel_subscription(ws.subscription_id)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Could not cancel — try again.") from exc
+
+
+@router.get("/usage")
+def usage_history(
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> list[dict]:
+    """The credits ledger: most recent charges, newest first."""
+    from apps.api.app.features.billing.repository import recent_usage
+
+    return [
+        {
+            "created_at": u.created_at.isoformat(),
+            "kind": u.kind,
+            "label": u.node_id,
+            "credits": u.cost,
+        }
+        for u in recent_usage(session, workspace_id)
+    ]
+
+
 @router.get("/balance", response_model=BalanceRead)
 def get_balance(
     session: Session = Depends(get_session),

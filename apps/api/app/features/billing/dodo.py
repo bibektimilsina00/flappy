@@ -70,6 +70,18 @@ def create_checkout(user: User, workspace_id: uuid.UUID, tier: str) -> str:
     return r.json()["checkout_url"]
 
 
+def cancel_subscription(subscription_id: str) -> None:
+    """Cancel at the end of the current billing period (access until then)."""
+    base = _BASE.get(settings.dodo_environment, _BASE["test_mode"])
+    r = httpx.patch(
+        f"{base}/subscriptions/{subscription_id}",
+        headers={"Authorization": f"Bearer {settings.dodo_api_key}"},
+        json={"cancel_at_next_billing_date": True, "cancel_reason": "cancelled_by_customer"},
+        timeout=20,
+    )
+    r.raise_for_status()
+
+
 def verify_signature(body: bytes, headers: dict[str, str]) -> bool:
     """Standard Webhooks: HMAC-SHA256 of "{id}.{ts}.{body}" with the base64
     secret; the signature header holds space-separated "v1,<base64>" entries."""
@@ -142,6 +154,8 @@ def handle_event(session: Session, event: dict, webhook_id: str) -> None:
             pid = data.get("product_id") or ""
             tier = next((t for t, p in _products().items() if p == pid), "pro")
         ws.plan = tier
+        if data.get("subscription_id"):
+            ws.subscription_id = data["subscription_id"]  # powers self-serve cancel
         session.add(ws)
         grant = monthly_credits(tier)
         repository.add_credits(session, ws_id, grant)

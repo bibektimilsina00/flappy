@@ -1,8 +1,10 @@
 "use client";
 
-import { ArrowLeft, CreditCard, Link2, User } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft, CreditCard, Link2, SlidersHorizontal, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { getWorkspace } from "@/features/account/api";
 import { cn } from "@/lib/cn";
 import { FOOTER_NAV, LIBRARY_NAV, PRIMARY_NAV } from "@/shared/constants/navigation";
 import { NavItem } from "./nav-item";
@@ -13,6 +15,7 @@ const SETTINGS_NAV = [
   { label: "Account", icon: User, href: "/settings/account" },
   { label: "Billing & Usage", icon: CreditCard, href: "/settings/billing" },
   { label: "Connected accounts", icon: Link2, href: "/settings/connections" },
+  { label: "Clip defaults", icon: SlidersHorizontal, href: "/settings/defaults" },
 ];
 
 // `recentSlot` is injected by the layout so this shell stays feature-agnostic.
@@ -27,6 +30,8 @@ export function AppSidebar({
   onToggleCollapse?: () => void;
 }) {
   const pathname = usePathname();
+  const { data: workspace } = useQuery({ queryKey: ["workspace"], queryFn: getWorkspace });
+  const wsName = workspace?.name ?? "Workspace";
 
   // Settings takes over the whole sidebar: back arrow + settings tabs.
   if (pathname.startsWith("/settings")) {
@@ -50,7 +55,7 @@ export function AppSidebar({
 
   return (
     <aside className={cn("flex h-full flex-col transition-[width] duration-200", collapsed ? "w-16" : "w-52")}>
-      <WorkspaceSwitcher name="Bibek's Workspace" initial="B" collapsed={collapsed} onToggle={onToggleCollapse} />
+      <WorkspaceSwitcher name={wsName} initial={wsName[0]?.toUpperCase() ?? "W"} collapsed={collapsed} onToggle={onToggleCollapse} />
 
       <nav className="flex-1 overflow-y-auto px-2 [scrollbar-width:thin]">
         <div className="space-y-0.5">

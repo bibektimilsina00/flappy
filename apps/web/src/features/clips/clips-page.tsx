@@ -23,9 +23,10 @@ import {
   XCircle,
   Zap,
 } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getWorkspace } from "@/features/account/api";
 import { cn } from "@/lib/cn";
 import { Checkbox } from "@/components/ui/checkbox";
 import { createWorkflow } from "@/features/projects/services/workflows-api";
@@ -157,6 +158,16 @@ export function ClipsPage() {
   // created eagerly on paste/upload so the job is in recents before it starts.
   const search = useSearchParams();
   const [projectId, setProjectId] = useState<string | null>(search.get("project"));
+
+  // Workspace clip defaults (Settings → Clip defaults) seed the params once.
+  const { data: workspace } = useQuery({ queryKey: ["workspace"], queryFn: getWorkspace });
+  const defaultsApplied = useRef(false);
+  useEffect(() => {
+    const d = workspace?.preferences?.clip_defaults;
+    if (!d || defaultsApplied.current) return;
+    defaultsApplied.current = true;
+    setParams((p) => ({ ...p, ...d }) as ClipsParams);
+  }, [workspace]);
 
   // Poll the list while anything is running so Recent shows live progress.
   useEffect(() => {

@@ -3,7 +3,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Crown, KeyRound, Link2, Loader2, ShieldAlert, Unlink, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
-import { changePassword, getMe, getSpend, updateMe } from "@/features/account/api";
+import {
+  cancelSubscription,
+  changePassword,
+  getMe,
+  getSpend,
+  getUsage,
+  getWorkspace,
+  updateMe,
+  updateWorkspace,
+} from "@/features/account/api";
 import { useBalance } from "@/features/billing";
 import {
   disconnectSocialAccount,
@@ -27,6 +36,7 @@ const TITLES: Record<string, string> = {
   account: "Account",
   billing: "Billing & Usage",
   connections: "Connected accounts",
+  defaults: "Clip defaults",
 };
 
 // Rendered inside the app shell; the MAIN sidebar swaps to settings nav
@@ -36,7 +46,15 @@ export function SettingsContent({ tab }: { tab: string }) {
     <div className="mx-auto w-full max-w-2xl px-6 py-12">
       <h1 className="text-2xl font-bold tracking-tight">{TITLES[tab] ?? "Settings"}</h1>
       <div className="mt-8">
-        {tab === "billing" ? <BillingTab /> : tab === "connections" ? <ConnectionsTab /> : <AccountTab />}
+        {tab === "billing" ? (
+          <BillingTab />
+        ) : tab === "connections" ? (
+          <ConnectionsTab />
+        ) : tab === "defaults" ? (
+          <DefaultsTab />
+        ) : (
+          <AccountTab />
+        )}
       </div>
     </div>
   );
@@ -150,6 +168,8 @@ function AccountTab() {
         </Section>
       ) : null}
 
+      <WorkspaceSection />
+
       <Section title="Danger zone">
         <p className="mt-3 flex items-start gap-2 text-sm text-muted-foreground">
           <ShieldAlert className="mt-0.5 size-4 shrink-0 text-red-400/70" />
@@ -163,6 +183,47 @@ function AccountTab() {
         </p>
       </Section>
     </div>
+  );
+}
+
+function WorkspaceSection() {
+  const qc = useQueryClient();
+  const { data: ws } = useQuery({ queryKey: ["workspace"], queryFn: getWorkspace });
+  const [name, setName] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const rename = useMutation({
+    mutationFn: (n: string) => updateWorkspace({ name: n }),
+    onSuccess: (w) => {
+      qc.setQueryData(["workspace"], w);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    },
+  });
+  const shown = name ?? ws?.name ?? "";
+  const dirty = ws !== undefined && shown.trim() !== ws.name;
+
+  return (
+    <Section title="Workspace">
+      <label className="mt-4 block">
+        <span className="text-xs text-muted-foreground">Workspace name</span>
+        <div className="mt-1 flex gap-2">
+          <input
+            value={shown}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full max-w-sm rounded-xl border border-white/10 bg-[#101010] px-3.5 py-2 text-sm outline-none focus:border-teal-400/50"
+          />
+          <button
+            type="button"
+            disabled={!dirty || rename.isPending}
+            onClick={() => rename.mutate(shown.trim())}
+            className="rounded-xl bg-teal-400 px-4 text-sm font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-40"
+          >
+            {rename.isPending ? <Loader2 className="size-4 animate-spin" /> : saved ? <Check className="size-4" /> : "Save"}
+          </button>
+        </div>
+      </label>
+      <p className="mt-2 text-xs text-muted-foreground/70">Shown in the sidebar and on shared projects.</p>
+    </Section>
   );
 }
 
@@ -208,10 +269,13 @@ function BillingTab() {
           ) : null}
         </div>
         {isPaid ? (
-          <p className="mt-4 border-t border-white/[0.06] pt-4 text-sm text-muted-foreground">
-            Subscription is managed through Dodo Payments — receipts and management links arrive by
-            email. Credits top up automatically each billing cycle.
-          </p>
+          <div className="mt-4 border-t border-white/[0.06] pt-4">
+            <p className="text-sm text-muted-foreground">
+              Receipts arrive by email from Dodo Payments. Credits top up automatically each
+              billing cycle.
+            </p>
+            <CancelButton />
+          </div>
         ) : null}
       </Section>
 
@@ -234,11 +298,171 @@ function BillingTab() {
           ))}
         </div>
         <p className="mt-3 text-xs text-muted-foreground/70">
-          Real provider spend across generations and clip jobs. Credits are deducted per action —
-          see each job's cost on its page.
+          Real provider spend across generations and clip jobs.
         </p>
       </Section>
+
+      <UsageLedger />
     </div>
+  );
+}
+
+function CancelButton() {
+  const [confirming, setConfirming] = useState(false);
+  const [done, setDone] = useState(false);
+  const cancel = useMutation({
+    mutationFn: cancelSubscription,
+    onSuccess: () => setDone(true),
+  });
+
+  if (done)
+    return (
+      <p className="mt-3 text-sm text-teal-300">
+        Cancelled — your plan and credits stay active until the end of this billing period.
+      </p>
+    );
+  return (
+    <div className="mt-3 flex items-center gap-3">
+      {confirming ? (
+        <>
+          <span className="text-sm text-muted-foreground">Cancel at the end of this period?</span>
+          <button
+            type="button"
+            disabled={cancel.isPending}
+            onClick={() => cancel.mutate()}
+            className="flex items-center gap-1.5 rounded-lg border border-red-400/40 px-3 py-1.5 text-xs font-semibold text-red-400 transition-colors hover:bg-red-400/10"
+          >
+            {cancel.isPending ? <Loader2 className="size-3.5 animate-spin" /> : null}
+            Yes, cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirming(false)}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            Keep plan
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          className="text-xs text-muted-foreground underline underline-offset-2 hover:text-red-400"
+        >
+          Cancel subscription
+        </button>
+      )}
+      {cancel.isError ? (
+        <span className="text-xs text-red-400">
+          {cancel.error instanceof Error ? cancel.error.message : "Failed"}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+const USAGE_LABELS: Record<string, string> = {
+  "clips-ingest": "Clip job — ingest & transcribe",
+  "clips-select": "Clip job — AI moment selection",
+  "clips-render": "Clip job — rendering",
+};
+
+function UsageLedger() {
+  const { data: usage } = useQuery({ queryKey: ["usage"], queryFn: getUsage });
+
+  return (
+    <Section title="Credit history">
+      {usage === undefined ? (
+        <p className="mt-3 text-sm text-muted-foreground">…</p>
+      ) : usage.length === 0 ? (
+        <p className="mt-3 text-sm text-muted-foreground">No charges yet — run your first job.</p>
+      ) : (
+        <ul className="mt-3 divide-y divide-white/[0.06]">
+          {usage.map((u, i) => (
+            <li key={`${u.created_at}-${i}`} className="flex items-baseline gap-3 py-2.5">
+              <span className="w-28 shrink-0 text-xs tabular-nums text-muted-foreground">
+                {new Date(u.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}{" "}
+                {new Date(u.created_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-sm">
+                {USAGE_LABELS[u.label] ?? (u.kind === "clips" ? u.label : `Generation — ${u.kind}`)}
+              </span>
+              <span className="shrink-0 text-sm font-medium tabular-nums text-foreground/90">
+                −{u.credits % 1 === 0 ? u.credits : u.credits.toFixed(1)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Section>
+  );
+}
+
+// ── Clip defaults ────────────────────────────────────────────────────────────
+const DEFAULT_FIELDS: { key: string; label: string; options: [string, string][] }[] = [
+  { key: "ratio", label: "Ratio", options: [["9:16", "9:16"], ["1:1", "1:1"], ["16:9", "16:9"]] },
+  { key: "quality", label: "Quality", options: [["720p", "720p"], ["1080p", "1080p HD"]] },
+  { key: "layout", label: "Layout", options: [["fit", "Fit (no crop)"], ["fill", "Fill (crop)"]] },
+  {
+    key: "caption_style",
+    label: "Caption template",
+    options: [["clean", "Clean"], ["bold", "Bold"], ["highlight", "Highlight"], ["beast", "Beast"], ["neon", "Neon"], ["mono", "Minimal"]],
+  },
+];
+
+function DefaultsTab() {
+  const qc = useQueryClient();
+  const { data: ws } = useQuery({ queryKey: ["workspace"], queryFn: getWorkspace });
+  const [draft, setDraft] = useState<Record<string, string> | null>(null);
+  const [saved, setSaved] = useState(false);
+  const save = useMutation({
+    mutationFn: (d: Record<string, string>) => updateWorkspace({ preferences: { clip_defaults: d } }),
+    onSuccess: (w) => {
+      qc.setQueryData(["workspace"], w);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    },
+  });
+
+  const current = draft ?? ws?.preferences?.clip_defaults ?? {};
+  const dirty =
+    ws !== undefined &&
+    JSON.stringify(current) !== JSON.stringify(ws.preferences?.clip_defaults ?? {});
+
+  return (
+    <Section title="Defaults for new clip jobs">
+      <p className="mt-2 text-xs text-muted-foreground/70">
+        Pre-filled on the configure step for every new job — you can still change them per job.
+      </p>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        {DEFAULT_FIELDS.map((f) => (
+          <label key={f.key} className="block">
+            <span className="text-xs text-muted-foreground">{f.label}</span>
+            <select
+              value={current[f.key] ?? ""}
+              onChange={(e) => setDraft({ ...current, [f.key]: e.target.value })}
+              className="mt-1 w-full rounded-xl border border-white/10 bg-[#101010] px-3 py-2 text-sm outline-none focus:border-teal-400/50"
+            >
+              <option value="">App default</option>
+              {f.options.map(([v, label]) => (
+                <option key={v} value={v}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ))}
+      </div>
+      <button
+        type="button"
+        disabled={!dirty || save.isPending}
+        onClick={() => save.mutate(Object.fromEntries(Object.entries(current).filter(([, v]) => v)))}
+        className="mt-5 flex items-center gap-2 rounded-xl bg-teal-400 px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-40"
+      >
+        {save.isPending ? <Loader2 className="size-4 animate-spin" /> : saved ? <Check className="size-4" /> : null}
+        Save defaults
+      </button>
+    </Section>
   );
 }
 

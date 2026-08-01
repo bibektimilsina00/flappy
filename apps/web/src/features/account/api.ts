@@ -25,3 +25,36 @@ export function changePassword(current_password: string, new_password: string): 
 export function getSpend(): Promise<{ today: number; week: number; month: number; total: number }> {
   return api("/billing/spend");
 }
+
+export interface UsageEntry {
+  created_at: string;
+  kind: string; // "clips" | node kind
+  label: string; // e.g. clips-ingest / clips-select / clips-render / node id
+  credits: number;
+}
+
+export function getUsage(): Promise<UsageEntry[]> {
+  return api("/billing/usage");
+}
+
+export function cancelSubscription(): Promise<void> {
+  return api("/billing/cancel", { method: "POST" });
+}
+
+export interface Workspace {
+  id: string;
+  name: string;
+  plan: string;
+  preferences: { clip_defaults?: Record<string, string> } | null;
+}
+
+export function getWorkspace(): Promise<Workspace> {
+  return api("/workspaces/current");
+}
+
+export function updateWorkspace(body: {
+  name?: string;
+  preferences?: Record<string, unknown>;
+}): Promise<Workspace> {
+  return api("/workspaces/current", { method: "PATCH", body: JSON.stringify(body) });
+}

@@ -57,3 +57,14 @@ def spend_usd(session: Session, workspace_id: uuid.UUID, since: datetime | None 
     if since is not None:
         query = query.where(UsageRecord.created_at >= since)
     return float(session.exec(query).one())
+
+
+def recent_usage(session: Session, workspace_id: uuid.UUID, limit: int = 50) -> list[UsageRecord]:
+    return list(
+        session.exec(
+            select(UsageRecord)
+            .where(UsageRecord.workspace_id == workspace_id)
+            .order_by(UsageRecord.created_at.desc())  # type: ignore[attr-defined]
+            .limit(limit)
+        )
+    )
