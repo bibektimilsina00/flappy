@@ -104,7 +104,18 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
       try {
         const j = await getClipsJob(jobId);
         if (!alive) return;
-        setJob(j);
+        // Presigned URLs get a fresh signature every poll — keep the first one
+        // per unchanged clip so <video src> stays stable and doesn't reload.
+        setJob((prev) => {
+          if (prev) {
+            const old = new Map(prev.clips.map((c) => [c.id, c]));
+            for (const c of j.clips) {
+              const p = old.get(c.id);
+              if (p?.url && c.url && p.key === c.key && p.status === c.status) c.url = p.url;
+            }
+          }
+          return j;
+        });
         const rerendering = j.clips.some((c) => c.status === "rendering");
         if (j.status === "queued" || j.status === "running" || rerendering) timer = setTimeout(poll, 2000);
       } catch (e) {
@@ -636,7 +647,7 @@ function RenderingGallery({ job }: { job: ClipsJob }) {
   const done = job.clips.length;
   const total = job.progress > 0 ? Math.max(done, Math.round(done / job.progress)) : Math.max(done + 1, 3);
   return (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+    <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
       {job.clips.map((clip) => (
         <div key={clip.id} className="overflow-hidden rounded-xl border border-border bg-card">
           {clip.url ? (
