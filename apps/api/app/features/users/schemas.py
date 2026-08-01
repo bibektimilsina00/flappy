@@ -9,4 +9,5 @@ class UserRead(SQLModel):
     email: str
     name: str
     is_active: bool
+    auth_provider: str
     created_at: datetime
