@@ -25,7 +25,6 @@ dependencies = [
     # PO-token plugin — YouTube bot-walls datacenter IPs without it (needs the
     # bgutil provider service; see CLIPS_POT_PROVIDER_URL).
     "bgutil-ytdlp-pot-provider>=1.3",
-    "faster-whisper>=1.2.1",
     "opencv-python-headless>=5.0.0.93",
 ]
 

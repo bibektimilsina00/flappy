@@ -11,7 +11,7 @@ they disagree, the code wins; update this file._
 - **Secrets flow**: `.env.prod` (local, gitignored) → `make env-push` → `ENV_FILE`
   repo secret → written to `/opt/riocut/.env` on every deploy.
 - **Clips pipeline**: upload or link → yt-dlp (direct-first, residential-proxy
-  rescue) → faster-whisper (local) → LLM moment selection
+  rescue) → whisper-large-v3-turbo via OpenRouter ($0.04/audio-hr) → LLM moment selection
   (`CLIPS_SELECT_MODEL=google/gemini-3.6-flash`) → ffmpeg render (Fit/Fill
   layouts, captions, titles, watermark) → zip/social publishing.
 - **YouTube stack**: cookies (`/opt/riocut/ytdlp/cookies.txt`, rw) + PO-token
@@ -76,10 +76,9 @@ Monthly free refill: daily beat task tops free workspaces to 100 every 30 days.
 
 ## ⚙️ Operational notes / first upgrades when users arrive
 
-- **VPS is the bottleneck**: transcription ≈ 20 min CPU per hour of video and
-  blocks the single worker (concurrency=1). First paid upgrade: bigger droplet
-  or a second worker VM. Whisper model is `CLIPS_WHISPER_MODEL=small`
-  (`base` = ~2× faster, slightly worse Hindi/accented captions).
+- **Transcription is API-based** (OpenRouter whisper-turbo, seconds per job,
+  $0.04/audio-hr) — the old CPU bottleneck is gone. The box mostly does ffmpeg
+  renders now; upgrade (Hetzner CPX31 ~€14) only when render queues form.
 - **Proxy budget**: Webshare rotating residential, 1 GB @ $3.50/mo, auto-renew —
   watch Dashboard → Stats. Only YouTube rescues consume it (720p for free
   ingest… free users can't YouTube at all now, so: Plus+ only).
@@ -100,7 +99,7 @@ Monthly free refill: daily beat task tops free workspaces to 100 every 30 days.
 
 Core: `DATABASE_URL` `REDIS_URL` `SECRET_KEY` `POSTGRES_PASSWORD`
 `S3_ENDPOINT/BUCKET/ACCESS_KEY/SECRET_KEY` `API_BASE_URL` `FRONTEND_URL`
-Clips: `CLIPS_SELECT_MODEL` `CLIPS_WHISPER_MODEL` `CLIPS_COOKIES_FILE`
+Clips: `CLIPS_SELECT_MODEL` `CLIPS_TRANSCRIBE_MODEL` `CLIPS_COOKIES_FILE`
 `CLIPS_POT_PROVIDER_URL` `CLIPS_PROXY` `CLIPS_CREDITS_SELECT/PER_CLIP/PER_2MIN`
 Billing: `FREE_MONTHLY_CREDITS` `DODO_*` (see blockers)
 Providers: `GEMINI_API_KEY` `OPEN_ROUTER_API_KEY` `REPLICATE_API_KEY`

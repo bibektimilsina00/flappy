@@ -1,8 +1,8 @@
 """Clips pipeline: ingest -> transcribe -> select -> render (CLIPS-PLAN.md M1).
 
 Runs inside the Celery worker. Each phase persists status/progress on the job row
-so the UI can poll honestly. The only paid AI call is the selection step, made
-through the existing OpenRouter adapter; transcription is local faster-whisper.
+so the UI can poll honestly. Transcription and moment selection both run
+through OpenRouter (whisper STT + a text model).
 """
 
 from __future__ import annotations
@@ -90,9 +90,6 @@ def workspace_plan(session: Session, workspace_id) -> str:
 
 def is_free_plan(session: Session, workspace_id) -> bool:
     return workspace_plan(session, workspace_id) == "free"
-
-
-_whisper_model = None  # loaded once per worker process
 
 
 def _set(session: Session, job: ClipsJob, **fields) -> None:
@@ -356,14 +353,12 @@ def _thumbnail(job: ClipsJob, source: str, storage, workdir: str) -> str | None:
 
 # ── phase 2: transcribe (API whisper via OpenRouter, local fallback) ────────
 def _transcribe(path: str, on_progress=None) -> tuple[list[dict], float]:
-    """API transcription when CLIPS_TRANSCRIBE_MODEL is set (seconds instead
-    of ~20 CPU-min per source hour); local faster-whisper otherwise/on failure."""
-    if settings.clips_transcribe_model:
-        try:
-            return _transcribe_api(path, on_progress)
-        except Exception as exc:  # noqa: BLE001 — degrade to local, never fail the job here
-            log.warning("API transcription failed (%s); falling back to local whisper", exc)
-    return _transcribe_local(path, on_progress)
+    """API transcription via OpenRouter — seconds instead of CPU-minutes."""
+    try:
+        return _transcribe_api(path, on_progress)
+    except Exception as exc:
+        log.warning("transcription failed: %s", exc)
+        raise ValueError("Transcription failed — please try the job again.") from exc
 
 
 def _transcribe_api(path: str, on_progress=None) -> tuple[list[dict], float]:
@@ -455,39 +450,6 @@ def _group_words(words: list[dict]) -> list[dict]:
         }
         for seg in segments
     ]
-
-
-def _transcribe_local(path: str, on_progress=None) -> tuple[list[dict], float]:
-    """Streams whisper segments; every ~5% of the source, `on_progress(frac,
-    partial_transcript)` fires so the UI can show a live bar + transcript."""
-    global _whisper_model
-    if _whisper_model is None:
-        from faster_whisper import WhisperModel
-
-        _whisper_model = WhisperModel(settings.clips_whisper_model, compute_type="int8")
-    segments, info = _whisper_model.transcribe(path, word_timestamps=True, vad_filter=True)
-    duration = float(info.duration or 0)
-    out: list[dict] = []
-    last_reported = 0.0
-    for seg in segments:
-        if not seg.text.strip():
-            continue
-        out.append(
-            {
-                "text": seg.text.strip(),
-                "start": round(seg.start, 2),
-                "end": round(seg.end, 2),
-                "words": [
-                    {"w": w.word.strip(), "s": round(w.start, 2), "e": round(w.end, 2)}
-                    for w in (seg.words or [])
-                    if w.word.strip()
-                ],
-            }
-        )
-        if on_progress and duration and (seg.end - last_reported) >= duration * 0.05:
-            last_reported = seg.end
-            on_progress(min(0.99, seg.end / duration), list(out))
-    return out, duration
 
 
 # ── phase 3: select (one text-model call via the OpenRouter adapter) ────────

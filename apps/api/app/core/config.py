@@ -57,10 +57,8 @@ class Settings(BaseSettings):
     assistant_model: str = ""
 
     # Clips (video repurposing) — CLIPS-PLAN.md
-    clips_whisper_model: str = "small"
-    # API transcription via OpenRouter (e.g. "openai/whisper-large-v3").
-    # Empty = local faster-whisper. API failures fall back to local anyway.
-    clips_transcribe_model: str = ""
+    # Transcription model on OpenRouter's /audio/transcriptions (word timestamps).
+    clips_transcribe_model: str = "openai/whisper-large-v3-turbo"
     # Netscape cookies.txt for yt-dlp — YouTube bot-walls datacenter IPs.
     clips_cookies_file: str = ""
     # bgutil PO-token provider service URL (empty = disabled).

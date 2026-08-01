@@ -52,8 +52,7 @@ services:
     <<: *backend
 # ponytail: concurrency=1 — the VPS is 1 vCPU/2GB; raise when the box grows
     command: celery -A apps.worker.app.worker worker --loglevel=info --concurrency=1
-    # Whisper models download once, then persist here.
-    volumes: ["modelcache:/home/app/.cache", "./ytdlp:/ytdlp"]
+    volumes: ["./ytdlp:/ytdlp"]
 
   beat:
     <<: *backend
@@ -86,5 +85,4 @@ services:
 
 volumes:
   pgdata:
-  modelcache:
   caddydata:
