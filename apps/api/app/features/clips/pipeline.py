@@ -70,15 +70,29 @@ def estimate_credits(duration: float | None, count) -> float:
     )
 
 
-def watermark_filter() -> str:
-    """Platform watermark for free-plan renders (Pro exports stay clean)."""
-    from apps.api.app.features.clips.captions import FONTS_DIR
+def watermark_filter(workdir: str, w: int, h: int) -> str:
+    """Platform watermark for free-plan renders (Pro exports stay clean).
+    Rendered via libass — imageio-ffmpeg's bundled binary has no drawtext."""
+    from apps.api.app.features.clips.captions import FONT_NAME, FONTS_DIR
 
-    font = os.path.join(FONTS_DIR, "Poppins.ttf")
-    return (
-        f",drawtext=fontfile={font}:text='riocut.com':fontcolor=white:alpha=0.55"
-        ":fontsize=h/34:x=w*0.035:y=h*0.03:shadowcolor=black@0.6:shadowx=2:shadowy=2"
+    fontsize = max(18, round(h / 34))
+    ass = (
+        "[Script Info]\nScriptType: v4.00+\n"
+        f"PlayResX: {w}\nPlayResY: {h}\n\n"
+        "[V4+ Styles]\n"
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
+        "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
+        "Alignment, MarginL, MarginR, MarginV, Encoding\n"
+        # &H73 alpha ≈ 55% visible; alignment 7 = top-left; shadow for legibility
+        f"Style: WM,{FONT_NAME},{fontsize},&H73FFFFFF,&H73FFFFFF,&H96000000,&H96000000,"
+        f"0,0,0,0,100,100,0,0,1,0,1,7,{round(w * 0.035)},0,{round(h * 0.03)},1\n\n"
+        "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+        "Dialogue: 0,0:00:00.00,9:59:59.00,WM,,0,0,0,,riocut.com\n"
     )
+    path = os.path.join(workdir, "wm.ass")
+    with open(path, "w") as f:
+        f.write(ass)
+    return f",ass={path}:fontsdir={FONTS_DIR}"
 
 
 def workspace_plan(session: Session, workspace_id) -> str:
@@ -714,7 +728,7 @@ def render_clip_file(
                 x_expr = f"min(max(in_w*{center:.4f}-out_w/2\\,0)\\,in_w-out_w)"
         vf = f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h}:x='{x_expr}':y='(in_h-out_h)/2',fps=30"
     if watermark:
-        vf += watermark_filter()
+        vf += watermark_filter(workdir, w, h)
 
     cmd = [
         exe,
