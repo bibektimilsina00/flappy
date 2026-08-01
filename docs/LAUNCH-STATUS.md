@@ -6,7 +6,7 @@ they disagree, the code wins; update this file._
 ## What's live at https://riocut.com
 
 - **Infra**: DigitalOcean VPS (1 vCPU / 2 GB / 48 GB, 2 GB swap) · Docker Compose
-  (postgres, redis, minio[dormant], api, worker, beat, pot, web, caddy) · media on Cloudflare R2 (zero egress) · Caddy on 80/443
+  (postgres, redis, api, worker, beat, pot, web, caddy) · media on Cloudflare R2 (zero egress) · Caddy on 80/443
   with auto-HTTPS · push-to-main = deploy (GitHub Actions → GHCR → SSH rollover).
 - **Secrets flow**: `.env.prod` (local, gitignored) → `make env-push` → `ENV_FILE`
   repo secret → written to `/opt/riocut/.env` on every deploy.
