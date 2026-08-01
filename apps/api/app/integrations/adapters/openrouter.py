@@ -135,13 +135,20 @@ class OpenRouterAdapter:
                         "frame_type": "first_frame",
                     }
                 ]
-        with httpx.Client(timeout=120) as client:
+        with httpx.Client(timeout=120, follow_redirects=True) as client:
             res = client.post(f"{BASE}/videos", headers=self._headers, json=body)
             _check(res)
             job = res.json()
             polling_url = job.get("polling_url") or f"{BASE}/videos/{job['id']}"
             url = self._poll_video(client, polling_url)
-            data = client.get(url).content
+            # The download URL needs the bearer token when it points back at the
+            # OpenRouter API — and an error body must never be stored as the
+            # "video" (it renders as a broken 0:00 player in the UI).
+            dl = client.get(url, headers=self._headers)
+            _check(dl)
+            data = dl.content
+        if not data or data[:1] == b"{" or "json" in dl.headers.get("content-type", ""):
+            raise RuntimeError(f"OpenRouter video download returned non-video: {data[:200]!r}")
         key = self._store(ctx, "video", data, "mp4", "video/mp4")
         return GenerationResult(kind="video", cost=model.cost, key=key)
 
