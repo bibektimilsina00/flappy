@@ -708,6 +708,9 @@ def render_clip_file(
     the editor as separate text clips."""
     params = job.params or {}
     w, h = RATIO_SIZES.get(params.get("ratio") or "9:16", RATIO_SIZES["9:16"])
+    if watermark:
+        # Free plan exports at 720p (as priced) — also ~2x faster to encode.
+        w, h = round(w * 2 / 3), round(h * 2 / 3)
     out = os.path.join(workdir, "render.mp4")
     exe = imageio_ffmpeg.get_ffmpeg_exe()
 
