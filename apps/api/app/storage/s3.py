@@ -14,6 +14,7 @@ class S3Storage:
             endpoint_url=settings.s3_endpoint,
             aws_access_key_id=settings.s3_access_key,
             aws_secret_access_key=settings.s3_secret_key,
+            **({"region_name": settings.s3_region} if settings.s3_region else {}),
             # Path-style always — the public endpoint is a plain domain and
             # virtual-host addressing (bucket.riocut.com) has no DNS.
             config=BotoConfig(s3={"addressing_style": "path"}),

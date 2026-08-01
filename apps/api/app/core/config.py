@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     s3_bucket: str = ""
     s3_access_key: str = ""
     s3_secret_key: str = ""
+    s3_region: str = ""  # R2 wants "auto"; MinIO doesn't care
 
     # URLs
     api_base_url: str = ""
