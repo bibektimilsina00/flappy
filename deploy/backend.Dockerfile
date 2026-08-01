@@ -14,7 +14,10 @@ FROM python:3.13-slim-bookworm
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd -m app
+    && useradd -m app \
+    # pre-create the model-cache mountpoint app-owned, else the volume
+    # initializes root-owned and whisper can't write its models
+    && mkdir -p /home/app/.cache && chown app:app /home/app/.cache
 WORKDIR /app
 ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1
 # JS runtime for yt-dlp's YouTube challenge solver (nsig/PO-token flows).
