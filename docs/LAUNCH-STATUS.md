@@ -6,7 +6,7 @@ they disagree, the code wins; update this file._
 ## What's live at https://riocut.com
 
 - **Infra**: DigitalOcean VPS (1 vCPU / 2 GB / 48 GB, 2 GB swap) · Docker Compose
-  (postgres, redis, minio, api, worker, beat, pot, web, caddy) · Caddy on 80/443
+  (postgres, redis, minio[dormant], api, worker, beat, pot, web, caddy) · media on Cloudflare R2 (zero egress) · Caddy on 80/443
   with auto-HTTPS · push-to-main = deploy (GitHub Actions → GHCR → SSH rollover).
 - **Secrets flow**: `.env.prod` (local, gitignored) → `make env-push` → `ENV_FILE`
   repo secret → written to `/opt/riocut/.env` on every deploy.
@@ -91,8 +91,8 @@ Monthly free refill: daily beat task tops free workspaces to 100 every 30 days.
   scp) — don't log the account in anywhere else.
 - **Daily spend cap**: `DAILY_SPEND_CAP_USD=0` (off). Set (e.g. 25) before
   opening video generation to strangers.
-- **DB backups: none.** `pgdata` is a single Docker volume on one VPS. Before
-  real users: nightly `pg_dump` to MinIO or DO managed Postgres.
+- **DB backups: nightly** — cron 03:15 on the VPS runs `/opt/riocut/backup.sh`
+  (`pg_dump | gzip` -> R2 `backups/db-<date>.sql.gz`). Prune old ones someday.
 - **Monitoring: none** beyond `docker compose logs`. Consider UptimeRobot on
   `/health` + a Slack/Discord webhook for failed jobs.
 
