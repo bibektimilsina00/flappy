@@ -354,8 +354,110 @@ def _thumbnail(job: ClipsJob, source: str, storage, workdir: str) -> str | None:
     return key
 
 
-# ── phase 2: transcribe (local faster-whisper, word timestamps) ─────────────
+# ── phase 2: transcribe (API whisper via OpenRouter, local fallback) ────────
 def _transcribe(path: str, on_progress=None) -> tuple[list[dict], float]:
+    """API transcription when CLIPS_TRANSCRIBE_MODEL is set (seconds instead
+    of ~20 CPU-min per source hour); local faster-whisper otherwise/on failure."""
+    if settings.clips_transcribe_model:
+        try:
+            return _transcribe_api(path, on_progress)
+        except Exception as exc:  # noqa: BLE001 — degrade to local, never fail the job here
+            log.warning("API transcription failed (%s); falling back to local whisper", exc)
+    return _transcribe_local(path, on_progress)
+
+
+def _transcribe_api(path: str, on_progress=None) -> tuple[list[dict], float]:
+    """OpenRouter /audio/transcriptions in ~10-min chunks (25 MB / 60 s upstream
+    limits). Providers return word timestamps; caption lines are grouped here."""
+    import httpx
+
+    duration = _probe_duration(path)
+    if not duration:
+        raise RuntimeError("no duration probed")
+    exe = imageio_ffmpeg.get_ffmpeg_exe()
+    chunk_s = 600
+    words_all: list[dict] = []
+    out: list[dict] = []
+    with tempfile.TemporaryDirectory() as d:
+        for start in range(0, int(duration) + 1, chunk_s):
+            mp3 = os.path.join(d, f"chunk-{start}.mp3")
+            subprocess.run(
+                [
+                    exe,
+                    "-y",
+                    "-ss",
+                    str(start),
+                    "-t",
+                    str(chunk_s),
+                    "-i",
+                    path,
+                    "-vn",
+                    "-ac",
+                    "1",
+                    "-ar",
+                    "16000",
+                    "-b:a",
+                    "32k",
+                    mp3,
+                ],
+                capture_output=True,
+                check=True,
+            )
+            if not os.path.exists(mp3) or os.path.getsize(mp3) < 1024:
+                continue
+            with open(mp3, "rb") as f:
+                r = httpx.post(
+                    "https://openrouter.ai/api/v1/audio/transcriptions",
+                    headers={"Authorization": f"Bearer {settings.open_router_api_key}"},
+                    files={"file": ("audio.mp3", f, "audio/mpeg")},
+                    data={
+                        "model": settings.clips_transcribe_model,
+                        "response_format": "verbose_json",
+                        "timestamp_granularities[]": "word",
+                    },
+                    timeout=180,
+                )
+            if r.status_code >= 400:
+                raise RuntimeError(f"transcription {r.status_code}: {r.text[:200]}")
+            for w in r.json().get("words") or []:
+                token = str(w.get("word", "")).strip()
+                if token:
+                    words_all.append(
+                        {
+                            "w": token,
+                            "s": round(w["start"] + start, 2),
+                            "e": round(w["end"] + start, 2),
+                        }
+                    )
+            out = _group_words(words_all)
+            if on_progress:
+                on_progress(min(0.99, (start + chunk_s) / duration), list(out))
+    return _group_words(words_all), float(duration)
+
+
+def _group_words(words: list[dict]) -> list[dict]:
+    """Words -> caption-sized segments: break on speech gaps or every ~14 words."""
+    segments: list[dict] = []
+    cur: list[dict] = []
+    for w in words:
+        if cur and (w["s"] - cur[-1]["e"] >= 0.8 or len(cur) >= 14):
+            segments.append(cur)
+            cur = []
+        cur.append(w)
+    if cur:
+        segments.append(cur)
+    return [
+        {
+            "text": " ".join(w["w"] for w in seg),
+            "start": seg[0]["s"],
+            "end": seg[-1]["e"],
+            "words": seg,
+        }
+        for seg in segments
+    ]
+
+
+def _transcribe_local(path: str, on_progress=None) -> tuple[list[dict], float]:
     """Streams whisper segments; every ~5% of the source, `on_progress(frac,
     partial_transcript)` fires so the UI can show a live bar + transcript."""
     global _whisper_model
