@@ -11,11 +11,20 @@ import { NavItem } from "./nav-item";
 import { NavSection } from "./nav-section";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
-const SETTINGS_NAV = [
-  { label: "Account", icon: User, href: "/settings/account" },
-  { label: "Billing & Usage", icon: CreditCard, href: "/settings/billing" },
-  { label: "Connected accounts", icon: Link2, href: "/settings/connections" },
-  { label: "Clip defaults", icon: SlidersHorizontal, href: "/settings/defaults" },
+const SETTINGS_NAV: { group: string; items: { label: string; icon: typeof User; href: string }[] }[] = [
+  { group: "Account", items: [{ label: "General", icon: User, href: "/settings/account" }] },
+  {
+    group: "Workspace",
+    items: [{ label: "Clip defaults", icon: SlidersHorizontal, href: "/settings/defaults" }],
+  },
+  {
+    group: "Subscription",
+    items: [{ label: "Billing", icon: CreditCard, href: "/settings/billing" }],
+  },
+  {
+    group: "Connections",
+    items: [{ label: "Social accounts", icon: Link2, href: "/settings/connections" }],
+  },
 ];
 
 // `recentSlot` is injected by the layout so this shell stays feature-agnostic.
@@ -33,20 +42,27 @@ export function AppSidebar({
   const { data: workspace } = useQuery({ queryKey: ["workspace"], queryFn: getWorkspace });
   const wsName = workspace?.name ?? "Workspace";
 
-  // Settings takes over the whole sidebar: back arrow + settings tabs.
+  // Settings takes over the whole sidebar: switcher + back + grouped tabs.
   if (pathname.startsWith("/settings")) {
     return (
       <aside className="flex h-full w-52 flex-col">
+        <WorkspaceSwitcher name={wsName} initial={wsName[0]?.toUpperCase() ?? "W"} />
         <Link
           href="/dashboard"
-          className="mx-2 mt-3 flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="mx-2 flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <ArrowLeft className="size-4" /> Back
         </Link>
-        <p className="mt-4 px-5 text-lg font-bold tracking-tight">Settings</p>
-        <nav className="mt-3 flex-1 space-y-0.5 px-2">
-          {SETTINGS_NAV.map((item) => (
-            <NavItem key={item.href} {...item} active={pathname === item.href} />
+        <nav className="mt-2 flex-1 overflow-y-auto px-2 [scrollbar-width:thin]">
+          {SETTINGS_NAV.map(({ group, items }) => (
+            <div key={group} className="mb-4">
+              <p className="px-3 pb-1 pt-2 text-xs text-muted-foreground/70">{group}</p>
+              <div className="space-y-0.5">
+                {items.map((item) => (
+                  <NavItem key={item.href} {...item} active={pathname === item.href} />
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
       </aside>
