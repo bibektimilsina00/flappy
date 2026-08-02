@@ -6,7 +6,7 @@ x-logging: &logging
     options: { max-size: "10m", max-file: "3" }
 
 x-backend: &backend
-  image: ghcr.io/bibektimilsina00/riocut/backend:latest
+  image: ghcr.io/bibektimilsina00/riocut/backend:${IMAGE_TAG:-latest}
   restart: unless-stopped
   env_file: .env
   <<: *logging
@@ -67,7 +67,7 @@ services:
     <<: *logging
 
   web:
-    image: ghcr.io/bibektimilsina00/riocut/web:latest
+    image: ghcr.io/bibektimilsina00/riocut/web:${IMAGE_TAG:-latest}
     restart: unless-stopped
     depends_on: [api]
     <<: *logging

@@ -84,6 +84,10 @@ jobs:
     if: github.event_name == 'push'
     needs: build
     runs-on: ubuntu-latest
+    # never let two deploys race onto the box; queue instead of interleave
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - name: Set up SSH
@@ -92,14 +96,18 @@ jobs:
           echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
-      - name: Ship compose file & roll over
+      - name: Ship & roll out (health-gated, auto-rollback)
         env:
           ENV_FILE: ${{ secrets.ENV_FILE }}
           CF_ORIGIN_CERT: ${{ secrets.CF_ORIGIN_CERT }}
           CF_ORIGIN_KEY: ${{ secrets.CF_ORIGIN_KEY }}
+          SHA: ${{ github.sha }}
         run: |
+          # the SHA currently running on the box — rollback target if this deploy is unhealthy
+          PREV=$(ssh "$VPS_USER@$VPS_HOST" "grep -E '^IMAGE_TAG=' $VPS_DIR/.env 2>/dev/null | cut -d= -f2" || true)
           scp deploy/docker-compose.prod.yml "$VPS_USER@$VPS_HOST:$VPS_DIR/docker-compose.yml"
           scp deploy/Caddyfile "$VPS_USER@$VPS_HOST:$VPS_DIR/Caddyfile"
+          scp deploy/rollout.sh "$VPS_USER@$VPS_HOST:$VPS_DIR/rollout.sh"
           printf '%s\n' "$ENV_FILE" | ssh "$VPS_USER@$VPS_HOST" "install -m 600 /dev/stdin $VPS_DIR/.env"
           ssh "$VPS_USER@$VPS_HOST" "mkdir -p $VPS_DIR/certs"
           printf '%s\n' "$CF_ORIGIN_CERT" | ssh "$VPS_USER@$VPS_HOST" "install -m 644 /dev/stdin $VPS_DIR/certs/origin.pem"
@@ -108,8 +116,5 @@ jobs:
             set -e
             cd $VPS_DIR
             echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
-            docker compose pull -q
-            docker compose up -d --remove-orphans
-            docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile || docker compose restart caddy
-            docker image prune -f
+            bash rollout.sh '$SHA' '$PREV'
           "
