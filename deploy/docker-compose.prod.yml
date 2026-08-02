@@ -50,8 +50,9 @@ services:
 
   worker:
     <<: *backend
-# ponytail: concurrency=1 — the VPS is 1 vCPU/2GB; raise when the box grows
-    command: celery -A apps.worker.app.worker worker --loglevel=info --concurrency=1
+# ponytail: concurrency=2 on the 2-core/12GB A1. It co-hosts web+api, so 2 keeps
+# some render throughput without starving them; drop to 1 if web latency spikes.
+    command: celery -A apps.worker.app.worker worker --loglevel=info --concurrency=2
     volumes: ["./ytdlp:/ytdlp"]
 
   beat:
