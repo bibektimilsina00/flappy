@@ -27,6 +27,12 @@ api_healthy() {
 
 set_tag "$NEW"
 docker compose pull -q
+
+# migrate once, up-front, with the new image (brings up postgres/redis first via
+# depends_on). A bad migration fails HERE — before the running app is touched —
+# so the current version keeps serving and the deploy simply aborts.
+docker compose run --rm api alembic -c apps/api/alembic.ini upgrade head
+
 docker compose up -d --remove-orphans
 
 ok=

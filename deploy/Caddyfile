@@ -4,13 +4,20 @@ riocut.com {
 	tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
 	encode zstd gzip
 
-	# API + WebSockets
+	# API + WebSockets. lb_try_duration makes Caddy retry the dial for up to 15s
+	# when the upstream is briefly down (container restart) → no 502 during deploys.
 	handle /api/* {
-		reverse_proxy api:8000
+		reverse_proxy api:8000 {
+			lb_try_duration 15s
+			lb_try_interval 500ms
+		}
 	}
 
 	handle {
-		reverse_proxy web:3000
+		reverse_proxy web:3000 {
+			lb_try_duration 15s
+			lb_try_interval 500ms
+		}
 	}
 }
 

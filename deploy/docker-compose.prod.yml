@@ -40,7 +40,9 @@ services:
 
   api:
     <<: *backend
-    command: sh -c "alembic -c apps/api/alembic.ini upgrade head && exec uvicorn apps.api.app.main:app --host 0.0.0.0 --port 8000"
+    # migrations run once up-front in rollout.sh (not here), so the api starts
+    # fast on every restart instead of waiting on `alembic upgrade head`.
+    command: uvicorn apps.api.app.main:app --host 0.0.0.0 --port 8000
     # rw: yt-dlp persists YouTube's rotated cookies back into the file.
     volumes: ["./ytdlp:/ytdlp"]
     healthcheck:
