@@ -51,7 +51,27 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # only rebuild the image whose sources changed; retag the other so both
+      # still exist at :${sha} for the SHA-pinned deploy.
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            backend:
+              - 'apps/api/**'
+              - 'apps/worker/**'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'deploy/backend.Dockerfile'
+            web:
+              - 'apps/web/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'deploy/web.Dockerfile'
+
       - name: Build & push backend
+        if: steps.changes.outputs.backend == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -63,7 +83,15 @@ jobs:
             ghcr.io/${{ github.repository }}/backend:${{ github.sha }}
           cache-from: type=gha,scope=backend
           cache-to: type=gha,scope=backend,mode=max
+      - name: Tag backend :${{ github.sha }} (unchanged — copy latest, no rebuild)
+        if: steps.changes.outputs.backend != 'true'
+        run: |
+          docker buildx imagetools create \
+            --tag ghcr.io/${{ github.repository }}/backend:${{ github.sha }} \
+            ghcr.io/${{ github.repository }}/backend:latest
+
       - name: Build & push web
+        if: steps.changes.outputs.web == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -79,6 +107,12 @@ jobs:
             ghcr.io/${{ github.repository }}/web:${{ github.sha }}
           cache-from: type=gha,scope=web
           cache-to: type=gha,scope=web,mode=max
+      - name: Tag web :${{ github.sha }} (unchanged — copy latest, no rebuild)
+        if: steps.changes.outputs.web != 'true'
+        run: |
+          docker buildx imagetools create \
+            --tag ghcr.io/${{ github.repository }}/web:${{ github.sha }} \
+            ghcr.io/${{ github.repository }}/web:latest
 
   deploy:
     if: github.event_name == 'push'
