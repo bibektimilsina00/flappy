@@ -40,8 +40,10 @@ class ScheduledPost(TimestampMixin, table=True):
     __tablename__ = "scheduled_post"
 
     workspace_id: uuid.UUID = Field(index=True, nullable=False)
-    job_id: uuid.UUID = Field(index=True, nullable=False)
-    clip_id: str = Field(nullable=False)
+    # job_id/clip_id set for clip posts; render_key set for editor-render posts.
+    job_id: uuid.UUID | None = Field(default=None, index=True)
+    clip_id: str | None = Field(default=None)
+    render_key: str | None = Field(default=None)  # editor MP4 to publish
     title: str | None = Field(default=None)
     post_at: datetime = Field(index=True, nullable=False)  # UTC
     # scheduled -> due (manual "ready to post") | posting -> posted/failed (auto)
@@ -49,5 +51,7 @@ class ScheduledPost(TimestampMixin, table=True):
     social_account_id: uuid.UUID | None = Field(default=None, index=True)  # None = manual post
     platform: str | None = Field(default=None)
     caption: str | None = Field(default=None)
+    # Per-post platform settings, e.g. {"privacy_level": "SELF_ONLY"} for TikTok.
+    options: dict | None = Field(default=None, sa_column=Column(JSON))
     result_url: str | None = Field(default=None)  # link to the published post
     error: str | None = Field(default=None)

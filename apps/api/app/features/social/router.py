@@ -133,3 +133,33 @@ def disconnect(
         raise HTTPException(status_code=404, detail="Account not found")
     session.delete(account)
     session.commit()
+
+
+@router.get("/accounts/{account_id}/tiktok/creator-info")
+def tiktok_creator_info(
+    account_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Privacy levels + interaction flags TikTok allows for this creator/app.
+    The publish UI uses this to offer only the privacy options TikTok permits
+    (unaudited apps get SELF_ONLY only)."""
+    from apps.api.app.features.social import publishers
+
+    account = session.get(SocialAccount, account_id)
+    if account is None or account.workspace_id != workspace_id or account.platform != "tiktok":
+        raise HTTPException(status_code=404, detail="TikTok account not found")
+    try:
+        info = publishers.tiktok_creator_info(publishers.fresh_token(session, account))
+    except Exception as exc:  # noqa: BLE001 — surface a friendly message to the panel
+        raise HTTPException(
+            status_code=502, detail="Couldn't reach TikTok — try reconnecting the account."
+        ) from exc
+    return {
+        "privacy_level_options": info.get("privacy_level_options") or ["SELF_ONLY"],
+        "comment_disabled": bool(info.get("comment_disabled")),
+        "duet_disabled": bool(info.get("duet_disabled")),
+        "stitch_disabled": bool(info.get("stitch_disabled")),
+        "max_video_post_duration_sec": info.get("max_video_post_duration_sec"),
+    }

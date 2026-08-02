@@ -32,10 +32,13 @@ export function renderEditorProject(
 	const q = new URLSearchParams({ format: opts?.format ?? "mp4" });
 	if (opts?.height) q.set("height", String(opts.height));
 	if (opts?.fps) q.set("fps", String(opts.fps));
-	return api(`/video-editor/projects/${projectId}/render?${q}`, { method: "POST" });
+	return api(`/video-editor/projects/${projectId}/render?${q}`, {
+		method: "POST",
+	});
 }
 
 // Publish a rendered MP4 (its storage key) to the selected connected accounts.
+// Returns one post per account; poll listSchedule() for live status + result URL.
 export function publishEditorProject(
 	projectId: string,
 	body: {
@@ -43,8 +46,9 @@ export function publishEditorProject(
 		account_ids: string[];
 		title?: string;
 		caption?: string;
+		tiktok_privacy?: string;
 	},
-): Promise<{ dispatched: number }> {
+): Promise<import("@/features/clips/api").PublishResult[]> {
 	return api(`/video-editor/projects/${projectId}/publish`, {
 		method: "POST",
 		body: JSON.stringify(body),

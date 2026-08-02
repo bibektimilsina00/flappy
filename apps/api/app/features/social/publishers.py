@@ -55,11 +55,13 @@ def publish(
     video_bytes,
     title: str,
     caption: str,
+    options: dict | None = None,
 ) -> str:
     token = fresh_token(session, account)
+    if account.platform == "tiktok":
+        return _tiktok(account, token, video_url, video_bytes, title, caption, options or {})
     fn = {
         "youtube": _youtube,
-        "tiktok": _tiktok,
         "instagram": _instagram,
         "facebook": _facebook,
         "x": _x,
@@ -97,16 +99,40 @@ def _youtube(account, token, video_url, video_bytes, title, caption) -> str:
         return f"https://youtube.com/shorts/{up.json()['id']}"
 
 
-def _tiktok(account, token, video_url, video_bytes, title, caption) -> str:
+def tiktok_creator_info(token: str) -> dict:
+    """Content Posting API requires querying creator_info before a direct post —
+    it returns the privacy levels this creator/app may use and interaction flags."""
+    with httpx.Client(timeout=30) as client:
+        res = client.post(
+            "https://open.tiktokapis.com/v2/post/publish/creator_info/query/",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json; charset=UTF-8",
+            },
+        )
+        _raise(res, "TikTok creator info")
+        return res.json().get("data") or {}
+
+
+def _tiktok(account, token, video_url, video_bytes, title, caption, options) -> str:
     data = video_bytes()
     headers = {"Authorization": f"Bearer {token}"}
+    info = tiktok_creator_info(token)
+    # Only publish at a privacy level TikTok says this creator/app may use.
+    # Unaudited apps get SELF_ONLY only; the user's choice is honored if allowed.
+    allowed = info.get("privacy_level_options") or ["SELF_ONLY"]
+    requested = options.get("privacy_level")
+    privacy = requested if requested in allowed else allowed[0]
     with httpx.Client(timeout=600) as client:
         init = client.post(
             "https://open.tiktokapis.com/v2/post/publish/video/init/",
             json={
                 "post_info": {
                     "title": (caption or title or "")[:2200],
-                    "privacy_level": "PUBLIC_TO_EVERYONE",
+                    "privacy_level": privacy,
+                    "disable_comment": bool(info.get("comment_disabled")),
+                    "disable_duet": bool(info.get("duet_disabled")),
+                    "disable_stitch": bool(info.get("stitch_disabled")),
                 },
                 "source_info": {
                     "source": "FILE_UPLOAD",

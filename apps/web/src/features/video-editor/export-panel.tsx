@@ -29,9 +29,12 @@ import {
 } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+	listSchedule,
 	listSocialAccounts,
+	type PublishResult,
 	socialConnectUrl,
 	socialProviders,
+	tiktokCreatorInfo,
 } from "@/features/clips/api";
 import {
 	publishEditorProject,
@@ -40,6 +43,14 @@ import {
 } from "./api";
 import { buildCaptions } from "./captions";
 import type { VideoEditorDoc } from "./types";
+
+const TERMINAL = new Set(["posted", "failed"]);
+const PRIVACY_LABEL: Record<string, string> = {
+	PUBLIC_TO_EVERYONE: "Public",
+	MUTUAL_FOLLOW_FRIENDS: "Friends",
+	FOLLOWER_OF_CREATOR: "Followers",
+	SELF_ONLY: "Private (only me)",
+};
 
 interface ExportPanelProps {
 	projectId: string;
@@ -143,7 +154,7 @@ export function ExportPanel({
 	const [copied, setCopied] = useState<string | null>(null);
 	const [selected, setSelected] = useState<Set<string>>(new Set());
 	const [caption, setCaption] = useState("");
-	const [published, setPublished] = useState<number | null>(null);
+	const [results, setResults] = useState<PublishResult[] | null>(null);
 	const [moreOpen, setMoreOpen] = useState(false);
 	const [settings, setSettings] = useState<{
 		name: string;
@@ -162,11 +173,54 @@ export function ExportPanel({
 		queryFn: socialProviders,
 	});
 
+	// TikTok requires querying creator_info + letting the user pick an allowed
+	// privacy level before a direct post.
+	const tiktokAccount = (accounts ?? []).find(
+		(a) => a.platform === "tiktok" && selected.has(a.id),
+	);
+	const [tiktokPrivacy, setTiktokPrivacy] = useState("");
+	const { data: tiktokInfo } = useQuery({
+		queryKey: ["tiktok-creator-info", tiktokAccount?.id],
+		queryFn: () => tiktokCreatorInfo(tiktokAccount?.id ?? ""),
+		enabled: !!tiktokAccount,
+	});
+	useEffect(() => {
+		const opts = tiktokInfo?.privacy_level_options;
+		if (opts?.length && !opts.includes(tiktokPrivacy))
+			setTiktokPrivacy(opts[0]);
+	}, [tiktokInfo, tiktokPrivacy]);
+
 	// biome-ignore lint/correctness/useExhaustiveDependencies: doc identity is the invalidation signal
 	useEffect(() => {
 		renderRef.current = null;
-		setPublished(null);
+		setResults(null);
 	}, [doc]);
+
+	// After publishing, poll until every post reaches posted/failed.
+	useEffect(() => {
+		if (!results || results.every((r) => TERMINAL.has(r.status))) return;
+		const t = setInterval(() => {
+			listSchedule()
+				.then((posts) => {
+					setResults(
+						(prev) =>
+							prev?.map((r) => {
+								const fresh = posts.find((p) => p.id === r.id);
+								return fresh
+									? {
+											...r,
+											status: fresh.status,
+											result_url: fresh.result_url,
+											error: fresh.error,
+										}
+									: r;
+							}) ?? null,
+					);
+				})
+				.catch(() => {});
+		}, 2500);
+		return () => clearInterval(t);
+	}, [results]);
 
 	const run = useCallback(async (key: string, fn: () => Promise<void>) => {
 		setBusy(key);
@@ -274,15 +328,16 @@ export function ExportPanel({
 		});
 	const publish = () =>
 		run("publish", async () => {
-			setPublished(null);
+			setResults(null);
 			const r = await ensureRender();
 			const res = await publishEditorProject(projectId, {
 				render_key: r.key,
 				account_ids: [...selected],
 				title,
 				caption,
+				tiktok_privacy: tiktokAccount ? tiktokPrivacy : undefined,
 			});
-			setPublished(res.dispatched);
+			setResults(res);
 		});
 
 	const connected = accounts ?? [];
@@ -428,15 +483,23 @@ export function ExportPanel({
 									{connected.map((a) => {
 										const meta = PLATFORM[a.platform];
 										const Icon = meta?.icon;
+										const r = results?.find(
+											(x) =>
+												x.platform === a.platform && x.account === a.username,
+										);
 										return (
 											<label
 												key={a.id}
 												className="flex cursor-pointer items-center gap-3 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5 transition-colors hover:bg-white/5"
 											>
-												<Checkbox
-													checked={selected.has(a.id)}
-													onCheckedChange={() => toggle(a.id)}
-												/>
+												{!r ? (
+													<Checkbox
+														checked={selected.has(a.id)}
+														onCheckedChange={() => toggle(a.id)}
+													/>
+												) : r.status !== "posted" && r.status !== "failed" ? (
+													<Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" />
+												) : null}
 												<span
 													className={`grid size-8 shrink-0 place-items-center rounded-lg text-white ${meta?.bg ?? "bg-white/10"}`}
 												>
@@ -446,12 +509,32 @@ export function ExportPanel({
 													<span className="block text-sm font-medium">
 														{meta?.name ?? a.platform}
 													</span>
-													{a.username ? (
+													{r ? (
+														<span
+															className={`block truncate text-xs ${r.status === "failed" ? "text-red-400/90" : "text-muted-foreground"}`}
+														>
+															{r.status === "posted"
+																? "Published"
+																: r.status === "failed"
+																	? (r.error ?? "Failed")
+																	: "Posting…"}
+														</span>
+													) : a.username ? (
 														<span className="block truncate text-xs text-muted-foreground">
 															@{a.username}
 														</span>
 													) : null}
 												</span>
+												{r?.status === "posted" && r.result_url ? (
+													<a
+														href={r.result_url}
+														target="_blank"
+														rel="noreferrer"
+														className="flex shrink-0 items-center gap-1 px-1 text-xs font-medium text-teal-300 transition-colors hover:text-teal-200"
+													>
+														View <ExternalLink className="size-3" />
+													</a>
+												) : null}
 											</label>
 										);
 									})}
@@ -516,6 +599,38 @@ export function ExportPanel({
 										rows={2}
 										className="w-full resize-none rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground/50 focus:border-teal-400/50"
 									/>
+									{tiktokAccount ? (
+										<div className="mt-2">
+											<label className="mb-1 block text-xs text-muted-foreground">
+												TikTok privacy
+											</label>
+											<select
+												value={tiktokPrivacy}
+												onChange={(e) => setTiktokPrivacy(e.target.value)}
+												className="w-full rounded-lg border border-white/10 bg-[#161616] px-3 py-2 text-sm outline-none focus:border-teal-400/50"
+											>
+												{(
+													tiktokInfo?.privacy_level_options ?? ["SELF_ONLY"]
+												).map((o) => (
+													<option key={o} value={o}>
+														{PRIVACY_LABEL[o] ?? o}
+													</option>
+												))}
+											</select>
+											<p className="mt-1.5 text-[11px] leading-snug text-muted-foreground/80">
+												By posting, you agree to TikTok's{" "}
+												<a
+													href="https://www.tiktok.com/legal/page/global/bytedance-content-sharing-guidelines/en"
+													target="_blank"
+													rel="noreferrer"
+													className="underline underline-offset-2"
+												>
+													Content Sharing Guidelines
+												</a>
+												.
+											</p>
+										</div>
+									) : null}
 									<button
 										type="button"
 										disabled={busy !== null || selected.size === 0}
@@ -530,17 +645,9 @@ export function ExportPanel({
 										) : (
 											<>
 												<Send className="size-4" /> Publish
-												{selected.size ? ` to ${selected.size}` : ""}
 											</>
 										)}
 									</button>
-									{published !== null ? (
-										<p className="mt-2 flex items-center gap-1.5 text-xs text-emerald-400">
-											<Check className="size-3.5" /> Publishing to {published}{" "}
-											channel{published === 1 ? "" : "s"} — appears once each
-											platform finishes processing.
-										</p>
-									) : null}
 								</div>
 							) : null}
 						</section>

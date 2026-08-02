@@ -65,6 +65,9 @@ CONNECT_PLATFORMS = ("youtube", "tiktok", "instagram", "facebook", "x", "linkedi
 
 
 def creds(provider: str) -> tuple[str, str]:
+    # TikTok sandbox app for pre-audit testing — separate key/secret, opt-in.
+    if provider == "tiktok" and settings.tiktok_use_sandbox and settings.tiktok_sandbox_client_key:
+        return settings.tiktok_sandbox_client_key, settings.tiktok_sandbox_client_secret
     kid, ksec = PROVIDERS[provider]["keys"]
     return getattr(settings, kid), getattr(settings, ksec)
 

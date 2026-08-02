@@ -545,22 +545,27 @@ class PublishBody(BaseModel):
     account_ids: list[str]
     title: str = ""
     caption: str = ""
+    tiktok_privacy: str | None = None  # e.g. SELF_ONLY / PUBLIC_TO_EVERYONE
 
 
-@router.post("/projects/{project_id}/publish", status_code=202)
+@router.post("/projects/{project_id}/publish", status_code=201)
 def publish_project(
     project_id: uuid.UUID,
     body: PublishBody,
     session: Session = Depends(get_session),
     workspace_id: uuid.UUID = Depends(current_workspace_id),
     _user: User = Depends(get_current_user),
-) -> dict:
-    """Publish a rendered editor MP4 to the selected connected accounts. The
-    client renders first (POST /render) and passes that render's key here."""
+) -> list[dict]:
+    """Publish a rendered editor MP4 to the selected connected accounts. Creates
+    one ScheduledPost per account (poll GET /clips/schedule for live status),
+    the same tracking clip publishing uses. Client renders first (POST /render)."""
+    from datetime import UTC, datetime
+
+    from apps.api.app.features.clips.models import ScheduledPost
+
     project = repository.get(session, workspace_id, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Editor project not found")
-    # Only publish a render this workspace owns.
     if not body.render_key.startswith(f"{workspace_id}/"):
         raise HTTPException(status_code=403, detail="That render isn't yours to publish.")
     ids = [uuid.UUID(a) for a in body.account_ids]
@@ -571,9 +576,41 @@ def publish_project(
     ).all()
     if not accounts:
         raise HTTPException(status_code=400, detail="Pick at least one connected account.")
+
     title = body.title or project.title or "Video"
+    now = datetime.now(UTC).replace(tzinfo=None)
+    posts = []
     for acc in accounts:
-        celery_app.send_task(
-            "publish_editor_render", args=[str(acc.id), body.render_key, title, body.caption]
+        opts = (
+            {"privacy_level": body.tiktok_privacy}
+            if acc.platform == "tiktok" and body.tiktok_privacy
+            else None
         )
-    return {"dispatched": len(accounts)}
+        post = ScheduledPost(
+            workspace_id=workspace_id,
+            render_key=body.render_key,
+            title=title,
+            post_at=now,
+            status="posting",
+            social_account_id=acc.id,
+            platform=acc.platform,
+            caption=(body.caption or "").strip() or None,
+            options=opts,
+        )
+        session.add(post)
+        posts.append((post, acc))
+    session.commit()
+    for post, _ in posts:
+        celery_app.send_task("publish_post", args=[str(post.id)])
+    return [
+        {
+            "id": str(post.id),
+            "clip_id": None,
+            "status": post.status,
+            "platform": post.platform,
+            "account": acc.username,
+            "result_url": post.result_url,
+            "error": post.error,
+        }
+        for post, acc in posts
+    ]

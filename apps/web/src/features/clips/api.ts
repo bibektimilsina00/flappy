@@ -313,6 +313,22 @@ export function disconnectSocialAccount(id: string): Promise<void> {
 	return api(`/social/accounts/${id}`, { method: "DELETE" });
 }
 
+export interface TikTokCreatorInfo {
+	privacy_level_options: string[];
+	comment_disabled: boolean;
+	duet_disabled: boolean;
+	stitch_disabled: boolean;
+	max_video_post_duration_sec: number | null;
+}
+
+// Privacy levels + flags TikTok allows for this connected account (unaudited
+// apps get SELF_ONLY only). The publish UI offers only these options.
+export function tiktokCreatorInfo(
+	accountId: string,
+): Promise<TikTokCreatorInfo> {
+	return api(`/social/accounts/${accountId}/tiktok/creator-info`);
+}
+
 export interface PublishResult {
 	id: string;
 	clip_id: string;

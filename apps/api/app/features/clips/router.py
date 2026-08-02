@@ -706,14 +706,20 @@ def list_schedule(
     jobs: dict[uuid.UUID, ClipsJob | None] = {}
     out = []
     for p in posts:
-        if p.job_id not in jobs:
-            jobs[p.job_id] = repository.get(session, workspace_id, p.job_id)
-        job = jobs[p.job_id]
-        clip = next((c for c in (job.clips if job else []) or [] if c.get("id") == p.clip_id), None)
+        # Editor-render posts have no job/clip.
+        if p.job_id is None:
+            clip = None
+        else:
+            if p.job_id not in jobs:
+                jobs[p.job_id] = repository.get(session, workspace_id, p.job_id)
+            job = jobs[p.job_id]
+            clip = next(
+                (c for c in (job.clips if job else []) or [] if c.get("id") == p.clip_id), None
+            )
         out.append(
             {
                 "id": str(p.id),
-                "job_id": str(p.job_id),
+                "job_id": str(p.job_id) if p.job_id else None,
                 "clip_id": p.clip_id,
                 "title": p.title or (clip or {}).get("title"),
                 "post_at": p.post_at.isoformat() + "Z",

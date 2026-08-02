@@ -26,30 +26,45 @@ def publish_post(post_id: str) -> None:
         account = (
             session.get(SocialAccount, post.social_account_id) if post.social_account_id else None
         )
-        job = session.get(ClipsJob, post.job_id)
-        clip = next(
-            (c for c in (job.clips if job else []) or [] if c.get("id") == post.clip_id), None
-        )
-        if account is None or job is None or clip is None or not clip.get("key"):
+        if account is None:
             post.status = "failed"
-            post.error = "The connected account or clip no longer exists."
+            post.error = "The connected account no longer exists."
             session.add(post)
             session.commit()
             return
+        storage = get_storage()
+
+        # Editor-render post carries the MP4 key directly; clip post resolves a
+        # captions-burned key from the job's clip.
+        if post.render_key:
+            key: str | None = post.render_key
+            title = post.title or "Video"
+        else:
+            job = session.get(ClipsJob, post.job_id) if post.job_id else None
+            clip = next(
+                (c for c in (job.clips if job else []) or [] if c.get("id") == post.clip_id), None
+            )
+            if job is None or clip is None or not clip.get("key"):
+                post.status = "failed"
+                post.error = "The clip no longer exists."
+                session.add(post)
+                session.commit()
+                return
+            key = _publish_key(session, job, clip, storage)
+            title = post.title or clip.get("title") or "Clip"
 
         post.status = "posting"
         session.add(post)
         session.commit()
         try:
-            storage = get_storage()
-            key = _publish_key(session, job, clip, storage)
             result = publishers.publish(
                 session,
                 account,
                 video_url=storage.url(key),
                 video_bytes=lambda: storage.get(key),
-                title=post.title or clip.get("title") or "Clip",
-                caption=post.caption or post.title or clip.get("title") or "",
+                title=title,
+                caption=post.caption or title or "",
+                options=post.options,
             )
             post.status = "posted"
             post.result_url = result
@@ -60,28 +75,6 @@ def publish_post(post_id: str) -> None:
             post.error = str(e)[:500]
         session.add(post)
         session.commit()
-
-
-@celery_app.task(name="publish_editor_render")
-def publish_editor_render(account_id: str, key: str, title: str, caption: str) -> None:
-    """Publish a rendered editor MP4 (already in storage) to one connected
-    account. Fire-and-forget from the editor's Export panel."""
-    with Session(engine) as session:
-        account = session.get(SocialAccount, uuid.UUID(account_id))
-        if account is None or not key:
-            return
-        storage = get_storage()
-        try:
-            publishers.publish(
-                session,
-                account,
-                video_url=storage.url(key),
-                video_bytes=lambda: storage.get(key),
-                title=title or "Video",
-                caption=caption or title or "",
-            )
-        except Exception:  # noqa: BLE001 — platform errors are logged, not surfaced (fire-and-forget)
-            log.exception("editor publish failed for account %s", account_id)
 
 
 def _publish_key(session: Session, job: ClipsJob, clip: dict, storage) -> str:

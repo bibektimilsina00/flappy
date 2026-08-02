@@ -75,6 +75,11 @@ class Settings(BaseSettings):
     # Social publishing OAuth apps (M5). YouTube reuses the Google app above.
     tiktok_client_key: str = ""
     tiktok_client_secret: str = ""
+    # Sandbox app (for testing before the production app is audited). When
+    # tiktok_use_sandbox is true and these are set, TikTok OAuth uses them.
+    tiktok_sandbox_client_key: str = ""
+    tiktok_sandbox_client_secret: str = ""
+    tiktok_use_sandbox: bool = False
     facebook_app_id: str = ""
     facebook_app_secret: str = ""
     # "Instagram API with Instagram Login" (standalone, no Facebook page needed)
