@@ -95,10 +95,15 @@ jobs:
       - name: Ship compose file & roll over
         env:
           ENV_FILE: ${{ secrets.ENV_FILE }}
+          CF_ORIGIN_CERT: ${{ secrets.CF_ORIGIN_CERT }}
+          CF_ORIGIN_KEY: ${{ secrets.CF_ORIGIN_KEY }}
         run: |
           scp deploy/docker-compose.prod.yml "$VPS_USER@$VPS_HOST:$VPS_DIR/docker-compose.yml"
           scp deploy/Caddyfile "$VPS_USER@$VPS_HOST:$VPS_DIR/Caddyfile"
           printf '%s\n' "$ENV_FILE" | ssh "$VPS_USER@$VPS_HOST" "install -m 600 /dev/stdin $VPS_DIR/.env"
+          ssh "$VPS_USER@$VPS_HOST" "mkdir -p $VPS_DIR/certs"
+          printf '%s\n' "$CF_ORIGIN_CERT" | ssh "$VPS_USER@$VPS_HOST" "install -m 644 /dev/stdin $VPS_DIR/certs/origin.pem"
+          printf '%s\n' "$CF_ORIGIN_KEY" | ssh "$VPS_USER@$VPS_HOST" "install -m 600 /dev/stdin $VPS_DIR/certs/origin.key"
           ssh "$VPS_USER@$VPS_HOST" "
             set -e
             cd $VPS_DIR

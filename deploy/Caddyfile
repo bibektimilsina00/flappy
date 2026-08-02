@@ -1,5 +1,7 @@
-# Caddy gets/renews Let's Encrypt certs automatically for these hosts.
+# Behind Cloudflare (orange cloud, SSL mode Full-strict). Caddy serves the
+# Cloudflare Origin certificate (valid ~15y, no ACME/renewal) and reverse-proxies.
 riocut.com {
+	tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
 	encode zstd gzip
 
 	# API + WebSockets
@@ -13,5 +15,6 @@ riocut.com {
 }
 
 www.riocut.com {
+	tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
 	redir https://riocut.com{uri} permanent
 }
