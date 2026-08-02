@@ -12,12 +12,14 @@ import uuid
 import imageio_ffmpeg
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from apps.api.app.api.deps import current_workspace_id, get_current_user, get_session
+from apps.api.app.core.celery import celery_app
 from apps.api.app.features.assets import repository as assets_repo
 from apps.api.app.features.assets.models import Asset
 from apps.api.app.features.executions import service as executions_service
+from apps.api.app.features.social.models import SocialAccount
 from apps.api.app.features.users.models import User
 from apps.api.app.features.video_editor import repository
 from apps.api.app.features.video_editor.models import (
@@ -332,11 +334,14 @@ def update_project(
 def render_project(
     project_id: uuid.UUID,
     format: str = "mp4",
+    height: int | None = None,  # output height (e.g. 720/1080); width follows aspect
+    fps: int | None = None,
     session: Session = Depends(get_session),
     workspace_id: uuid.UUID = Depends(current_workspace_id),
     _user: User = Depends(get_current_user),
 ) -> dict:
-    """Composite the timeline via ffmpeg and store it. format=mp4 (default) or gif."""
+    """Composite the timeline via ffmpeg and store it. format=mp4 (default) or gif;
+    optional height/fps override the canvas resolution and frame rate."""
     if format not in ("mp4", "gif"):
         raise HTTPException(status_code=422, detail="format must be 'mp4' or 'gif'")
     project = repository.get(session, workspace_id, project_id)
@@ -373,13 +378,24 @@ def render_project(
             )
             sources[ref] = {"path": path, "kind": kind}
 
-        text_ass = build_text_ass(project.doc)
+        # Apply resolution / fps overrides on a copy of the doc.
+        doc = project.doc
+        if height or fps:
+            doc = dict(project.doc)
+            if height and int(doc.get("height") or 0):
+                scale = height / int(doc["height"])
+                doc["height"] = height
+                doc["width"] = round(int(doc.get("width") or 1080) * scale / 2) * 2
+            if fps:
+                doc["fps"] = fps
+
+        text_ass = build_text_ass(doc)
         ass_path = None
         if text_ass:
             ass_path = os.path.join(d, "text.ass")
             with open(ass_path, "w", encoding="utf-8") as f:
                 f.write(text_ass)
-        input_args, filter_complex, post, total = build_render_args(project.doc, sources, ass_path)
+        input_args, filter_complex, post, total = build_render_args(doc, sources, ass_path)
         out = os.path.join(d, "out.mp4")
         cmd = [exe, "-y", *input_args, "-filter_complex", filter_complex, *post, out]
         proc = subprocess.run(cmd, capture_output=True, timeout=900)
@@ -522,3 +538,42 @@ def add_shared_comment(
         "at": comment.at,
         "created_at": comment.created_at.isoformat(),
     }
+
+
+class PublishBody(BaseModel):
+    render_key: str  # storage key of a prior /render (workspace-scoped)
+    account_ids: list[str]
+    title: str = ""
+    caption: str = ""
+
+
+@router.post("/projects/{project_id}/publish", status_code=202)
+def publish_project(
+    project_id: uuid.UUID,
+    body: PublishBody,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Publish a rendered editor MP4 to the selected connected accounts. The
+    client renders first (POST /render) and passes that render's key here."""
+    project = repository.get(session, workspace_id, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+    # Only publish a render this workspace owns.
+    if not body.render_key.startswith(f"{workspace_id}/"):
+        raise HTTPException(status_code=403, detail="That render isn't yours to publish.")
+    ids = [uuid.UUID(a) for a in body.account_ids]
+    accounts = session.exec(
+        select(SocialAccount).where(
+            SocialAccount.workspace_id == workspace_id, SocialAccount.id.in_(ids)
+        )
+    ).all()
+    if not accounts:
+        raise HTTPException(status_code=400, detail="Pick at least one connected account.")
+    title = body.title or project.title or "Video"
+    for acc in accounts:
+        celery_app.send_task(
+            "publish_editor_render", args=[str(acc.id), body.render_key, title, body.caption]
+        )
+    return {"dispatched": len(accounts)}

@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: "The terms that govern your use of Riocut.",
 };
 
-const CONTACT = "support@khareedlow.com";
+const CONTACT = "support@riocut.com";
 
 export default function TermsPage() {
   return (

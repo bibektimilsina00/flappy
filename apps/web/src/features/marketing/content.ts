@@ -3,7 +3,7 @@ export const BRAND = {
   name: "Riocut",
   tagline: "Prompt to finished video, on one canvas.",
   appUrl: "/login", // "Start free" / "Sign in" → the app's auth entry
-  email: "hello@riocut.studio",
+  email: "hello@riocut.com",
   social: { x: "#", youtube: "#", discord: "#" },
 };
 
@@ -99,7 +99,7 @@ export const TOOL_TABS = [
     label: "Repurpose",
     title: "Long video in, viral clips out",
     desc: "Paste a link or upload a video. The AI reads the transcript, picks the moments with hooks, and hands back captioned, face-framed clips — scored and scheduled.",
-    bullets: ["AI moment selection + virality scores", "Word-by-word animated captions", "Face-aware vertical framing", "Auto-schedule the posting queue"],
+    bullets: ["AI moment selection + virality scores", "Word-by-word animated captions", "Vertical 9:16 reframing", "Auto-schedule the posting queue"],
     media: "AI clipping", img: "1611162616475-46b635cb6868",
   },
   {
@@ -140,7 +140,7 @@ export const FEATURE_ROWS = [
   {
     eyebrow: "AI Clips",
     title: "One long video. Ten viral clips.",
-    desc: "Riocut listens to every word of your podcast or stream, scores each moment for hook strength and completeness, then renders vertical clips with karaoke captions, face-aware framing, and a posting schedule. Review, tweak a caption, and ship.",
+    desc: "Riocut listens to every word of your podcast or stream, scores each moment for hook strength and completeness, then renders vertical clips with karaoke captions and a posting schedule. Review, tweak a caption, and ship.",
     bullets: ["Whisper-accurate transcripts, word by word", "Virality scores with the reasoning shown", "Caption templates — or design your own", "Bulk schedule straight to a posting queue"],
     media: { tone: "teal", label: "AI clipping", play: true, img: "1611162616475-46b635cb6868" } as const,
     reverse: false,
@@ -247,7 +247,7 @@ export const PRICING = [
 ];
 
 export const FAQ = [
-  { q: "How does AI clipping work?", a: "Paste a link or upload a video up to 30 minutes. Riocut transcribes it word by word, an AI picks the most engaging self-contained moments, and each one renders as a vertical clip with animated captions, face-aware framing, and a virality score explaining the pick. You can trim, restyle captions, bulk-schedule, or open any clip in the full editor." },
+  { q: "How does AI clipping work?", a: "Paste a link or upload a video up to 30 minutes. Riocut transcribes it word by word, an AI picks the most engaging self-contained moments, and each one renders as a vertical clip with animated captions and a virality score explaining the pick. You can trim, restyle captions, bulk-schedule, or open any clip in the full editor." },
   { q: "What is Riocut, exactly?", a: "A single workspace for AI video: a node canvas where you generate footage by chaining models, and a magnetic timeline where you cut it together. Both share one media pool." },
   { q: "Which AI models can I use?", a: "Text-to-image, text-to-video, image-to-video, and video-extend models from leading providers — all selectable from one menu. Free-tier models are included; premium models unlock on Pro." },
   { q: "Do I need any editing experience?", a: "No. The assistant can pick the model and generate for you, and the timeline is magnetic — it keeps everything gap-free automatically. Power users still get frame-level control." },

@@ -5,7 +5,7 @@ import { BRAND } from "@/features/marketing/content";
 
 const DESCRIPTION =
   "Riocut turns long videos into viral short clips and finished videos with AI — " +
-  "transcription, highlight detection, captions, face framing, and one-click " +
+  "transcription, highlight detection, captions, and one-click " +
   "publishing to YouTube, TikTok, Instagram, X, LinkedIn, and Facebook.";
 
 export const metadata: Metadata = {

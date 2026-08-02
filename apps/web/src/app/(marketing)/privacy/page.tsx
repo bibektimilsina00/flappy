@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: "How Riocut collects, uses, and protects your data.",
 };
 
-const CONTACT = "support@khareedlow.com";
+const CONTACT = "support@riocut.com";
 
 export default function PrivacyPage() {
   return (

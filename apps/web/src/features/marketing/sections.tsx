@@ -460,7 +460,7 @@ export function ClipsShowcase() {
           </div>
 
           <div className="mx-auto mt-12 flex max-w-3xl flex-wrap items-center justify-center gap-x-8 gap-y-3">
-            {["AI moment selection", "Word-by-word captions", "Face-aware framing", "Virality scores", "Auto-schedule"].map((f) => (
+            {["AI moment selection", "Word-by-word captions", "Vertical reframing", "Virality scores", "Auto-schedule"].map((f) => (
               <span key={f} className="flex items-center gap-2 text-sm text-mk-muted">
                 <Check className="size-4 text-mk-accent" /> {f}
               </span>

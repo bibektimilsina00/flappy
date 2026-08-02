@@ -3,57 +3,97 @@ import { useSession } from "@/stores/session";
 import type { VideoEditorDoc, VideoEditorProject } from "./types";
 
 // Load (seeds on first open) the timeline editor project for a workflow.
-export function getEditorProject(workflowId: string): Promise<VideoEditorProject> {
-  return api<VideoEditorProject>(`/video-editor/projects/${workflowId}`);
+export function getEditorProject(
+	workflowId: string,
+): Promise<VideoEditorProject> {
+	return api<VideoEditorProject>(`/video-editor/projects/${workflowId}`);
 }
 
 // Autosave title / doc.
 export function saveEditorProject(
-  projectId: string,
-  patch: { title?: string; doc?: VideoEditorDoc },
+	projectId: string,
+	patch: { title?: string; doc?: VideoEditorDoc },
 ): Promise<{ id: string; title: string }> {
-  return api<{ id: string; title: string }>(`/video-editor/projects/${projectId}`, {
-    method: "PATCH",
-    body: JSON.stringify(patch),
-  });
+	return api<{ id: string; title: string }>(
+		`/video-editor/projects/${projectId}`,
+		{
+			method: "PATCH",
+			body: JSON.stringify(patch),
+		},
+	);
 }
 
-// Composite the timeline (ffmpeg, server-side) and return its URL. format: mp4 | gif.
+// Composite the timeline (ffmpeg, server-side) and return its URL. Optional
+// height/fps override the canvas resolution and frame rate.
 export function renderEditorProject(
-  projectId: string,
-  format: "mp4" | "gif" = "mp4",
+	projectId: string,
+	opts?: { format?: "mp4" | "gif"; height?: number; fps?: number },
 ): Promise<{ key: string; url: string; kind: string; duration: number }> {
-  return api(`/video-editor/projects/${projectId}/render?format=${format}`, { method: "POST" });
+	const q = new URLSearchParams({ format: opts?.format ?? "mp4" });
+	if (opts?.height) q.set("height", String(opts.height));
+	if (opts?.fps) q.set("fps", String(opts.fps));
+	return api(`/video-editor/projects/${projectId}/render?${q}`, { method: "POST" });
+}
+
+// Publish a rendered MP4 (its storage key) to the selected connected accounts.
+export function publishEditorProject(
+	projectId: string,
+	body: {
+		render_key: string;
+		account_ids: string[];
+		title?: string;
+		caption?: string;
+	},
+): Promise<{ dispatched: number }> {
+	return api(`/video-editor/projects/${projectId}/publish`, {
+		method: "POST",
+		body: JSON.stringify(body),
+	});
 }
 
 // Create (or revoke) a public share link for the project's latest render.
 export function shareEditorProject(
-  projectId: string,
-  mode: "review" | "presentation",
-  revoke = false,
+	projectId: string,
+	mode: "review" | "presentation",
+	revoke = false,
 ): Promise<{ mode: string; token: string | null }> {
-  return api(`/video-editor/projects/${projectId}/share`, {
-    method: "POST",
-    body: JSON.stringify({ mode, revoke }),
-  });
+	return api(`/video-editor/projects/${projectId}/share`, {
+		method: "POST",
+		body: JSON.stringify({ mode, revoke }),
+	});
 }
 
 // Public share page payload (no auth — token is the secret).
 export function getSharedProject(token: string): Promise<{
-  title: string;
-  mode: "review" | "presentation";
-  video_url: string;
-  comments?: { id: string; author: string; text: string; at: number; created_at: string }[];
+	title: string;
+	mode: "review" | "presentation";
+	video_url: string;
+	comments?: {
+		id: string;
+		author: string;
+		text: string;
+		at: number;
+		created_at: string;
+	}[];
 }> {
-  return api(`/video-editor/shared/${token}`);
+	return api(`/video-editor/shared/${token}`);
 }
 
 // Public: leave a review comment on a shared project.
 export function addSharedComment(
-  token: string,
-  body: { author: string; text: string; at: number },
-): Promise<{ id: string; author: string; text: string; at: number; created_at: string }> {
-  return api(`/video-editor/shared/${token}/comments`, { method: "POST", body: JSON.stringify(body) });
+	token: string,
+	body: { author: string; text: string; at: number },
+): Promise<{
+	id: string;
+	author: string;
+	text: string;
+	at: number;
+	created_at: string;
+}> {
+	return api(`/video-editor/shared/${token}/comments`, {
+		method: "POST",
+		body: JSON.stringify(body),
+	});
 }
 
 // Kick off an AI generation (text→image / text→video / image→video / extend). The
@@ -61,43 +101,51 @@ export function addSharedComment(
 // execution id and refresh the project to surface the result asset. Throws on 402
 // (premium model / insufficient credits) with the server's detail message.
 export function generateInProject(
-  workflowId: string,
-  body: {
-    kind: "image" | "video";
-    prompt: string;
-    model?: string | null;
-    params?: Record<string, unknown>;
-    source_asset_id?: string | null;
-  },
+	workflowId: string,
+	body: {
+		kind: "image" | "video";
+		prompt: string;
+		model?: string | null;
+		params?: Record<string, unknown>;
+		source_asset_id?: string | null;
+	},
 ): Promise<{ execution_id: string; node_id: string }> {
-  return api(`/video-editor/projects/${workflowId}/generate`, { method: "POST", body: JSON.stringify(body) });
+	return api(`/video-editor/projects/${workflowId}/generate`, {
+		method: "POST",
+		body: JSON.stringify(body),
+	});
 }
 
 // Poll a generation's status.
-export function getExecution(id: string): Promise<{ id: string; status: string; error?: string | null }> {
-  return api(`/executions/${id}`);
+export function getExecution(
+	id: string,
+): Promise<{ id: string; status: string; error?: string | null }> {
+	return api(`/executions/${id}`);
 }
 
 // Upload media from the editor; the server adds it to the workflow graph so the
 // canvas shares it too. (Multipart, so it bypasses the JSON `api` helper.)
 export async function uploadToProject(
-  workflowId: string,
-  file: File,
+	workflowId: string,
+	file: File,
 ): Promise<{ id: string; kind: string; url: string; name: string }> {
-  const token = useSession.getState().token;
-  const form = new FormData();
-  form.append("file", file);
-  const res = await fetch(`/api/v1/video-editor/projects/${workflowId}/upload`, {
-    method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    body: form,
-  });
-  if (!res.ok) {
-    const detail = await res
-      .json()
-      .then((j) => j.detail)
-      .catch(() => null);
-    throw new Error(detail ?? `Upload failed (${res.status})`);
-  }
-  return res.json();
+	const token = useSession.getState().token;
+	const form = new FormData();
+	form.append("file", file);
+	const res = await fetch(
+		`/api/v1/video-editor/projects/${workflowId}/upload`,
+		{
+			method: "POST",
+			headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+			body: form,
+		},
+	);
+	if (!res.ok) {
+		const detail = await res
+			.json()
+			.then((j) => j.detail)
+			.catch(() => null);
+		throw new Error(detail ?? `Upload failed (${res.status})`);
+	}
+	return res.json();
 }

@@ -62,6 +62,28 @@ def publish_post(post_id: str) -> None:
         session.commit()
 
 
+@celery_app.task(name="publish_editor_render")
+def publish_editor_render(account_id: str, key: str, title: str, caption: str) -> None:
+    """Publish a rendered editor MP4 (already in storage) to one connected
+    account. Fire-and-forget from the editor's Export panel."""
+    with Session(engine) as session:
+        account = session.get(SocialAccount, uuid.UUID(account_id))
+        if account is None or not key:
+            return
+        storage = get_storage()
+        try:
+            publishers.publish(
+                session,
+                account,
+                video_url=storage.url(key),
+                video_bytes=lambda: storage.get(key),
+                title=title or "Video",
+                caption=caption or title or "",
+            )
+        except Exception:  # noqa: BLE001 — platform errors are logged, not surfaced (fire-and-forget)
+            log.exception("editor publish failed for account %s", account_id)
+
+
 def _publish_key(session: Session, job: ClipsJob, clip: dict, storage) -> str:
     """Captions burned in the job's style — the same artifact download makes."""
     from apps.api.app.features.clips.pipeline import BURN_VERSION, burn_clip_captions

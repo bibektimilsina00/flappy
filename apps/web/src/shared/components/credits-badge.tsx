@@ -2,14 +2,18 @@
 
 import { Zap } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useBalance } from "@/features/billing";
 import { cn } from "@/lib/cn";
 
 // Floating credit balance — icon + number, quiet until you need it.
 // Turns amber when low so running dry is never a surprise.
 export function CreditsBadge() {
+  const pathname = usePathname();
   const { data } = useBalance();
   if (!data) return null;
+  // Hidden in the video editor — its Export button sits in the same corner.
+  if (pathname?.startsWith("/video-editor")) return null;
   const low = data.balance < 25;
   const amount =
     data.balance >= 10000

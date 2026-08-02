@@ -84,9 +84,10 @@ def watermark_filter(workdir: str, w: int, h: int) -> str:
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
         "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
         "Alignment, MarginL, MarginR, MarginV, Encoding\n"
-        # &H73 alpha ≈ 55% visible; alignment 7 = top-left; shadow for legibility
+        # &H73 alpha ≈ 55% visible; alignment 3 = bottom-right (clear of the
+        # top-center title and centered captions); shadow for legibility
         f"Style: WM,{FONT_NAME},{fontsize},&H73FFFFFF,&H73FFFFFF,&H96000000,&H96000000,"
-        f"0,0,0,0,100,100,0,0,1,0,1,7,{round(w * 0.035)},0,{round(h * 0.03)},1\n\n"
+        f"0,0,0,0,100,100,0,0,1,0,1,3,0,{round(w * 0.035)},{round(h * 0.03)},1\n\n"
         "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
         "Dialogue: 0,0:00:00.00,9:59:59.00,WM,,0,0,0,,riocut.com\n"
     )
@@ -164,7 +165,7 @@ def run_pipeline(session: Session, job: ClipsJob, charge) -> None:
         # Fit layout letterboxes the source — captions/title get positioned in
         # the bars, so remember the band on every clip.
         params = job.params or {}
-        band = fit_band(params, _probe_dims(source)) if _layout(params) == "fit" else None
+        band = fit_band(params, _probe_dims(source)) if _layout(params) in ("fit", "blur") else None
         clips = []
 
         def flush(item) -> None:
@@ -322,8 +323,9 @@ def _ingest(session: Session, job: ClipsJob, storage, workdir: str) -> str:
     path = os.path.join(workdir, "source.mp4")
     # Free plan: hard 720p cap and no proxy rescue — paid bandwidth is Pro's.
     free = is_free_plan(session, job.workspace_id)
-    requested = 720 if (job.params or {}).get("quality") == "720p" else 1080
-    cap = 720 if free else requested
+    # Ingest at the plan's max: paid → 1080p, free → hard 720p cap. Export
+    # resolution is chosen at download, not here.
+    cap = 720 if free else 1080
     extra = {
         "outtmpl": path,
         "format": f"bv*[height<={cap}]+ba/b[height<={cap}]/b",
@@ -724,22 +726,23 @@ def _encode_clip(job: ClipsJob, source: str, seg: dict, out: str, watermark: boo
     workdir = os.path.dirname(out)
     exe = imageio_ffmpeg.get_ffmpeg_exe()
 
-    # Layout: fit = letterbox at the source's ratio (TikTok repost style);
-    # fill/auto = cover-crop, with auto following the face.
+    # Layout: fit = letterbox with solid bars; blur = letterbox over a blurred,
+    # zoomed copy of itself; fill/auto = cover-crop.
     custom = (params.get("caption_custom") or {}) if params.get("caption_style") == "custom" else {}
     layout = _layout(params)
     if layout == "fit":
         bgc = str(custom.get("bg") or "#000000").lstrip("#")[:6] or "000000"
         vf = f"scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=0x{bgc},fps=30"
+    elif layout == "blur":
+        # Fit-centered video over a blurred, cover-scaled copy filling the frame.
+        vf = (
+            f"split=2[bg][fg];"
+            f"[bg]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},gblur=sigma=24[bg2];"
+            f"[fg]scale={w}:{h}:force_original_aspect_ratio=decrease[fg2];"
+            f"[bg2][fg2]overlay=(W-w)/2:(H-h)/2,fps=30"
+        )
     else:
-        x_expr = "(in_w-out_w)/2"
-        if layout in ("auto", "fill") and params.get("framing", True):
-            from apps.api.app.features.clips.framing import face_center_fraction
-
-            center = face_center_fraction(source, seg["start"], seg["end"])
-            if center is not None:
-                x_expr = f"min(max(in_w*{center:.4f}-out_w/2\\,0)\\,in_w-out_w)"
-        vf = f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h}:x='{x_expr}':y='(in_h-out_h)/2',fps=30"
+        vf = f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h}:x='(in_w-out_w)/2':y='(in_h-out_h)/2',fps=30"
     if watermark:
         vf += watermark_filter(workdir, w, h)
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useBalance } from "@/features/billing";
 import type { NodeKind } from "@/features/canvas/constants";
 import { createWorkflow, RecentProjects } from "@/features/projects";
@@ -19,6 +19,9 @@ const PLACEHOLDER: Record<NodeKind, string> = {
 	world: "Describe a scene to generate…",
 };
 
+// Kinds a free plan can't run — mirrors the composer's PREMIUM_KINDS.
+const PREMIUM_KINDS = new Set<NodeKind>(["video"]);
+
 export function DashboardPage() {
 	const userName = useSession((s) => s.user?.name)?.split(" ")[0] ?? "there";
 	const { data: balance } = useBalance();
@@ -26,10 +29,21 @@ export function DashboardPage() {
 	const [kind, setKind] = useState<NodeKind>("video");
 	const [busy, setBusy] = useState(false);
 
+	const isPremium = (balance?.plan ?? "free") !== "free";
+	const goPricing = () => router.push("/pricing");
+
+	// Once the plan is known, a free user sitting on the (default) video tab gets
+	// bumped to a free kind — so the active tab is never a locked one, but a
+	// premium user keeps video as the default.
+	useEffect(() => {
+		if (balance && !isPremium && PREMIUM_KINDS.has(kind)) setKind("image");
+	}, [balance, isPremium, kind]);
+
 	// Create a project seeded with one node of the chosen kind carrying the
 	// prompt, then open the canvas and auto-run that node.
 	const start = async (text: string) => {
 		if (busy) return;
+		if (!isPremium && PREMIUM_KINDS.has(kind)) return goPricing();
 		setBusy(true);
 		try {
 			const nodeId = `node-${crypto.randomUUID()}`;
@@ -74,6 +88,8 @@ export function DashboardPage() {
 						onSubmit={composer.submit}
 						kind={kind}
 						onKindChange={setKind}
+						isPremium={isPremium}
+						onUpgrade={goPricing}
 						busy={busy}
 						placeholder={PLACEHOLDER[kind]}
 					/>

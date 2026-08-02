@@ -69,7 +69,7 @@ const PHASES = [
     label: "Cut, frame & caption",
     icon: Clapperboard,
     hint: "A few seconds per clip",
-    caption: "Rendering your clips with captions and face framing…",
+    caption: "Rendering your clips with captions…",
   },
 ] as const;
 
@@ -166,7 +166,7 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
                 <img src={job.source_thumb_url} className="h-16 w-28 shrink-0 rounded-lg border border-border object-cover" />
               ) : null}
               <div className="min-w-0">
-                <h1 className="mb-1 truncate text-xl font-bold">
+                <h1 className="mb-1 line-clamp-2 text-xl font-bold">
                   {job.source_title ?? job.source_url ?? "Uploaded video"}
                 </h1>
                 <p className="text-sm text-muted-foreground">
@@ -231,7 +231,7 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
           </div>
 
           {job.status === "failed" ? (
-            <div className="rounded-xl border border-red-400/20 bg-red-400/5 p-6">
+            <div className="rounded-lg border border-red-400/20 bg-red-400/5 p-6">
               <p className="flex items-center gap-2 font-medium text-red-400">
                 <XCircle className="size-5" /> This job failed
               </p>
@@ -360,7 +360,7 @@ function PhaseTracker({ job }: { job: ClipsJob }) {
     <div className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,380px)_1fr]">
         {/* preview panel */}
-        <div className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
           {job.source_thumb_url ? (
             <div className="relative">
               {/* biome-ignore lint/a11y/useAltText: source poster */}
@@ -382,7 +382,7 @@ function PhaseTracker({ job }: { job: ClipsJob }) {
             </div>
           )}
           <div className="space-y-2.5 p-4">
-            <p className="truncate text-sm font-medium" title={job.source_title ?? job.source_url ?? ""}>
+            <p className="line-clamp-2 text-center text-sm font-medium" title={job.source_title ?? job.source_url ?? ""}>
               {job.source_title ?? job.source_url ?? "Uploaded video"}
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -391,7 +391,6 @@ function PhaseTracker({ job }: { job: ClipsJob }) {
                 (job.params as { captions?: boolean }).captions !== false
                   ? `Captions · ${String((job.params as { caption_style?: string }).caption_style ?? "clean")}`
                   : "No captions",
-                (job.params as { framing?: boolean }).framing !== false ? "Face framing" : null,
                 (job.params as { focus?: string }).focus?.trim() ? "Focused" : null,
               ]
                 .filter(Boolean)
@@ -408,7 +407,7 @@ function PhaseTracker({ job }: { job: ClipsJob }) {
         </div>
 
         {/* vertical step list */}
-        <div className="rounded-2xl border border-border bg-card p-5">
+        <div className="rounded-lg border border-border bg-card p-5">
           {PHASES.map((phase, i) => {
             const state = i < current ? "done" : i === current ? "active" : "pending";
             const isLast = i === PHASES.length - 1;
@@ -497,7 +496,7 @@ function TranscriptFeed({ segments }: { segments: NonNullable<ClipsJob["transcri
   const latest = segments.slice(-4);
   const words = segments.reduce((n, s) => n + s.text.split(/\s+/).length, 0);
   return (
-    <div className="rounded-2xl border border-border bg-card p-5">
+    <div className="rounded-lg border border-border bg-card p-5">
       <div className="mb-3 flex items-center justify-between text-xs text-muted-foreground">
         <span className="font-medium text-foreground/80">Live transcript</span>
         <span>
@@ -552,7 +551,7 @@ function PostingQueue({ jobId, refresh = 0 }: { jobId: string; refresh?: number 
         {posts.map((post) => {
           const when = new Date(post.post_at);
           return (
-            <div key={post.id} className="group flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+            <div key={post.id} className="group flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
               <span
                 title={post.error ?? undefined}
                 className={cn(
@@ -649,19 +648,19 @@ function RenderingGallery({ job }: { job: ClipsJob }) {
   return (
     <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
       {job.clips.map((clip) => (
-        <div key={clip.id} className="overflow-hidden rounded-xl border border-border bg-card">
+        <div key={clip.id} className="overflow-hidden rounded-lg border border-border bg-card">
           {clip.url ? (
             // biome-ignore lint/a11y/useMediaCaption: clip preview
             <video src={clip.url} controls preload="metadata" className="aspect-[9/16] w-full bg-black object-contain" />
           ) : null}
-          <div className="p-3">
-            <p className="truncate text-sm font-medium">{clip.title}</p>
+          <div className="p-3 text-center">
+            <p className="line-clamp-2 text-sm font-medium">{clip.title}</p>
             <p className="text-xs text-muted-foreground">{Math.round(clip.end - clip.start)}s · ready</p>
           </div>
         </div>
       ))}
       {Array.from({ length: Math.max(0, total - done) }, (_, i) => (
-        <div key={`pending-${i}`} className="overflow-hidden rounded-xl border border-border bg-card">
+        <div key={`pending-${i}`} className="overflow-hidden rounded-lg border border-border bg-card">
           <div className="grid aspect-[9/16] w-full animate-pulse place-items-center bg-white/5">
             <Loader2 className="size-5 animate-spin text-muted-foreground/50" />
           </div>
@@ -749,7 +748,7 @@ function ClipGallery({ job, onJobUpdate, selected, setSelected, onPublish }: { j
                 key={clip.id}
                 type="button"
                 onClick={() => document.getElementById(`clip-${clip.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                className="flex w-full items-center gap-2.5 rounded-xl p-1.5 text-left transition-colors hover:bg-white/5"
+                className="flex w-full items-center gap-2.5 rounded-lg p-1.5 text-left transition-colors hover:bg-white/5"
               >
                 <span className="relative h-14 w-9 shrink-0 overflow-hidden rounded-md bg-black">
                   {clip.url ? (
@@ -838,13 +837,13 @@ function ClipRow({
     <div
       id={`clip-${clip.id}`}
       className={cn(
-        "scroll-mt-6 rounded-2xl border bg-card p-4 transition-colors",
+        "scroll-mt-6 rounded-lg border bg-card p-4 transition-colors",
         selected ? "border-teal-400/60" : "border-border",
       )}
     >
       <div className="flex flex-col gap-5 sm:flex-row">
         {/* player */}
-        <div className="relative w-full shrink-0 overflow-hidden rounded-xl sm:w-[240px]">
+        <div className="relative w-full shrink-0 overflow-hidden rounded-lg sm:w-[240px]">
           <span className="absolute left-2 top-2 z-20">
             <Checkbox checked={selected} onCheckedChange={onToggleSelect} className="bg-black/50" />
           </span>
@@ -924,7 +923,7 @@ function ClipRow({
             <button
               type="button"
               onClick={onPublish}
-              className="flex items-center gap-2 rounded-xl border border-teal-400/40 px-4 py-2 text-sm font-semibold text-teal-300 transition-colors hover:bg-teal-400/10"
+              className="flex items-center gap-2 rounded-lg border border-teal-400/40 px-4 py-2 text-sm font-semibold text-teal-300 transition-colors hover:bg-teal-400/10"
             >
               <SendHorizontal className="size-4" />
               Publish
@@ -933,7 +932,7 @@ function ClipRow({
               type="button"
               disabled={downloading}
               onClick={onDownload}
-              className="flex items-center gap-2 rounded-xl bg-teal-400 px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-60"
+              className="flex items-center gap-2 rounded-lg bg-teal-400 px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-60"
             >
               {downloading ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
               Download
@@ -941,7 +940,7 @@ function ClipRow({
           </div>
 
           {clip.reason ? (
-            <div className="mt-3 rounded-xl bg-white/5 px-3.5 py-2.5">
+            <div className="mt-3 rounded-lg bg-white/5 px-3.5 py-2.5">
               <p className="text-[11px] font-medium text-muted-foreground">Viral reason</p>
               <p className="mt-0.5 text-sm text-foreground/90">{clip.reason}</p>
             </div>

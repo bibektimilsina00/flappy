@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: "How to delete your data from Riocut.",
 };
 
-const CONTACT = "support@khareedlow.com";
+const CONTACT = "support@riocut.com";
 
 // Required by Meta (and useful for every platform): a public page explaining
 // how users can delete the data Riocut holds about them.

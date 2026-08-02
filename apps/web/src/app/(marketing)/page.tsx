@@ -27,7 +27,7 @@ const JSON_LD = {
   operatingSystem: "Web",
   description:
     "AI video studio: turn long videos into viral short clips with transcription, " +
-    "highlight detection, captions, face framing, and one-click social publishing.",
+    "highlight detection, captions, and one-click social publishing.",
   offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
 };
 

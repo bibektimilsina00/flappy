@@ -249,10 +249,10 @@ function AccountTab() {
       <SectionLabel>Privacy</SectionLabel>
       <Row
         label="Delete account"
-        hint="Email hello@riocut.studio from your account email — deletion completes within 30 days."
+        hint="Email hello@riocut.com from your account email — deletion completes within 30 days."
       >
         <a
-          href="mailto:hello@riocut.studio?subject=Delete%20my%20account"
+          href="mailto:hello@riocut.com?subject=Delete%20my%20account"
           className="rounded-lg border border-red-400/30 px-3.5 py-2 text-sm text-red-400 transition-colors hover:bg-red-400/10"
         >
           Request deletion

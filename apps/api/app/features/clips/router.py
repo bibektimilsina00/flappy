@@ -189,6 +189,9 @@ def create_job(
         )
 
     params = body.params or {}
+    # Non-9:16 ratios are paid — free plan is coerced to 9:16 (UI already gates).
+    if plan == "free" and params.get("ratio") not in (None, "9:16"):
+        params["ratio"] = "9:16"
     estimated = estimate_credits(body.source_duration, params.get("count", "auto"))
     if not billing_service.has_credits(session, workspace_id, estimated):
         raise HTTPException(
