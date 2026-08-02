@@ -541,6 +541,7 @@ def job_by_workflow(
 class PublishRequest(BaseModel):
     account_ids: list[uuid.UUID]
     caption: str | None = None
+    tiktok_privacy: str | None = None  # SELF_ONLY / PUBLIC_TO_EVERYONE / ... (TikTok compliance)
 
 
 @router.post("/jobs/{job_id}/clips/{clip_id}/publish", status_code=201)
@@ -577,6 +578,11 @@ def publish_clip_now(
     now = datetime.now(UTC).replace(tzinfo=None)
     posts = []
     for account in accounts:
+        opts = (
+            {"privacy_level": body.tiktok_privacy}
+            if account.platform == "tiktok" and body.tiktok_privacy
+            else None
+        )
         post = ScheduledPost(
             workspace_id=workspace_id,
             job_id=job.id,
@@ -587,6 +593,7 @@ def publish_clip_now(
             social_account_id=account.id,
             platform=account.platform,
             caption=(body.caption or "").strip() or None,
+            options=opts,
         )
         session.add(post)
         posts.append((post, account))

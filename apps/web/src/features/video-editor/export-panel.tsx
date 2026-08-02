@@ -28,6 +28,7 @@ import {
 	useState,
 } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select } from "@/shared/components/select";
 import {
 	listSchedule,
 	listSocialAccounts,
@@ -604,19 +605,16 @@ export function ExportPanel({
 											<label className="mb-1 block text-xs text-muted-foreground">
 												TikTok privacy
 											</label>
-											<select
+											<Select
 												value={tiktokPrivacy}
-												onChange={(e) => setTiktokPrivacy(e.target.value)}
-												className="w-full rounded-lg border border-white/10 bg-[#161616] px-3 py-2 text-sm outline-none focus:border-teal-400/50"
-											>
-												{(
+												onChange={setTiktokPrivacy}
+												options={(
 													tiktokInfo?.privacy_level_options ?? ["SELF_ONLY"]
-												).map((o) => (
-													<option key={o} value={o}>
-														{PRIVACY_LABEL[o] ?? o}
-													</option>
-												))}
-											</select>
+												).map((o) => ({
+													value: o,
+													label: PRIVACY_LABEL[o] ?? o,
+												}))}
+											/>
 											<p className="mt-1.5 text-[11px] leading-snug text-muted-foreground/80">
 												By posting, you agree to TikTok's{" "}
 												<a

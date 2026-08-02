@@ -342,7 +342,7 @@ export interface PublishResult {
 export function publishClipNow(
 	jobId: string,
 	clipId: string,
-	body: { account_ids: string[]; caption?: string },
+	body: { account_ids: string[]; caption?: string; tiktok_privacy?: string },
 ): Promise<PublishResult[]> {
 	return api(`/clips/jobs/${jobId}/clips/${clipId}/publish`, {
 		method: "POST",

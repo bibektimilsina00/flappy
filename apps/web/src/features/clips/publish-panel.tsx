@@ -3,6 +3,7 @@
 import { Check, ExternalLink, Loader2, Plus, Send, X, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
+import { Select } from "@/shared/components/select";
 import {
   disconnectSocialAccount,
   listSchedule,
@@ -12,6 +13,8 @@ import {
   type SocialAccount,
   socialConnectUrl,
   socialProviders,
+  type TikTokCreatorInfo,
+  tiktokCreatorInfo,
 } from "./api";
 
 type GlyphProps = { className?: string };
@@ -36,6 +39,13 @@ const PLATFORMS = [
 
 const TERMINAL = new Set(["posted", "failed"]);
 
+const PRIVACY_LABEL: Record<string, string> = {
+  PUBLIC_TO_EVERYONE: "Public",
+  MUTUAL_FOLLOW_FRIENDS: "Friends",
+  FOLLOWER_OF_CREATOR: "Followers",
+  SELF_ONLY: "Private (only me)",
+};
+
 // Right-side "Publish to social" sheet: pick connected accounts, write the
 // caption, publish now — live per-account status while the worker posts.
 export function PublishPanel({
@@ -56,6 +66,27 @@ export function PublishPanel({
   const [results, setResults] = useState<PublishResult[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // TikTok requires the user to pick an allowed privacy level (compliance).
+  const tiktokAccount = (accounts ?? []).find(
+    (a) => a.platform === "tiktok" && selected.has(a.id),
+  );
+  const [tiktokInfo, setTiktokInfo] = useState<TikTokCreatorInfo | null>(null);
+  const [tiktokPrivacy, setTiktokPrivacy] = useState("");
+  useEffect(() => {
+    if (!tiktokAccount) return;
+    let alive = true;
+    tiktokCreatorInfo(tiktokAccount.id)
+      .then((i) => alive && setTiktokInfo(i))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [tiktokAccount?.id]);
+  useEffect(() => {
+    const opts = tiktokInfo?.privacy_level_options;
+    if (opts?.length && !opts.includes(tiktokPrivacy)) setTiktokPrivacy(opts[0]);
+  }, [tiktokInfo, tiktokPrivacy]);
 
   const load = useCallback(() => {
     listSocialAccounts().then(setAccounts).catch(() => setAccounts([]));
@@ -102,7 +133,11 @@ export function PublishPanel({
   const publish = () => {
     setBusy(true);
     setError(null);
-    publishClipNow(jobId, clipId, { account_ids: [...selected], caption: caption.trim() || undefined })
+    publishClipNow(jobId, clipId, {
+      account_ids: [...selected],
+      caption: caption.trim() || undefined,
+      tiktok_privacy: tiktokAccount ? tiktokPrivacy : undefined,
+    })
       .then(setResults)
       .catch((e) => setError(e instanceof Error ? e.message : "Publish failed"))
       .finally(() => setBusy(false));
@@ -136,82 +171,126 @@ export function PublishPanel({
           <PublishResults results={results} onDone={onClose} />
         ) : (
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5 [scrollbar-width:thin]">
-            <div className="space-y-2.5">
-              {PLATFORMS.map((p) => {
-                const mine = (accounts ?? []).filter((a) => a.platform === p.key);
-                const configured = p.provider !== null && providers?.[p.provider] === true;
-                return (
-                  <div key={p.key} className="rounded-xl border border-white/[0.08] bg-white/[0.02] px-3.5 py-3">
-                    <div className="flex items-center gap-3">
-                      <span className={cn("grid size-8 shrink-0 place-items-center rounded-full", p.bg)}>
-                        <p.icon className="size-4" />
-                      </span>
-                      <span className="min-w-0 flex-1 text-sm font-semibold">{p.name}</span>
-                      {p.provider === null || (providers && !configured) ? (
-                        <span className="shrink-0 text-[11px] text-muted-foreground">Awaiting app approval</span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => p.provider && connect(p.provider)}
-                          className="flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-teal-300 transition-colors hover:bg-teal-400/10"
-                        >
-                          <Plus className="size-3.5" /> Connect
-                        </button>
+            <div>
+              <p className="mb-2.5 text-xs font-semibold text-muted-foreground">
+                Select accounts to publish to
+              </p>
+              <div className="space-y-2.5">
+                {PLATFORMS.map((p) => {
+                  const mine = (accounts ?? []).filter((a) => a.platform === p.key);
+                  const configured = p.provider !== null && providers?.[p.provider] === true;
+                  const pending = p.provider === null || (providers != null && !configured);
+                  return (
+                    <div
+                      key={p.key}
+                      className={cn(
+                        "rounded-xl border px-3.5 py-3 transition-colors",
+                        mine.length > 0
+                          ? "border-white/[0.12] bg-white/[0.03]"
+                          : "border-white/[0.07] bg-white/[0.01]",
                       )}
-                    </div>
-                    {mine.length > 0 ? (
-                      <div className="mt-2.5 flex flex-wrap gap-2">
-                        {mine.map((a) => {
-                          const on = selected.has(a.id);
-                          return (
-                            <span key={a.id} className="group/acc flex items-center">
-                              <button
-                                type="button"
-                                onClick={() => toggle(a.id)}
-                                className={cn(
-                                  "flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-xs font-medium transition-colors",
-                                  on
-                                    ? "border-teal-400/60 bg-teal-400/10 text-teal-200"
-                                    : "border-white/10 text-muted-foreground hover:border-white/25 hover:text-foreground",
-                                )}
-                              >
-                                {a.avatar_url ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={a.avatar_url} alt="" className="size-5 rounded-full object-cover" />
-                                ) : (
-                                  <span className={cn("grid size-5 place-items-center rounded-full text-[9px]", p.bg)}>
-                                    {(a.username ?? p.name).slice(0, 1).toUpperCase()}
-                                  </span>
-                                )}
-                                {a.username ?? p.name}
-                                {on ? <Check className="size-3" /> : null}
-                              </button>
-                              <button
-                                type="button"
-                                aria-label={`Disconnect ${a.username ?? p.name}`}
-                                title="Disconnect"
-                                onClick={() => {
-                                  void disconnectSocialAccount(a.id).then(() => {
-                                    setSelected((cur) => {
-                                      const next = new Set(cur);
-                                      next.delete(a.id);
-                                      return next;
-                                    });
-                                    load();
-                                  });
-                                }}
-                                className="ml-0.5 hidden rounded-full p-1 text-muted-foreground hover:text-red-400 group-hover/acc:block"
-                              >
-                                <X className="size-3" />
-                              </button>
-                            </span>
-                          );
-                        })}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className={cn("grid size-8 shrink-0 place-items-center rounded-full", p.bg)}>
+                          <p.icon className="size-4" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold">{p.name}</p>
+                          {mine.length === 0 && !pending ? (
+                            <p className="text-[11px] text-muted-foreground">Not connected yet</p>
+                          ) : mine.length > 0 ? (
+                            <p className="text-[11px] text-muted-foreground">
+                              {mine.length === 1 ? "1 account connected" : `${mine.length} accounts connected`}
+                            </p>
+                          ) : null}
+                        </div>
+                        {pending ? (
+                          <span className="shrink-0 text-[11px] text-muted-foreground">Awaiting app approval</span>
+                        ) : mine.length > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => p.provider && connect(p.provider)}
+                            className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
+                          >
+                            <Plus className="size-3.5" /> Add another
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => p.provider && connect(p.provider)}
+                            className="flex shrink-0 items-center gap-1 rounded-lg bg-teal-400/10 px-2.5 py-1.5 text-xs font-semibold text-teal-300 transition-colors hover:bg-teal-400/20"
+                          >
+                            <Plus className="size-3.5" /> Connect
+                          </button>
+                        )}
                       </div>
-                    ) : null}
-                  </div>
-                );
-              })}
+                      {mine.length > 0 ? (
+                        <div className="mt-2.5 space-y-1.5">
+                          {mine.map((a) => {
+                            const on = selected.has(a.id);
+                            return (
+                              <div key={a.id} className="group/acc flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => toggle(a.id)}
+                                  aria-pressed={on}
+                                  className={cn(
+                                    "flex flex-1 items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left transition-colors",
+                                    on
+                                      ? "border-teal-400/60 bg-teal-400/10"
+                                      : "border-white/10 hover:border-white/25 hover:bg-white/[0.04]",
+                                  )}
+                                >
+                                  <span
+                                    className={cn(
+                                      "grid size-[18px] shrink-0 place-items-center rounded-md border transition-colors",
+                                      on ? "border-teal-400 bg-teal-400 text-black" : "border-white/30",
+                                    )}
+                                  >
+                                    {on ? <Check className="size-3" /> : null}
+                                  </span>
+                                  {a.avatar_url ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={a.avatar_url} alt="" className="size-6 rounded-full object-cover" />
+                                  ) : (
+                                    <span className={cn("grid size-6 place-items-center rounded-full text-[10px] font-semibold", p.bg)}>
+                                      {(a.username ?? p.name).slice(0, 1).toUpperCase()}
+                                    </span>
+                                  )}
+                                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                                    {a.username ?? p.name}
+                                  </span>
+                                  {on ? (
+                                    <span className="shrink-0 text-[11px] font-medium text-teal-300">Selected</span>
+                                  ) : null}
+                                </button>
+                                <button
+                                  type="button"
+                                  aria-label={`Disconnect ${a.username ?? p.name}`}
+                                  title="Disconnect"
+                                  onClick={() => {
+                                    void disconnectSocialAccount(a.id).then(() => {
+                                      setSelected((cur) => {
+                                        const next = new Set(cur);
+                                        next.delete(a.id);
+                                        return next;
+                                      });
+                                      load();
+                                    });
+                                  }}
+                                  className="shrink-0 rounded-lg p-1.5 text-muted-foreground opacity-0 transition-opacity hover:text-red-400 group-hover/acc:opacity-100"
+                                >
+                                  <X className="size-3.5" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             <div>
@@ -224,6 +303,32 @@ export function PublishPanel({
                 className="w-full resize-none rounded-xl border border-white/10 bg-transparent px-3.5 py-2.5 text-sm outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-teal-400/50 [scrollbar-width:thin]"
               />
             </div>
+
+            {tiktokAccount ? (
+              <div>
+                <p className="mb-2 text-xs font-semibold text-muted-foreground">TikTok privacy</p>
+                <Select
+                  value={tiktokPrivacy}
+                  onChange={setTiktokPrivacy}
+                  options={(tiktokInfo?.privacy_level_options ?? ["SELF_ONLY"]).map((o) => ({
+                    value: o,
+                    label: PRIVACY_LABEL[o] ?? o,
+                  }))}
+                />
+                <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground/80">
+                  By posting, you agree to TikTok's{" "}
+                  <a
+                    href="https://www.tiktok.com/legal/page/global/bytedance-content-sharing-guidelines/en"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline underline-offset-2"
+                  >
+                    Content Sharing Guidelines
+                  </a>
+                  .
+                </p>
+              </div>
+            ) : null}
 
             {error ? <p className="text-xs text-red-400">{error}</p> : null}
           </div>
