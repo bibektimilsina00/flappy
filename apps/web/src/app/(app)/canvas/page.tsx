@@ -1,10 +1,10 @@
 import { CanvasPage } from "@/features/canvas";
 
 export default async function Page({
-  searchParams,
+	searchParams,
 }: {
-  searchParams: Promise<{ project?: string }>;
+	searchParams: Promise<{ project?: string; run?: string }>;
 }) {
-  const { project } = await searchParams;
-  return <CanvasPage projectId={project} />;
+	const { project, run } = await searchParams;
+	return <CanvasPage projectId={project} runOnLoad={run} />;
 }
