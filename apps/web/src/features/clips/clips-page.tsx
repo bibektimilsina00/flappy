@@ -1139,7 +1139,7 @@ function ConfigPanel({
 								...p,
 								schedule: p.schedule?.enabled
 									? { ...p.schedule, enabled: false }
-									: (p.schedule ?? defaultSchedule()),
+									: { ...(p.schedule ?? defaultSchedule()), enabled: true },
 							}))
 						}
 					/>
