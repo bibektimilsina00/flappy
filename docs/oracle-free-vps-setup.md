@@ -61,7 +61,9 @@ Per Oracle docs (`FreeTier/freetier_topic-Always_Free_Resources.htm`):
   and locally at `~/.oci/sg_api_key.pem`. Profile `[SG]` in `/root/.oci/config` on the
   DO box (`159.223.171.245`), region `ap-singapore-1`.
 - **Instance SSH key**: `/root/.oci/sg_instance_key` on the DO box; `~/.ssh/sg_a1_key` on the Mac.
-- Run any OCI CLI command for account B with: `oci --profile SG ...` (from the DO box).
+- Run any OCI CLI command for account B from **your Mac**: `oci --profile SG ...`
+  (config `~/.oci/config`, key `~/.oci/sg_api_key.pem`, CLI via `brew install oci-cli`).
+  The DO box also still has the `[SG]` profile while it stays up for the grabber.
 - You can revoke the API key anytime in the console (My profile → API keys); it's only
   needed to manage the account via CLI.
 
@@ -139,6 +141,10 @@ SSH ingress automatically), then reuse that subnet OCID.
 ---
 
 ## Account A — Tokyo grabber (separate account, still running)
+
+Since the migration, the DO box (`159.223.171.245`) is kept alive **only** for this
+grabber — the riocut app stack was torn down (`docker compose down`) and now runs
+entirely on the A1. CI no longer deploys to DO (it targets the A1).
 
 - Systemd service **`a1-grab`** on the DO box → `/root/a1-grab.sh`, logs `/root/a1-grab.log`.
 - Targets **Tokyo** (`ap-tokyo-1`), **2 OCPU / 12 GB / 200 GB**, retries every ~2 min.
