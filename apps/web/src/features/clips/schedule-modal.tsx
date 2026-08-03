@@ -1,7 +1,7 @@
 "use client";
 
 import { Calendar, Globe, Minus, Plus, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
@@ -13,7 +13,14 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/cn";
-import { listSocialAccounts, type ScheduleConfig, type SocialAccount } from "./api";
+import {
+  listSocialAccounts,
+  type ScheduleConfig,
+  type SocialAccount,
+  socialConnectUrl,
+  socialProviders,
+} from "./api";
+import { PLATFORMS } from "./publish-panel";
 
 const HOURS = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, "0")}:00`);
 const hourLabel = (v: string) => {
@@ -48,12 +55,45 @@ export function ScheduleModal({
 }) {
   const [cfg, setCfg] = useState<ScheduleConfig>(value);
   const [accounts, setAccounts] = useState<SocialAccount[] | null>(null);
+  const [providers, setProviders] = useState<Record<string, boolean> | null>(null);
+  const [showConnect, setShowConnect] = useState(false);
   const set = (patch: Partial<ScheduleConfig>) => setCfg((c) => ({ ...c, ...patch }));
   const windowInvalid = cfg.window_end <= cfg.window_start;
 
-  useEffect(() => {
+  const load = useCallback(() => {
     listSocialAccounts().then(setAccounts).catch(() => setAccounts([]));
   }, []);
+  useEffect(() => {
+    load();
+    socialProviders().then(setProviders).catch(() => setProviders({}));
+  }, [load]);
+
+  // the OAuth popup pings us when the callback lands → refresh the list
+  useEffect(() => {
+    const onMsg = (e: MessageEvent) => {
+      if (e.data === "riocut:social-connected") {
+        load();
+        setShowConnect(false);
+      }
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [load]);
+
+  const connect = (provider: string) =>
+    socialConnectUrl(provider)
+      .then(({ url }) => window.open(url, "riocut-connect", "width=640,height=760"))
+      .catch(() => {});
+
+  const connectRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showConnect) return;
+    const onDown = (e: MouseEvent) => {
+      if (!connectRef.current?.contains(e.target as Node)) setShowConnect(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [showConnect]);
 
   const toggleAccount = (id: string) =>
     set({
@@ -229,40 +269,73 @@ export function ScheduleModal({
           </section>
 
           {/* auto-post targets */}
-          {accounts && accounts.length > 0 ? (
-            <section>
-              <p className="mb-3 text-sm font-medium text-muted-foreground">Auto-post to</p>
-              <div className="flex flex-wrap gap-2">
-                {accounts.map((a) => {
-                  const on = (cfg.account_ids ?? []).includes(a.id);
-                  return (
-                    <button
-                      key={a.id}
-                      type="button"
-                      onClick={() => toggleAccount(a.id)}
-                      className={cn(
-                        "flex items-center gap-2 rounded-full border py-1.5 pl-1.5 pr-3.5 text-sm font-medium transition-colors",
-                        on
-                          ? "border-teal-400/60 bg-teal-400/10 text-teal-200"
-                          : "border-white/10 text-muted-foreground hover:border-white/25 hover:text-foreground",
-                      )}
-                    >
-                      {a.avatar_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={a.avatar_url} alt="" className="size-6 rounded-full object-cover" />
-                      ) : (
-                        <span className="grid size-6 place-items-center rounded-full bg-white/10 text-[10px] capitalize">
-                          {(a.username ?? a.platform).slice(0, 1)}
-                        </span>
-                      )}
-                      {a.username ?? a.platform}
-                      <span className="text-[11px] capitalize text-muted-foreground">{a.platform}</span>
-                    </button>
-                  );
-                })}
+          <section>
+            <p className="mb-3 text-sm font-medium text-muted-foreground">Auto-post to</p>
+            <div className="flex flex-wrap gap-2">
+              {(accounts ?? []).map((a) => {
+                const on = (cfg.account_ids ?? []).includes(a.id);
+                return (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => toggleAccount(a.id)}
+                    className={cn(
+                      "flex items-center gap-2 rounded-full border py-1.5 pl-1.5 pr-3.5 text-sm font-medium transition-colors",
+                      on
+                        ? "border-teal-400/60 bg-teal-400/10 text-teal-200"
+                        : "border-white/10 text-muted-foreground hover:border-white/25 hover:text-foreground",
+                    )}
+                  >
+                    {a.avatar_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={a.avatar_url} alt="" className="size-6 rounded-full object-cover" />
+                    ) : (
+                      <span className="grid size-6 place-items-center rounded-full bg-white/10 text-[10px] capitalize">
+                        {(a.username ?? a.platform).slice(0, 1)}
+                      </span>
+                    )}
+                    {a.username ?? a.platform}
+                    <span className="text-[11px] capitalize text-muted-foreground">{a.platform}</span>
+                  </button>
+                );
+              })}
+
+              {/* connect a new account (opens the OAuth popup, refreshes on return) */}
+              <div ref={connectRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowConnect((v) => !v)}
+                  className="flex items-center gap-2 rounded-full border border-dashed border-white/25 py-1.5 pl-3 pr-3.5 text-sm font-medium text-muted-foreground transition-colors hover:border-teal-400/50 hover:text-foreground"
+                >
+                  <Plus className="size-4" />
+                  {(accounts ?? []).length ? "Connect another" : "Connect account"}
+                </button>
+                {showConnect ? (
+                  <div className="absolute left-0 top-full z-30 mt-2 w-56 rounded-xl border border-white/10 bg-[#1e1e1e] p-1.5 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-100">
+                    {PLATFORMS.map((p) => {
+                      const configured = providers?.[p.provider] === true;
+                      const pending = providers != null && !configured;
+                      return (
+                        <button
+                          key={p.key}
+                          type="button"
+                          disabled={pending}
+                          onClick={() => connect(p.provider)}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <span className={cn("grid size-6 shrink-0 place-items-center rounded-md", p.bg)}>
+                            <p.icon className="size-3.5" />
+                          </span>
+                          <span className="flex-1">{p.name}</span>
+                          {pending ? <span className="text-[10px] text-muted-foreground">Soon</span> : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </div>
-            </section>
-          ) : null}
+            </div>
+          </section>
 
           <p className="text-sm leading-relaxed text-muted-foreground">
             {(cfg.account_ids ?? []).length > 0 ? (
