@@ -3,37 +3,46 @@
 import {
   ArrowUp,
   Blend,
-  Bookmark,
+  Captions,
+  Eraser,
+  Languages,
+  MicOff,
+  Palette,
+  Shapes,
+  Smile,
+  UserRound,
+  Users,
+  Video,
+  Wand2,
+  Zap,
   ChevronDown,
   Copy,
   Cloud,
-  Crop,
   Download,
   Eye,
   EyeOff,
   Film,
   Image as ImageIcon,
-  Link2,
   Loader2,
   Lock,
+  FastForward,
   Maximize2,
   Mic,
-  MousePointer2,
+  Monitor,
+  Rewind,
+  Settings,
   Music,
   PanelRight,
   Pause,
   Pencil,
   Play,
   Plus,
-  Redo2,
   Scissors,
   Search,
-  Settings,
   Share2,
   Sparkles,
   Trash2,
   Type,
-  Undo2,
   Volume2,
   VolumeX,
   X,
@@ -74,11 +83,24 @@ import {
 import type { Clip, VideoEditorAsset, VideoEditorDoc, Track } from "./types";
 import { useEditor } from "./use-editor";
 
-const LEFT_TABS = [
-  { id: "Media", icon: Play },
-  { id: "Text", icon: Type },
-  { id: "Effects", icon: Blend },
-  { id: "Transitions", icon: Film },
+// Left tool rail — mirrors the reference editor: AI tools first, then media
+// libraries and design elements. `settings` is pinned at the bottom separately.
+const CATEGORIES = [
+  { id: "ai-tools", label: "AI Tools", icon: Sparkles },
+  { id: "video", label: "Video", icon: Video },
+  { id: "audio", label: "Audio", icon: Music },
+  { id: "image", label: "Image", icon: ImageIcon },
+  { id: "subtitles", label: "Subtitles", icon: Captions },
+  { id: "text", label: "Text", icon: Type },
+  { id: "elements", label: "Elements", icon: Shapes },
+  { id: "brand-kit", label: "Brand Kit", icon: Palette },
+] as const;
+type CategoryId = (typeof CATEGORIES)[number]["id"];
+const TEXT_PRESETS = [
+  { label: "Heading", content: "Add a heading", className: "text-lg font-bold leading-tight" },
+  { label: "Subheading", content: "Add a subheading", className: "text-sm font-semibold" },
+  { label: "Body", content: "Body text goes here", className: "text-xs" },
+  { label: "Caption", content: "ADD A CAPTION", className: "text-[10px] font-medium uppercase tracking-wide" },
 ] as const;
 const RIGHT_TABS = ["Assistant", "Image", "Video"] as const;
 const ASSIST_SUGGESTIONS = [
@@ -91,7 +113,7 @@ const ASSIST_SUGGESTIONS = [
 const HEADER_W = 128;
 const TRACK_H = 52;
 const RULER_H = 26;
-const CARD = "rounded-xl border border-border bg-card";
+const CARD = "rounded-lg border border-border bg-card";
 const ACCENT = "#14b8a6"; // teal-500 — matches the workflow editor pan/select control
 
 const laneOf = (kind: string) => (kind === "audio" ? "audio" : kind === "text" ? "text" : "visual");
@@ -115,13 +137,13 @@ type Drag =
     };
 
 export function VideoEditorPage({ projectId }: { projectId: string }) {
-  const { project, assets, doc, setTitle, saveState, commit, startGesture, preview, endGesture, undo, redo, canUndo, canRedo } =
+  const { project, assets, doc, setTitle, saveState, commit, startGesture, preview, endGesture, undo, redo } =
     useEditor(projectId);
   const qc = useQueryClient();
   const [importing, setImporting] = useState(false);
   const importInput = useRef<HTMLInputElement>(null);
-  const [leftTab, setLeftTab] = useState<(typeof LEFT_TABS)[number]["id"]>("Media");
-  const [rightTab, setRightTab] = useState<(typeof RIGHT_TABS)[number]>("Assistant");
+  const [leftCat, setLeftCat] = useState<CategoryId>("ai-tools");
+  const [railCollapsed, setRailCollapsed] = useState(false);
   const [pxPerSec, setPxPerSec] = useState(44);
   const [playhead, setPlayhead] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -311,7 +333,6 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
     setSelection(new Set(created));
   }, [doc, selection, commit]);
 
-  const addNewTrack = useCallback((kind: string) => doc && commit(addTrack(doc, kind)), [doc, commit]);
 
   const dropAsset = useCallback(
     (assetId: string, clientX: number, trackId: string | null) => {
@@ -347,7 +368,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
     [doc, assets, xToTime, commit],
   );
 
-  const addTextClip = useCallback(() => {
+  const addTextClip = useCallback((content?: string) => {
     if (!doc) return;
     let d = doc;
     let track = d.tracks.find((t) => t.kind === "text");
@@ -367,7 +388,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
       transform: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
       keyframes: [],
       effects: [],
-      text: { content: "New text" },
+      text: { content: typeof content === "string" ? content : "New text" },
     };
     commit(addClip(d, track.id, clip));
     setSelection(new Set([clip.id]));
@@ -414,16 +435,22 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
   }
 
   const selectedClip = selection.size === 1 ? (findClip(doc, [...selection][0])?.clip ?? null) : null;
+  // The left panel shows whenever it's expanded, or is forced open to edit a selected clip.
+  const showLeftPanel = selectedClip != null || !railCollapsed;
   const toggleTrack = (t: Track, patch: Partial<Track>) => commit(updateTrack(doc, t.id, patch));
 
   // Lane width fills the viewport (or the content, whichever is longer); ruler ticks span it.
   const tickCount = Math.ceil(Math.max(total * pxPerSec, Math.max(0, viewportW - HEADER_W)) / pxPerSec) + 1;
   const laneW = tickCount * pxPerSec;
 
+  // ponytail: top bar hidden for now — kept intact to relocate elsewhere. Flip to true to restore.
+  const SHOW_TOP_BAR: boolean = false;
+
   return (
     <div className="flex h-full w-full flex-col text-foreground">
       <div className="flex min-h-0 flex-1 flex-col gap-2 p-2">
-        {/* ── top bar ── */}
+        {/* ── top bar (hidden — being moved elsewhere) ── */}
+        {SHOW_TOP_BAR && (
         <header className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2">
             <input
@@ -463,18 +490,13 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
             </div>
           </div>
         </header>
+        )}
 
         {/* ── panels ── */}
         <div className="flex min-h-0 flex-1 gap-2">
-          {/* left */}
-          <aside className={cn(CARD, "flex w-72 shrink-0 flex-col")}>
-            <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap border-b border-border px-2 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {LEFT_TABS.map((t) => (
-                <TabBtn key={t.id} active={leftTab === t.id} onClick={() => setLeftTab(t.id)} icon={t.icon}>
-                  {t.id}
-                </TabBtn>
-              ))}
-            </div>
+          {/* left — library (icon rail + browsable elements) */}
+          {/* Selecting a clip opens its editor in this same panel (never a 2nd panel). */}
+          <aside className={cn(CARD, "flex shrink-0 overflow-hidden transition-[width] duration-200", showLeftPanel ? "w-[22rem]" : "w-16")}>
             <input
               ref={importInput}
               type="file"
@@ -485,302 +507,301 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
                 e.target.value = "";
               }}
             />
-            <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:thin]">
-              {leftTab === "Media" ? (
-                <MediaPanel assets={assets} onImport={() => importInput.current?.click()} importing={importing} />
-              ) : leftTab === "Text" ? (
-                <button
-                  type="button"
-                  onClick={addTextClip}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border py-3 text-sm text-muted-foreground hover:bg-accent"
-                >
-                  <Plus className="size-4" /> Add text
-                </button>
+            {/* tool rail — icon-only, matches the collapsed app sidebar width */}
+            <nav className="flex w-16 shrink-0 flex-col gap-1 overflow-y-auto border-r border-border p-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {CATEGORIES.map((c) => (
+                <RailBtn
+                  key={c.id}
+                  active={leftCat === c.id && !railCollapsed && !selectedClip}
+                  onClick={() => {
+                    // A rail tap always shows that category — dropping any clip editor first.
+                    if (selectedClip) {
+                      setSelection(new Set());
+                      setLeftCat(c.id);
+                      setRailCollapsed(false);
+                    } else if (leftCat === c.id) {
+                      setRailCollapsed((v) => !v); // re-tap the open category to collapse
+                    } else {
+                      setLeftCat(c.id);
+                      setRailCollapsed(false);
+                    }
+                  }}
+                  icon={c.icon}
+                  label={c.label}
+                />
+              ))}
+            </nav>
+            {/* content — clip editor when something's selected, else the category panel */}
+            {showLeftPanel ? (
+              selectedClip ? (
+                <Inspector
+                  key={selectedClip.id}
+                  clip={selectedClip}
+                  doc={doc}
+                  startGesture={startGesture}
+                  preview={preview}
+                  endGesture={endGesture}
+                  onClose={() => setSelection(new Set())}
+                />
               ) : (
-                <p className="px-1 py-3 text-sm text-muted-foreground">{leftTab} — coming soon.</p>
-              )}
-            </div>
+                <LeftPanel
+                  category={leftCat}
+                  setCategory={setLeftCat}
+                  assets={assets}
+                  onImport={() => importInput.current?.click()}
+                  importing={importing}
+                  onAddText={addTextClip}
+                  projectId={projectId}
+                  selectedClip={selectedClip}
+                />
+              )
+            ) : null}
           </aside>
 
-          {/* center preview */}
-          <main className={cn(CARD, "flex min-w-0 flex-1 flex-col gap-3 p-4")}>
+          {/* everything right of the library: preview + inspector, stacked over the timeline */}
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <div className="flex min-h-0 flex-1 gap-2">
+              {/* center preview */}
+              <main className={cn(CARD, "flex min-w-0 flex-1 flex-col gap-3 p-4")}>
             <Preview doc={doc} urlOf={urlOf} playhead={playhead} playing={playing} />
-            <div className="flex w-full items-center justify-between px-2">
-              <span className="rounded-md border border-border px-2.5 py-1 text-xs tabular-nums text-muted-foreground">
-                {tc(playhead, doc.fps)} <span style={{ color: ACCENT }}>/ {tc(doc.duration, doc.fps)}</span>
-              </span>
-              <button
-                type="button"
-                onClick={togglePlay}
-                className="grid size-9 place-items-center rounded-full border border-border hover:bg-accent"
-              >
-                {playing ? <Pause className="size-4" /> : <Play className="size-4" />}
-              </button>
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <IconBtn title="Crop">
-                  <Crop className="size-4" />
-                </IconBtn>
-                <IconBtn title="Fullscreen">
-                  <Maximize2 className="size-4" />
-                </IconBtn>
+            {/* control bar: aspect · background · settings */}
+            <div className="flex shrink-0 items-center justify-center">
+              <div className="flex items-center gap-0.5 rounded-xl border border-border bg-card p-1">
+                <AspectMenu doc={doc} setAspect={setAspect} />
+                <span className="mx-0.5 h-5 w-px bg-border" />
+                <button type="button" className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm hover:bg-accent">
+                  <span className="size-4 rounded-full border border-border bg-foreground" />
+                  Background
+                </button>
+                <button type="button" className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground">
+                  <Settings className="size-4" />
+                  Settings
+                </button>
               </div>
             </div>
           </main>
-
-          {/* right */}
-          <aside className={cn(CARD, "flex w-80 shrink-0 flex-col")}>
-            {selectedClip ? (
-              <Inspector
-                key={selectedClip.id}
-                clip={selectedClip}
-                doc={doc}
-                startGesture={startGesture}
-                preview={preview}
-                endGesture={endGesture}
-                onClose={() => setSelection(new Set())}
-              />
-            ) : (
-              <>
-                <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap border-b border-border px-2 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {RIGHT_TABS.map((t) => (
-                    <TabBtn key={t} active={rightTab === t} onClick={() => setRightTab(t)} icon={t === "Image" ? ImageIcon : t === "Video" ? Film : Sparkles}>
-                      {t}
-                    </TabBtn>
-                  ))}
-                </div>
-                <AiPanel
-                  tab={rightTab}
-                  projectId={projectId}
-                  assets={assets}
-                  selectedClip={selectedClip}
-                  onGenerated={() => setLeftTab("Media")}
-                  gotoTab={setRightTab}
-                />
-              </>
-            )}
-          </aside>
         </div>
 
         {/* ── timeline ── */}
-        <div className={cn(CARD, "flex h-64 shrink-0 flex-col")}>
-          {/* toolbar */}
-          <div className="flex items-center gap-1 border-b border-border px-3 py-2 text-muted-foreground">
-            <button type="button" className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent">
-              <MousePointer2 className="size-3.5" />
-              <ChevronDown className="size-3" />
-            </button>
-            <Sep />
-            <IconBtn title="Undo (⌘Z)" onClick={undo} disabled={!canUndo}>
-              <Undo2 className="size-4" />
-            </IconBtn>
-            <IconBtn title="Redo (⌘⇧Z)" onClick={redo} disabled={!canRedo}>
-              <Redo2 className="size-4" />
-            </IconBtn>
-            <IconBtn title="Split (S)" onClick={splitSelected} disabled={!selection.size}>
-              <Scissors className="size-4" />
-            </IconBtn>
-            <IconBtn title="Delete (⌫)" onClick={deleteSelected} disabled={!selection.size}>
-              <Trash2 className="size-4" />
-            </IconBtn>
-            <IconBtn title="Duplicate (⌘D)" onClick={duplicateSelected} disabled={!selection.size}>
-              <Copy className="size-4" />
-            </IconBtn>
-            <IconBtn title="Marker">
-              <Bookmark className="size-4" />
-            </IconBtn>
-            <Sep />
-            <AddTrackMenu onAdd={addNewTrack} />
-
-            <div className="ml-auto flex items-center gap-1">
-              <div className="mr-1 flex items-center gap-0.5 rounded-md border border-border p-0.5">
-                {ASPECTS.map((a) => {
-                  const active = Math.abs(doc.width / doc.height - a.w / a.h) < 0.01;
-                  return (
-                    <button
-                      key={a.label}
-                      type="button"
-                      onClick={() => setAspect(a.w, a.h)}
-                      className={cn("rounded px-1.5 py-0.5 text-[11px] tabular-nums", active ? "text-white" : "hover:text-foreground")}
-                      style={active ? { backgroundColor: ACCENT } : undefined}
-                    >
-                      {a.label}
-                    </button>
-                  );
-                })}
-              </div>
-              <IconBtn title="Voiceover">
-                <Mic className="size-4" />
-              </IconBtn>
-              <IconBtn title="Detach audio">
-                <Link2 className="size-4" />
-              </IconBtn>
-              <IconBtn title="Thumbnails">
-                <Film className="size-4" />
-              </IconBtn>
-              <Sep />
-              <IconBtn title="Zoom out" onClick={() => setPxPerSec((p) => Math.max(12, p / 1.4))}>
-                <ZoomOut className="size-4" />
-              </IconBtn>
-              <input
-                type="range"
-                min={12}
-                max={200}
-                value={pxPerSec}
-                onChange={(e) => setPxPerSec(Number(e.target.value))}
-                className="h-1 w-24 accent-[#14b8a6]"
-              />
-              <IconBtn title="Zoom in" onClick={() => setPxPerSec((p) => Math.min(200, p * 1.4))}>
-                <ZoomIn className="size-4" />
-              </IconBtn>
-            </div>
-          </div>
-
-          {/* body: single scroll container, sticky-top ruler + sticky-left headers */}
-          <div ref={scrollCb} className="min-h-0 flex-1 overflow-auto [scrollbar-width:thin]">
-            <div
-              className="relative select-none"
-              style={{ width: HEADER_W + laneW }}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                const id = e.dataTransfer.getData("asset-id");
-                const row = (e.target as HTMLElement).closest("[data-track-id]");
-                if (id) dropAsset(id, e.clientX, row?.getAttribute("data-track-id") ?? null);
-              }}
-            >
-              {/* ruler row */}
-              <div className="sticky top-0 z-20 flex" style={{ height: RULER_H }}>
-                <div className="sticky left-0 z-40 shrink-0 border-b border-r border-border bg-card" style={{ width: HEADER_W }} />
-                <button
-                  type="button"
-                  ref={laneRef}
-                  className="relative flex shrink-0 items-end border-b border-border bg-card text-left text-[10px] text-muted-foreground"
-                  style={{ width: laneW, height: RULER_H }}
-                  onPointerDown={(e) => {
-                    e.stopPropagation();
-                    setPlayhead(Math.min(total, xToTime(e.clientX)));
-                    setDrag({ kind: "playhead" });
-                  }}
-                >
-                  {Array.from({ length: tickCount }).map((_, i) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: fixed ruler ticks
-                    <span key={i} className="relative flex shrink-0 items-end" style={{ width: pxPerSec, height: RULER_H }}>
-                      <span className="absolute left-1 top-0.5">{String(i).padStart(2, "0")}.00</span>
-                      <span className="absolute bottom-0 left-0 h-2 w-px bg-white/20" />
-                      {[1, 2, 3, 4].map((k) => (
-                        <span key={k} className="absolute bottom-0 h-1 w-px bg-muted" style={{ left: (pxPerSec * k) / 5 }} />
-                      ))}
-                    </span>
-                  ))}
-                </button>
-              </div>
-
-              {/* track rows */}
-              {doc.tracks.map((track) => (
-                <div key={track.id} className="group/track flex border-b border-border" style={{ height: TRACK_H }}>
-                  <div className="sticky left-0 z-30 flex shrink-0 items-center gap-1 border-r border-border bg-card px-3" style={{ width: HEADER_W }}>
-                    <IconBtn title={track.locked ? "Unlock" : "Lock"} onClick={() => toggleTrack(track, { locked: !track.locked })}>
-                      <Lock className={cn("size-3.5", track.locked && "text-[#14b8a6]")} />
-                    </IconBtn>
-                    <IconBtn title={track.hidden ? "Show" : "Hide"} onClick={() => toggleTrack(track, { hidden: !track.hidden })}>
-                      {track.hidden ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-                    </IconBtn>
-                    <IconBtn title={track.muted ? "Unmute" : "Mute"} onClick={() => toggleTrack(track, { muted: !track.muted })}>
-                      {track.muted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}
-                    </IconBtn>
-                    {doc.tracks.length > 1 ? (
-                      <button
-                        type="button"
-                        title="Remove track"
-                        onClick={() => commit(removeTrack(doc, track.id))}
-                        className="ml-auto grid size-6 place-items-center rounded text-muted-foreground opacity-0 transition-opacity hover:text-red-400 group-hover/track:opacity-100"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
-                    ) : null}
-                  </div>
-                  <div
-                    data-track-id={track.id}
-                    data-lane
-                    className="relative shrink-0"
-                    style={{ width: laneW }}
-                    onPointerDown={(e) => {
-                      if ((e.target as HTMLElement).dataset.lane !== undefined) {
-                        setSelection(new Set());
-                        setPlayhead(Math.min(total, xToTime(e.clientX)));
-                        setDrag({ kind: "playhead" });
-                      }
-                    }}
+        {(() => {
+          const isTimelineEmpty = doc.tracks.every((t) => t.clips.length === 0);
+          return (
+            <div className={cn(CARD, "flex shrink-0 flex-col transition-all duration-200", isTimelineEmpty ? "h-auto" : "h-64")}>
+              {/* toolbar: split · playback · zoom + fit */}
+              <div className="flex items-center border-b border-border px-3 py-2 text-sm">
+                <div className="flex flex-1 items-center">
+                  <button
+                    type="button"
+                    onClick={splitSelected}
+                    disabled={!selection.size}
+                    className="flex items-center gap-1.5 rounded-md px-2 py-1 text-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
+                    title="Split (S)"
                   >
-                    {track.clips.map((clip) => (
-                      <ClipBar
-                        key={clip.id}
-                        clip={clip}
-                        url={urlOf(clip.assetId)}
-                        trackKind={track.kind}
-                        pxPerSec={pxPerSec}
-                        selected={selection.has(clip.id)}
-                        dimmed={drag?.kind === "move" && drag.clipId === clip.id}
-                        animate={drag?.kind === "move"}
-                        onBody={(e) => beginClipDrag(e, clip, "move")}
-                        onTrimStart={(e) => beginClipDrag(e, clip, "trim-start")}
-                        onTrimEnd={(e) => beginClipDrag(e, clip, "trim-end")}
-                        onContext={(e) => {
-                          e.preventDefault();
-                          setSelection(new Set([clip.id]));
-                          setClipMenu({ x: e.clientX, y: e.clientY, id: clip.id });
-                        }}
-                      />
-                    ))}
-                  </div>
+                    <Scissors className="size-4" /> Split
+                  </button>
                 </div>
-              ))}
 
-              {/* empty state: drop hint over the lanes */}
-              {doc.tracks.every((t) => t.clips.length === 0) ? (
-                <div
-                  className="pointer-events-none absolute z-10 flex items-center justify-center rounded-xl bg-secondary/40 text-sm text-muted-foreground"
-                  style={{ left: HEADER_W + 8, right: 8, top: RULER_H + 8, bottom: 8 }}
-                >
-                  <span className="flex items-center gap-2">
-                    <Film className="size-4" /> Drag and drop media here
+                {/* playback */}
+                <div className="flex items-center gap-2">
+                  <IconBtn title="Jump to start" onClick={() => setPlayhead(0)}>
+                    <Rewind className="size-4" />
+                  </IconBtn>
+                  <button
+                    type="button"
+                    onClick={togglePlay}
+                    className="grid size-9 place-items-center rounded-full border border-border transition-colors hover:bg-accent"
+                  >
+                    {playing ? <Pause className="size-4" /> : <Play className="size-4 pl-0.5" />}
+                  </button>
+                  <IconBtn title="Jump to end" onClick={() => setPlayhead(total)}>
+                    <FastForward className="size-4" />
+                  </IconBtn>
+                  <span className="ml-2 font-mono text-xs tabular-nums text-muted-foreground">
+                    {tc(playhead)} <span className="text-muted-foreground/50">/ {tc(doc.duration)}</span>
                   </span>
                 </div>
-              ) : null}
 
-              {/* ghost outline over the open gap while moving a clip */}
-              {ghost
-                ? (() => {
-                    const ti = doc.tracks.findIndex((t) => t.id === ghost.trackId);
-                    if (ti < 0) return null;
-                    return (
-                      <div
-                        className="pointer-events-none absolute z-30 rounded-sm border-2 border-dashed border-[#14b8a6] bg-[#14b8a6]/15 transition-[left,top,width] duration-150 ease-out"
-                        style={{
-                          left: HEADER_W + ghost.start * pxPerSec,
-                          width: Math.max(20, ghost.duration * pxPerSec),
-                          top: RULER_H + ti * TRACK_H + 6,
-                          height: TRACK_H - 12,
-                        }}
-                      />
-                    );
-                  })()
-                : null}
+                {/* zoom + fit */}
+                <div className="flex flex-1 items-center justify-end gap-1.5 text-muted-foreground">
+                  <IconBtn title="Zoom out" onClick={() => setPxPerSec((p) => Math.max(12, p / 1.4))}>
+                    <ZoomOut className="size-4" />
+                  </IconBtn>
+                  <input
+                    type="range"
+                    min={12}
+                    max={200}
+                    value={pxPerSec}
+                    onChange={(e) => setPxPerSec(Number(e.target.value))}
+                    className="h-1 w-24 accent-[#14b8a6]"
+                  />
+                  <IconBtn title="Zoom in" onClick={() => setPxPerSec((p) => Math.min(200, p * 1.4))}>
+                    <ZoomIn className="size-4" />
+                  </IconBtn>
+                  <button
+                    type="button"
+                    onClick={() => setPxPerSec(Math.max(12, Math.min(200, (viewportW - HEADER_W) / Math.max(1, total))))}
+                    className="rounded-md px-2.5 py-1 text-xs font-semibold text-foreground transition-colors hover:bg-accent"
+                    title="Fit timeline"
+                  >
+                    Fit
+                  </button>
+                </div>
+              </div>
 
-              {/* snap guide-line while dragging a clip */}
-              {guide != null ? (
-                <div className="pointer-events-none absolute inset-y-0 z-40 w-0.5 bg-[#14b8a6]" style={{ left: HEADER_W + guide * pxPerSec }} />
-              ) : null}
+              {/* body: single scroll container, sticky-top ruler + sticky-left headers */}
+              <div ref={scrollCb} className="min-h-0 flex-1 overflow-auto [scrollbar-width:thin]">
+                <div
+                  className="relative select-none"
+                  style={{ width: HEADER_W + laneW }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const id = e.dataTransfer.getData("asset-id");
+                    const row = (e.target as HTMLElement).closest("[data-track-id]");
+                    if (id) dropAsset(id, e.clientX, row?.getAttribute("data-track-id") ?? null);
+                  }}
+                >
+                  {/* ruler row */}
+                  <div className="sticky top-0 z-20 flex" style={{ height: RULER_H }}>
+                    <div className="sticky left-0 z-40 shrink-0 border-b border-r border-border bg-card" style={{ width: HEADER_W }} />
+                    <button
+                      type="button"
+                      ref={laneRef}
+                      className="relative flex shrink-0 items-end border-b border-border bg-card text-left text-[10px] text-muted-foreground"
+                      style={{ width: laneW, height: RULER_H }}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        setPlayhead(Math.min(total, xToTime(e.clientX)));
+                        setDrag({ kind: "playhead" });
+                      }}
+                    >
+                      {Array.from({ length: tickCount }).map((_, i) => (
+                        // biome-ignore lint/suspicious/noArrayIndexKey: fixed ruler ticks
+                        <span key={i} className="relative flex shrink-0 items-end" style={{ width: pxPerSec, height: RULER_H }}>
+                          <span className="absolute left-1 top-0.5 text-[10px] font-medium text-muted-foreground/80">{formatTickLabel(i)}</span>
+                          <span className="absolute bottom-0 left-0 h-2 w-px bg-white/20" />
+                          {[1, 2, 3, 4].map((k) => (
+                            <span key={k} className="absolute bottom-0 h-1 w-px bg-muted" style={{ left: (pxPerSec * k) / 5 }} />
+                          ))}
+                        </span>
+                      ))}
+                    </button>
+                  </div>
 
-              {/* playhead (offset past the sticky header column) */}
-              <div className="pointer-events-none absolute inset-y-0 z-20 w-px" style={{ left: HEADER_W + playhead * pxPerSec, backgroundColor: ACCENT }}>
-                <svg className="absolute -left-[6px] top-0" width="13" height="17" viewBox="0 0 13 17" fill={ACCENT} aria-hidden="true">
-                  <path d="M2 1 Q1 1 1 2 L1 9 Q1 10 1.6 10.6 L5.6 15.4 Q6.5 16.4 7.4 15.4 L11.4 10.6 Q12 10 12 9 L12 2 Q12 1 11 1 Z" />
-                </svg>
+                  {/* Empty state: single clean dropzone card matching image.png */}
+                  {isTimelineEmpty ? (
+                    <div className="p-3">
+                      <button
+                        type="button"
+                        onClick={() => importInput.current?.click()}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/10 bg-white/[0.03] py-7 text-sm font-medium text-muted-foreground transition-all hover:border-teal-400/50 hover:bg-white/[0.06] hover:text-white"
+                      >
+                        <Plus className="size-4" /> Add media to this project
+                      </button>
+                    </div>
+                  ) : (
+                    /* track rows when populated */
+                    doc.tracks.map((track) => (
+                      <div key={track.id} className="group/track flex border-b border-border" style={{ height: TRACK_H }}>
+                        <div className="sticky left-0 z-30 flex shrink-0 items-center gap-1 border-r border-border bg-card px-3" style={{ width: HEADER_W }}>
+                          <IconBtn title={track.locked ? "Unlock" : "Lock"} onClick={() => toggleTrack(track, { locked: !track.locked })}>
+                            <Lock className={cn("size-3.5", track.locked && "text-[#14b8a6]")} />
+                          </IconBtn>
+                          <IconBtn title={track.hidden ? "Show" : "Hide"} onClick={() => toggleTrack(track, { hidden: !track.hidden })}>
+                            {track.hidden ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                          </IconBtn>
+                          <IconBtn title={track.muted ? "Unmute" : "Mute"} onClick={() => toggleTrack(track, { muted: !track.muted })}>
+                            {track.muted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}
+                          </IconBtn>
+                          {doc.tracks.length > 1 ? (
+                            <button
+                              type="button"
+                              title="Remove track"
+                              onClick={() => commit(removeTrack(doc, track.id))}
+                              className="ml-auto grid size-6 place-items-center rounded text-muted-foreground opacity-0 transition-opacity hover:text-red-400 group-hover/track:opacity-100"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          ) : null}
+                        </div>
+                        <div
+                          data-track-id={track.id}
+                          data-lane
+                          className="relative shrink-0"
+                          style={{ width: laneW }}
+                          onPointerDown={(e) => {
+                            if ((e.target as HTMLElement).dataset.lane !== undefined) {
+                              setSelection(new Set());
+                              setPlayhead(Math.min(total, xToTime(e.clientX)));
+                              setDrag({ kind: "playhead" });
+                            }
+                          }}
+                        >
+                          {track.clips.map((clip) => (
+                            <ClipBar
+                              key={clip.id}
+                              clip={clip}
+                              url={urlOf(clip.assetId)}
+                              trackKind={track.kind}
+                              pxPerSec={pxPerSec}
+                              selected={selection.has(clip.id)}
+                              dimmed={drag?.kind === "move" && drag.clipId === clip.id}
+                              animate={drag?.kind === "move"}
+                              onBody={(e) => beginClipDrag(e, clip, "move")}
+                              onTrimStart={(e) => beginClipDrag(e, clip, "trim-start")}
+                              onTrimEnd={(e) => beginClipDrag(e, clip, "trim-end")}
+                              onContext={(e) => {
+                                e.preventDefault();
+                                setSelection(new Set([clip.id]));
+                                setClipMenu({ x: e.clientX, y: e.clientY, id: clip.id });
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  )}
+
+                  {/* ghost outline over the open gap while moving a clip */}
+                  {ghost
+                    ? (() => {
+                        const ti = doc.tracks.findIndex((t) => t.id === ghost.trackId);
+                        if (ti < 0) return null;
+                        return (
+                          <div
+                            className="pointer-events-none absolute z-30 rounded-sm border-2 border-dashed border-[#14b8a6] bg-[#14b8a6]/15 transition-[left,top,width] duration-150 ease-out"
+                            style={{
+                              left: HEADER_W + ghost.start * pxPerSec,
+                              width: Math.max(20, ghost.duration * pxPerSec),
+                              top: RULER_H + ti * TRACK_H + 6,
+                              height: TRACK_H - 12,
+                            }}
+                          />
+                        );
+                      })()
+                    : null}
+
+                  {/* snap guide-line while dragging a clip */}
+                  {guide != null ? (
+                    <div className="pointer-events-none absolute inset-y-0 z-40 w-0.5 bg-[#14b8a6]" style={{ left: HEADER_W + guide * pxPerSec }} />
+                  ) : null}
+
+                  {/* playhead (offset past the sticky header column) */}
+                  <div className="pointer-events-none absolute inset-y-0 z-20 w-px" style={{ left: HEADER_W + playhead * pxPerSec, backgroundColor: ACCENT }}>
+                    <svg className="absolute -left-[6px] top-0" width="13" height="17" viewBox="0 0 13 17" fill={ACCENT} aria-hidden="true">
+                      <path d="M2 1 Q1 1 1 2 L1 9 Q1 10 1.6 10.6 L5.6 15.4 Q6.5 16.4 7.4 15.4 L11.4 10.6 Q12 10 12 9 L12 2 Q12 1 11 1 Z" />
+                    </svg>
+                  </div>
+                </div>
               </div>
             </div>
+          );
+        })()}
           </div>
         </div>
+
+        {/* ── mode tabs: floating, full-width ── */}
+        <EditorModeTabs projectId={projectId} mode="video" className="shrink-0 overflow-hidden rounded-lg border border-border" />
       </div>
 
       {/* the real clip, lifted off and floating with the cursor */}
@@ -828,15 +849,12 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
           }}
         />
       ) : null}
-
-      {/* ── bottom mode tab bar (flush) ── */}
-      <EditorModeTabs projectId={projectId} mode="video" />
     </div>
   );
 }
 
-// ── add-track dropdown ──────────────────────────────────────
-function AddTrackMenu({ onAdd }: { onAdd: (kind: string) => void }) {
+// ── aspect-ratio dropdown (preview control bar) ─────────────
+function AspectMenu({ doc, setAspect }: { doc: VideoEditorDoc; setAspect: (w: number, h: number) => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -845,34 +863,41 @@ function AddTrackMenu({ onAdd }: { onAdd: (kind: string) => void }) {
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
+  const current = ASPECTS.find((a) => Math.abs(doc.width / doc.height - a.w / a.h) < 0.01);
   return (
     <div ref={ref} className="relative">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+        className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors hover:bg-accent"
       >
-        <Plus className="size-3.5" /> Track
+        <Monitor className="size-4 text-muted-foreground" />
+        {current ? current.label : "Custom"}
+        <ChevronDown className="size-3.5 text-muted-foreground" />
       </button>
       {open ? (
-        <div className="absolute left-0 top-full z-40 mt-1 w-32 rounded-lg border border-border bg-secondary p-1 shadow-xl">
-          {[
-            { k: "video", label: "Video", Icon: Film },
-            { k: "audio", label: "Audio", Icon: Music },
-            { k: "text", label: "Text", Icon: Type },
-          ].map(({ k, label, Icon }) => (
-            <button
-              key={k}
-              type="button"
-              onClick={() => {
-                onAdd(k);
-                setOpen(false);
-              }}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
-            >
-              <Icon className="size-4" /> {label}
-            </button>
-          ))}
+        <div className="absolute bottom-full left-0 z-40 mb-1.5 w-44 rounded-lg border border-border bg-popover p-1 shadow-xl">
+          {ASPECTS.map((a) => {
+            const active = a === current;
+            return (
+              <button
+                key={a.label}
+                type="button"
+                onClick={() => {
+                  setAspect(a.w, a.h);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent",
+                  active ? "text-foreground" : "text-muted-foreground",
+                )}
+              >
+                <Monitor className="size-4" />
+                {a.label}
+                {active ? <span className="ml-auto size-1.5 rounded-full" style={{ backgroundColor: ACCENT }} /> : null}
+              </button>
+            );
+          })}
         </div>
       ) : null}
     </div>
@@ -1003,47 +1028,333 @@ function MediaTileThumb({ asset }: { asset: VideoEditorAsset }) {
   );
 }
 
-function MediaPanel({ assets, onImport, importing }: { assets: VideoEditorAsset[]; onImport: () => void; importing: boolean }) {
+// ── Left library: browsable, categorized elements you drop on the timeline ──
+function RailBtn({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: typeof Type; label: string }) {
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <div className="flex flex-1 items-center gap-2 rounded-lg border border-border px-2.5 py-1.5">
-          <Search className="size-3.5 text-muted-foreground" />
-          <input placeholder="Search" className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground" />
-        </div>
-        <button type="button" className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-accent">
-          <ChevronDown className="size-3.5" />
-        </button>
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex flex-col items-center gap-1 rounded-lg px-0.5 py-2 text-center text-[9px] font-medium leading-tight transition-colors",
+        active ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+      )}
+    >
+      <Icon className="size-[18px] shrink-0" style={active ? { color: ACCENT } : undefined} />
+      {label}
+    </button>
+  );
+}
+
+// The content panel to the right of the tool rail; swaps by selected category.
+function LeftPanel({
+  category,
+  setCategory,
+  assets,
+  onImport,
+  importing,
+  onAddText,
+  projectId,
+  selectedClip,
+}: {
+  category: CategoryId;
+  setCategory: (c: CategoryId) => void;
+  assets: VideoEditorAsset[];
+  onImport: () => void;
+  importing: boolean;
+  onAddText: (content: string) => void;
+  projectId: string;
+  selectedClip: Clip | null;
+}) {
+  const byKind = (k: string) => assets.filter((a) => a.kind === k);
+  const title = CATEGORIES.find((c) => c.id === category)?.label ?? "";
+
+  return (
+    <div className="flex min-w-0 flex-1 flex-col">
+      <div className="px-4 pb-2 pt-3.5">
+        <h3 className="text-base font-semibold">{title}</h3>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={onImport}
-          disabled={importing}
-          className="grid aspect-video place-items-center rounded-lg border border-dashed border-border text-muted-foreground hover:bg-accent disabled:opacity-60"
-        >
-          <span className="flex flex-col items-center gap-1 text-xs">
-            {importing ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-            {importing ? "Uploading…" : "Import"}
-          </span>
-        </button>
-        {assets.map((a, i) => (
-          <div key={a.id}>
-            <div
-              draggable
-              onDragStart={(e) => e.dataTransfer.setData("asset-id", a.id)}
-              className="relative cursor-grab overflow-hidden rounded-lg border border-border active:cursor-grabbing"
-              title="Drag onto the timeline"
-            >
-              <MediaTileThumb asset={a} />
-              <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1 text-[10px] tabular-nums text-white">{a.kind}</span>
-            </div>
-            <p className="mt-1 truncate text-[11px] text-muted-foreground">Media {i + 1}</p>
+      <div className="min-h-0 flex-1 overflow-y-auto pb-4 [scrollbar-width:thin]">
+        {category === "ai-tools" ? (
+          <AiToolsPanel projectId={projectId} assets={assets} selectedClip={selectedClip} setCategory={setCategory} />
+        ) : category === "video" ? (
+          <MediaGrid items={byKind("video")} onImport={onImport} importing={importing} empty="No video yet — generate or import." />
+        ) : category === "audio" ? (
+          <MediaGrid items={byKind("audio")} onImport={onImport} importing={importing} empty="No audio yet — generate or import." />
+        ) : category === "image" ? (
+          <MediaGrid items={byKind("image")} onImport={onImport} importing={importing} empty="No images yet — generate or import." />
+        ) : category === "text" ? (
+          <div className="grid gap-2 px-3">
+            {TEXT_PRESETS.map((t) => (
+              <TextTile key={t.label} preset={t} onAdd={onAddText} wide />
+            ))}
           </div>
-        ))}
-        {assets.length === 0 ? <p className="col-span-2 px-1 py-2 text-xs text-muted-foreground">No media yet.</p> : null}
+        ) : (
+          <p className="px-4 py-3 text-sm text-muted-foreground">{title} — coming soon.</p>
+        )}
       </div>
     </div>
+  );
+}
+
+// ── AI Tools: generate on top, one-tap enhancements below ──
+type AiView = (typeof RIGHT_TABS)[number];
+// Generation tiles. `view` opens an AiPanel surface; the rest are on the roadmap.
+const GEN_TILES: { label: string; icon: typeof Type; view?: AiView }[] = [
+  { label: "AI Video", icon: Video, view: "Video" },
+  { label: "AI Image", icon: ImageIcon, view: "Image" },
+  { label: "B-roll images", icon: ImageIcon, view: "Image" },
+  { label: "AI Transitions", icon: Film },
+  { label: "Characters", icon: Users },
+  { label: "AI Voice", icon: Mic },
+  { label: "AI Dubbing", icon: Languages },
+];
+
+function AiToolsPanel({
+  projectId,
+  assets,
+  selectedClip,
+  setCategory,
+}: {
+  projectId: string;
+  assets: VideoEditorAsset[];
+  selectedClip: Clip | null;
+  setCategory: (c: CategoryId) => void;
+}) {
+  const [view, setView] = useState<AiView | null>(null);
+
+  // A generation surface (text→image / video / assistant) opened from a Generate tile.
+  if (view) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <button
+          type="button"
+          onClick={() => setView(null)}
+          className="mx-3 mb-2 flex items-center gap-1.5 self-start rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
+          <ChevronDown className="size-3.5 rotate-90" /> AI Tools
+        </button>
+        <AiPanel
+          tab={view}
+          projectId={projectId}
+          assets={assets}
+          selectedClip={selectedClip}
+          onGenerated={() => setCategory(view === "Video" ? "video" : "image")}
+          gotoTab={setView}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 px-3 pb-2">
+      {/* Generate — the headline action */}
+      <section className="space-y-2.5">
+        <SectionLabel icon={Sparkles}>Generate</SectionLabel>
+        <button
+          type="button"
+          onClick={() => setView("Assistant")}
+          className="group relative flex w-full items-center gap-3 overflow-hidden rounded-xl border border-[#14b8a6]/30 p-3 text-left transition-colors hover:border-[#14b8a6]/60"
+        >
+          <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(20,184,166,0.18),transparent_65%)]" />
+          <span className="relative grid size-9 shrink-0 place-items-center rounded-lg bg-[#14b8a6] text-[#04110f]">
+            <Sparkles className="size-5" />
+          </span>
+          <span className="relative min-w-0">
+            <span className="block text-sm font-semibold">Generate with AI</span>
+            <span className="block truncate text-[11px] text-muted-foreground">Describe it — we'll create it</span>
+          </span>
+          <ChevronDown className="relative ml-auto size-4 shrink-0 -rotate-90 text-[#14b8a6]" />
+        </button>
+        <div className="grid grid-cols-2 gap-2">
+          {GEN_TILES.map((t) => (
+            <GenTile key={t.label} icon={t.icon} label={t.label} soon={!t.view} onClick={t.view ? () => setView(t.view ?? null) : undefined} />
+          ))}
+        </div>
+      </section>
+
+      <div className="border-t border-border/60" />
+
+      {/* Enhance — one-tap fixes */}
+      <ToolSection title="Sound Good">
+        <ToolToggle icon={Mic} label="Clean audio" ai />
+        <ToolToggle icon={Eraser} label="Remove filler words" ai />
+        <ToolToggle icon={MicOff} label="Remove silences" />
+      </ToolSection>
+
+      <ToolSection title="Look Good">
+        <ToolToggle icon={Eye} label="Eye contact" ai />
+        <ToolToggle icon={Maximize2} label="AI Background expand" />
+        <ToolToggle icon={UserRound} label="Remove background" ai />
+        <ToolToggle icon={Smile} label="Face filter" ai />
+        <ToolToggle icon={Wand2} label="Green screen" />
+        <ToolRow icon={Captions} label="Subtitles" />
+      </ToolSection>
+    </div>
+  );
+}
+
+function SectionLabel({ icon: Icon, children }: { icon?: typeof Type; children: React.ReactNode }) {
+  return (
+    <p className="flex items-center gap-1.5 px-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      {Icon ? <Icon className="size-3.5 text-[#14b8a6]" /> : null}
+      {children}
+    </p>
+  );
+}
+
+function GenTile({ icon: Icon, label, soon, onClick }: { icon: typeof Type; label: string; soon?: boolean; onClick?: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={soon}
+      className={cn(
+        "group relative flex flex-col gap-2 rounded-xl border border-border bg-secondary/40 p-2.5 text-left transition-all",
+        soon ? "opacity-55" : "hover:border-[#14b8a6]/50 hover:bg-secondary",
+      )}
+    >
+      <span
+        className={cn(
+          "grid size-8 place-items-center rounded-lg bg-background/60 text-muted-foreground transition-colors",
+          !soon && "group-hover:text-[#14b8a6]",
+        )}
+      >
+        <Icon className="size-4" />
+      </span>
+      <span className="text-xs font-medium leading-tight">{label}</span>
+      {soon ? (
+        <span className="absolute right-2 top-2 rounded bg-background/80 px-1 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">Soon</span>
+      ) : null}
+    </button>
+  );
+}
+
+function ToolSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <SectionLabel>{title}</SectionLabel>
+      <div className="mt-1.5 space-y-0.5">{children}</div>
+    </div>
+  );
+}
+
+function ToolToggle({ icon: Icon, label, ai }: { icon: typeof Type; label: string; ai?: boolean }) {
+  const [on, setOn] = useState(false);
+  return (
+    <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-accent/50">
+      <Icon className="size-4 shrink-0 text-muted-foreground" />
+      <span className="flex-1 truncate text-sm">{label}</span>
+      {ai ? (
+        <span className="grid size-4 shrink-0 place-items-center rounded bg-[#14b8a6] text-[#04110f]" title="AI-powered">
+          <Zap className="size-2.5 fill-current" />
+        </span>
+      ) : null}
+      <ToolSwitch checked={on} onChange={setOn} />
+    </div>
+  );
+}
+
+function ToolRow({
+  icon: Icon,
+  label,
+  accent,
+  soon,
+  onClick,
+}: {
+  icon: typeof Type;
+  label: string;
+  accent?: boolean;
+  soon?: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <button type="button" onClick={onClick} className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-accent/50">
+      <Icon className={cn("size-4 shrink-0", accent ? "text-[#14b8a6]" : "text-muted-foreground")} />
+      <span className={cn("flex-1 truncate text-sm", accent && "font-medium text-[#14b8a6]")}>{label}</span>
+      {soon ? <span className="shrink-0 rounded bg-secondary px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">Soon</span> : null}
+    </button>
+  );
+}
+
+function ToolSwitch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      aria-pressed={checked}
+      className={cn("relative h-4 w-7 shrink-0 rounded-full transition-colors", checked ? "bg-[#14b8a6]" : "bg-border")}
+    >
+      <span className={cn("absolute top-0.5 size-3 rounded-full bg-white transition-transform", checked ? "translate-x-3.5" : "translate-x-0.5")} />
+    </button>
+  );
+}
+
+function MediaGrid({ items, onImport, importing, empty }: { items: VideoEditorAsset[]; onImport: () => void; importing: boolean; empty: string }) {
+  return (
+    <div className="px-3">
+      <div className="mb-3 flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5">
+        <Search className="size-3.5 shrink-0 text-muted-foreground" />
+        <input placeholder="Search" className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground" />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <ImportTile onImport={onImport} importing={importing} full />
+        {items.map((a) => (
+          <AssetTile key={a.id} asset={a} full />
+        ))}
+      </div>
+      {items.length === 0 ? <p className="px-1 py-3 text-xs text-muted-foreground">{empty}</p> : null}
+    </div>
+  );
+}
+
+function AssetTile({ asset, full }: { asset: VideoEditorAsset; full?: boolean }) {
+  return (
+    <div
+      draggable
+      onDragStart={(e) => e.dataTransfer.setData("asset-id", asset.id)}
+      className={cn(
+        "relative cursor-grab overflow-hidden rounded-lg border border-border active:cursor-grabbing",
+        full ? "" : "w-28 shrink-0",
+      )}
+      title="Drag onto the timeline"
+    >
+      <MediaTileThumb asset={asset} />
+    </div>
+  );
+}
+
+function TextTile({ preset, onAdd, wide }: { preset: (typeof TEXT_PRESETS)[number]; onAdd: (content: string) => void; wide?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onAdd(preset.content)}
+      title="Add to timeline"
+      className={cn(
+        "grid place-items-center rounded-lg border border-border bg-secondary px-2 text-center text-foreground transition-colors hover:border-[#14b8a6]",
+        wide ? "h-16 w-full" : "aspect-video w-28 shrink-0",
+      )}
+    >
+      <span className={cn("truncate", preset.className)}>{preset.label}</span>
+    </button>
+  );
+}
+
+function ImportTile({ onImport, importing, full }: { onImport: () => void; importing: boolean; full?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onImport}
+      disabled={importing}
+      className={cn(
+        "grid aspect-video place-items-center rounded-lg border border-dashed border-border text-muted-foreground hover:bg-accent disabled:opacity-60",
+        full ? "w-full" : "w-28 shrink-0",
+      )}
+    >
+      <span className="flex flex-col items-center gap-1 text-xs">
+        {importing ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+        {importing ? "Uploading…" : "Import"}
+      </span>
+    </button>
   );
 }
 
@@ -1241,7 +1552,7 @@ function AssistantPanel({
             </button>
           </div>
         ) : null}
-        <div className="rounded-2xl border border-border bg-background p-3">
+        <div className="rounded-lg border border-border bg-background p-3">
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
@@ -1642,10 +1953,14 @@ function Inspector({
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
-      <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-        <span className="text-sm font-medium capitalize">{clip.kind}</span>
-        <button type="button" onClick={onClose} title="Close" className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground">
-          <X className="size-4" />
+      <div className="flex items-center gap-1 border-b border-border px-2.5 py-2.5">
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-base font-semibold capitalize transition-colors hover:bg-accent"
+        >
+          <ChevronDown className="size-4 rotate-90" />
+          Edit {clip.kind}
         </button>
       </div>
       <div className="space-y-3 p-4">
@@ -1770,22 +2085,6 @@ function Slide({ value, min, max, step, g, onInput }: { value: number; min: numb
 }
 
 // ── small shared bits ───────────────────────────────────────
-function TabBtn({ active, onClick, icon: Icon, children }: { active: boolean; onClick: () => void; icon: typeof Type; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex shrink-0 items-center gap-1.5 border-b-2 px-2.5 pb-2 text-[13px] transition-colors",
-        active ? "border-[#14b8a6] font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
-      )}
-    >
-      <Icon className="size-3.5" />
-      {children}
-    </button>
-  );
-}
-
 function IconBtn({ children, title, onClick, disabled }: { children: React.ReactNode; title: string; onClick?: () => void; disabled?: boolean }) {
   return (
     <button
@@ -1798,10 +2097,6 @@ function IconBtn({ children, title, onClick, disabled }: { children: React.React
       {children}
     </button>
   );
-}
-
-function Sep() {
-  return <span className="mx-1 h-4 w-px bg-muted" />;
 }
 
 // ── helpers ─────────────────────────────────────────────────
@@ -1823,9 +2118,17 @@ function snap(t: number, pts: number[], pxPerSec: number, thresholdPx = 7): numb
   }
   return best;
 }
-function tc(s: number, fps: number): string {
+function formatTickLabel(sec: number): string {
+  if (sec === 0) return "0s";
+  if (sec < 60) return `${sec}s`;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return s === 0 ? `${m}m` : `${m}m${s}s`;
+}
+
+function tc(s: number): string {
+  const m = Math.floor(s / 60);
+  const sec = (s % 60).toFixed(1);
   const p = (n: number) => String(n).padStart(2, "0");
-  const t = Math.floor(s);
-  const f = Math.floor((s - t) * (fps || 30));
-  return `${p(Math.floor(t / 3600))}:${p(Math.floor((t % 3600) / 60))}:${p(t % 60)}:${p(f)}`;
+  return `${p(m)}:${sec.padStart(4, "0")}`;
 }
