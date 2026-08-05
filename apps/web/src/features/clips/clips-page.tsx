@@ -1494,9 +1494,9 @@ function ConfigPanel({
 							? "Get AI clips & Schedule"
 							: "Get AI clips"}
 					{!busy && cost !== null ? (
-						<span className="ml-1 flex items-center gap-1 rounded-full bg-black/15 px-2.5 py-0.5 text-xs font-extrabold text-black">
+						<span className="ml-1.5 flex items-center gap-1 rounded-full bg-black/15 px-2 py-0.5 text-xs font-bold text-black">
 							<Gem className="size-3 fill-black text-black" />
-							{Math.round(cost)} credits
+							{Math.round(cost)}
 						</span>
 					) : null}
 				</button>
