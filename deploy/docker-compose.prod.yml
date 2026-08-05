@@ -49,6 +49,8 @@ services:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
       retries: 3
+    # `web` = shared external network reached by the standalone proxy (/opt/proxy).
+    networks: [default, web]
 
   worker:
     <<: *backend
@@ -72,21 +74,17 @@ services:
     image: ghcr.io/bibektimilsina00/riocut/web:${IMAGE_TAG:-latest}
     restart: unless-stopped
     depends_on: [api]
+    networks: [default, web]
     <<: *logging
 
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    # The only public service. /api -> api, /video-assets -> minio, rest -> web.
-    # 443/udp = HTTP/3.
-    ports: ["80:80", "443:443", "443:443/udp"]
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./certs:/etc/caddy/certs:ro
-      - caddydata:/data
-    depends_on: [web]
-    <<: *logging
+# Public ingress (:80/:443) is now the standalone shared proxy at /opt/proxy,
+# so multiple projects can share the host. riocut no longer runs its own Caddy;
+# the proxy reaches these services by container name over the `web` network.
 
 volumes:
   pgdata:
-  caddydata:
+
+networks:
+  default:
+  web:
+    external: true

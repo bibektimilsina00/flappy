@@ -53,7 +53,7 @@ if [ -z "$ok" ]; then
 	exit 1
 fi
 
-docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile 2>/dev/null \
-	|| docker compose restart caddy
+# Ingress is the standalone shared proxy (/opt/proxy); it re-resolves upstreams
+# per request (lb_try_duration), so no proxy reload is needed on app deploys.
 docker image prune -f
 echo "deploy $NEW healthy"
