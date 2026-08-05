@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { uploadToProject } from "../services/video-editor-api";
 import {
   addClip,
@@ -12,19 +12,25 @@ import {
   splitClip,
   trackKindForClip,
 } from "../lib/doc-ops";
-import type { CategoryId, Clip, VideoEditorAsset, VideoEditorDoc } from "../types";
+import { useEditorStore } from "../stores/use-editor-store";
+import type { CategoryId, Clip } from "../types";
 import { useEditor } from "./use-editor";
 
 export function useVideoEditorPage(projectId: string) {
   const editor = useEditor(projectId);
   const { doc, assets, commit, undo, redo } = editor;
 
-  const [leftCat, setLeftCat] = useState<CategoryId>("ai-tools");
-  const [railCollapsed, setRailCollapsed] = useState(false);
-  const [selection, setSelection] = useState<Set<string>>(new Set());
-  const [exporting, setExporting] = useState(false);
-  const [importing, setImporting] = useState(false);
+  // Subscribe to Zustand store for global interactive states
+  const leftCat = useEditorStore((s) => s.leftCat);
+  const setLeftCat = useEditorStore((s) => s.setLeftCat);
+  const railCollapsed = useEditorStore((s) => s.railCollapsed);
+  const setRailCollapsed = useEditorStore((s) => s.setRailCollapsed);
+  const selection = useEditorStore((s) => s.selection);
+  const setSelection = useEditorStore((s) => s.setSelection);
+  const exporting = useEditorStore((s) => s.exporting);
+  const setExporting = useEditorStore((s) => s.setExporting);
 
+  const [importing, setImporting] = useState(false);
   const importInput = useRef<HTMLInputElement>(null);
 
   // Selected clip object helper
@@ -137,7 +143,7 @@ export function useVideoEditorPage(projectId: string) {
       window.addEventListener("keydown", onKey);
       return () => window.removeEventListener("keydown", onKey);
     },
-    [selection, doc, commit, undo, redo, splitSelected],
+    [selection, doc, commit, undo, redo, splitSelected, setSelection],
   );
 
   return {

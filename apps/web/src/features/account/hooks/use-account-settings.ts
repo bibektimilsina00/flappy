@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { changePasswordSchema, profileNameSchema } from "../schemas/account-schemas";
 import { changePassword, getMe, updateMe } from "../services/account-api";
 
 export function useAccountSettings() {
@@ -13,7 +14,10 @@ export function useAccountSettings() {
   });
 
   const updateNameMutation = useMutation({
-    mutationFn: (name: string) => updateMe(name),
+    mutationFn: (rawName: string) => {
+      const name = profileNameSchema.parse(rawName);
+      return updateMe(name);
+    },
     onSuccess: (updated) => {
       qc.setQueryData(["me"], updated);
       toast.success("Name updated");
@@ -24,8 +28,10 @@ export function useAccountSettings() {
   });
 
   const changePasswordMutation = useMutation({
-    mutationFn: ({ current, next }: { current: string; next: string }) =>
-      changePassword(current, next),
+    mutationFn: (raw: { current: string; next: string }) => {
+      const validated = changePasswordSchema.parse(raw);
+      return changePassword(validated.current, validated.next);
+    },
     onSuccess: () => {
       toast.success("Password changed");
     },

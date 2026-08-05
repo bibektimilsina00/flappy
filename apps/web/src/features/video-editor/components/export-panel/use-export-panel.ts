@@ -8,6 +8,7 @@ import {
 	type PublishResult,
 	tiktokCreatorInfo,
 } from "@/features/clips/api";
+import { publishPostSchema } from "../../schemas/editor-schemas";
 import {
 	publishEditorProject,
 	renderEditorProject,
@@ -128,7 +129,7 @@ export function useExportPanel({
 		});
 	};
 
-	// Execute post creation
+	// Execute post creation with Zod schema validation
 	const handlePublish = async () => {
 		setPublishError(null);
 		let key = renderRes?.key;
@@ -140,18 +141,22 @@ export function useExportPanel({
 			setPublishError("Render failed — cannot publish.");
 			return;
 		}
-		if (selectedAccs.size === 0) {
-			setPublishError("Select at least one social account.");
-			return;
-		}
-		setPublishing(true);
+
 		try {
-			const res = await publishEditorProject(projectId, {
-				render_key: key,
-				account_ids: Array.from(selectedAccs),
+			const validatedPayload = publishPostSchema.parse({
 				title: postTitle,
 				caption: postCaption,
+				account_ids: Array.from(selectedAccs),
 				tiktok_privacy: tiktokPrivacy,
+			});
+
+			setPublishing(true);
+			const res = await publishEditorProject(projectId, {
+				render_key: key,
+				account_ids: validatedPayload.account_ids,
+				title: validatedPayload.title,
+				caption: validatedPayload.caption,
+				tiktok_privacy: validatedPayload.tiktok_privacy,
 			});
 			setPublishResults(res);
 			qc.invalidateQueries({ queryKey: ["schedule"] });

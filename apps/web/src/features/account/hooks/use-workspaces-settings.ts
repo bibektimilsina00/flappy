@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { workspaceNameSchema } from "../schemas/account-schemas";
 import {
   createInviteLink,
   createWorkspace,
@@ -31,7 +32,10 @@ export function useWorkspacesSettings() {
   });
 
   const updateWorkspaceMutation = useMutation({
-    mutationFn: (patch: { name?: string; preferences?: Record<string, unknown> }) => updateWorkspace(patch),
+    mutationFn: (patch: { name?: string; preferences?: Record<string, unknown> }) => {
+      if (patch.name) workspaceNameSchema.parse(patch.name);
+      return updateWorkspace(patch);
+    },
     onSuccess: (updated) => {
       qc.setQueryData(["workspace"], updated);
       qc.invalidateQueries({ queryKey: ["workspaces-list"] });
@@ -43,7 +47,10 @@ export function useWorkspacesSettings() {
   });
 
   const createWorkspaceMutation = useMutation({
-    mutationFn: (name: string) => createWorkspace(name),
+    mutationFn: (rawName: string) => {
+      const name = workspaceNameSchema.parse(rawName);
+      return createWorkspace(name);
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["workspaces-list"] });
       toast.success("Workspace created");

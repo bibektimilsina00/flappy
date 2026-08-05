@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { insertMove, trimClip } from "../lib/doc-ops";
 import { docDuration } from "../lib/timeline-engine";
+import { useEditorStore } from "../stores/use-editor-store";
 import type { Clip, VideoEditorDoc } from "../types";
 
 const HEADER_W = 120;
@@ -13,10 +14,20 @@ export function useTimeline(
   preview: (d: VideoEditorDoc) => void,
   endGesture: (changed?: boolean) => void,
 ) {
-  const [playhead, setPlayhead] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const [pxPerSec, setPxPerSec] = useState(48);
-  const [clipMenu, setClipMenu] = useState<{ x: number; y: number; id: string } | null>(null);
+  // Use Zustand store for timeline reactive UI states
+  const playhead = useEditorStore((s) => s.playhead);
+  const setPlayhead = useEditorStore((s) => s.setPlayhead);
+  const playing = useEditorStore((s) => s.playing);
+  const setPlaying = useEditorStore((s) => s.setPlaying);
+  const togglePlay = useEditorStore((s) => s.togglePlaying);
+  const pxPerSec = useEditorStore((s) => s.pxPerSec);
+  const setPxPerSec = useEditorStore((s) => s.setPxPerSec);
+  const drag = useEditorStore((s) => s.drag);
+  const setDrag = useEditorStore((s) => s.setDrag);
+  const dragPos = useEditorStore((s) => s.dragPos);
+  const setDragPos = useEditorStore((s) => s.setDragPos);
+  const clipMenu = useEditorStore((s) => s.clipMenu);
+  const setClipMenu = useEditorStore((s) => s.setClipMenu);
 
   const laneRef = useRef<HTMLButtonElement>(null);
   const scrollEl = useRef<HTMLDivElement | null>(null);
@@ -24,16 +35,8 @@ export function useTimeline(
     scrollEl.current = el;
   }, []);
 
-  const [viewportW, setViewportW] = useState(1200);
-  useEffect(() => {
-    const update = () => setViewportW(scrollEl.current?.clientWidth ?? window.innerWidth - 340);
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
-
   const total = useMemo(() => (doc ? Math.max(10, docDuration(doc)) : 10), [doc]);
-  const laneW = useMemo(() => Math.max(viewportW - HEADER_W, Math.ceil(total * pxPerSec) + 300), [viewportW, total, pxPerSec]);
+  const laneW = useMemo(() => Math.max(1200 - HEADER_W, Math.ceil(total * pxPerSec) + 300), [total, pxPerSec]);
   const tickCount = useMemo(() => Math.ceil(laneW / pxPerSec) + 1, [laneW, pxPerSec]);
 
   // Active RAF playing loop
@@ -58,21 +61,7 @@ export function useTimeline(
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [playing]);
-
-  // Drag Gesture State Machine
-  const [drag, setDrag] = useState<{
-    kind: "playhead" | "move" | "trim-start" | "trim-end";
-    clipId?: string;
-    startSec?: number;
-    startPx?: number;
-    startIn?: number;
-    startDur?: number;
-    trackId?: string;
-    grab?: { dx: number; dy: number; w: number; h: number };
-  } | null>(null);
-
-  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
+  }, [playing, setPlayhead, setPlaying]);
 
   const snapPoints = useMemo(() => {
     if (!doc) return [0];
@@ -149,9 +138,7 @@ export function useTimeline(
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [drag, doc, total, xToTime, snap, preview, endGesture]);
-
-  const togglePlay = () => setPlaying((p) => !p);
+  }, [drag, doc, total, xToTime, snap, preview, endGesture, setDrag, setDragPos, setPlayhead]);
 
   return {
     playhead,
@@ -161,7 +148,7 @@ export function useTimeline(
     togglePlay,
     pxPerSec,
     setPxPerSec,
-    viewportW,
+    viewportW: 1200,
     laneW,
     tickCount,
     total,
