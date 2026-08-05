@@ -1,7 +1,7 @@
 import { Handle, type InternalNode, type Node, Position, useNodeId, useStore } from "@xyflow/react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
-import type { Port } from "../lib/constants";
+import { NODE_CONFIG, type NodeKind, type Port } from "../lib/constants";
 
 // Ported from runmycrew: bar on the border, expands to a half-pill on hover.
 const BASE = "nodrag nopan !z-50 !cursor-crosshair !border-none !transition-all !duration-150";
@@ -55,12 +55,14 @@ function statesEqual(a: HandleState, b: HandleState): boolean {
 }
 
 interface NodeHandlesProps {
-  icon: LucideIcon;
-  inputs: Port[];
-  outputs: Port[];
+  kind: NodeKind;
 }
 
-export function NodeHandles({ icon: Icon, inputs, outputs }: NodeHandlesProps) {
+export function NodeHandles({ kind }: NodeHandlesProps) {
+  const cfg = NODE_CONFIG[kind];
+  const Icon = cfg.icon;
+  const inputs = cfg.inputs;
+  const outputs = cfg.outputs;
   const nodeId = useNodeId();
 
   const state = useStore((s) => {

@@ -6,8 +6,8 @@ import { useNodeActions } from "../hooks/use-node-actions";
 import { applyMarkdown, type FormatOp } from "../lib/format-markdown";
 import { TextFormatContext } from "../lib/text-format-context";
 import { Markdown } from "./markdown";
-import { NodeShell } from "./node-shell";
-import { RecommendedActions } from "./recommended-actions";
+import { NodeShell } from "./nodes/node-shell";
+import { RecommendedActions } from "./nodes/recommended-actions";
 
 // Map a DOM selection inside the rendered view back to a source range by
 // finding the selected text in the Markdown source (works for plain runs).

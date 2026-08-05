@@ -17,13 +17,13 @@ import {
   type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { AudioNode } from "./audio-node";
+import { AudioNode } from "./nodes/audio-node";
 import { StickerNode } from "./sticker-node";
 import { CustomEdge } from "./custom-edge";
 import type { CanvasTool } from "./canvas-controls";
-import { ImageNode } from "./image-node";
+import { ImageNode } from "./nodes/image-node";
 import { TextNode } from "./text-node";
-import { VideoNode } from "./video-node";
+import { VideoNode } from "./nodes/video-node";
 import { WorldNode } from "./world-node";
 
 const nodeTypes: NodeTypes = {

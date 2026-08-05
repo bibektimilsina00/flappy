@@ -30,7 +30,7 @@ import { popupRegistry } from "../lib/popup-registry";
 import type { NodeKind } from "../lib/constants";
 import type { FormatOp } from "../lib/format-markdown";
 import { useTextFormat } from "../lib/text-format-context";
-import { AudioPlayer } from "./audio-player";
+import { AudioPlayer } from "./shared/audio-player";
 import { ImageActionModal, type ImageAction } from "./image-action-modal";
 import { ImageCropModal } from "./image-crop-modal";
 import { Markdown } from "./markdown";
@@ -71,7 +71,7 @@ export function NodeToolbar({
 }: {
   id: string;
   kind: NodeKind;
-  content: string; // media URL, or text for text nodes
+  content?: string; // media URL, or text for text nodes
   label?: string;
 }) {
   const applyFormat = useTextFormat();
@@ -108,6 +108,7 @@ export function NodeToolbar({
   }, [menuOpen]);
 
   const download = () => {
+    if (!content) return;
     if (kind === "text") {
       const url = URL.createObjectURL(new Blob([content], { type: "text/markdown" }));
       triggerDownload(url, name.endsWith(".md") ? name : `${name}.md`);
@@ -197,17 +198,17 @@ export function NodeToolbar({
       <Btn icon={Maximize2} label="Expand" onClick={() => setExpanded(true)} />
       {kind !== "text" ? <Btn icon={Download} label="Download" onClick={download} /> : null}
 
-      {expanded ? <ExpandOverlay kind={kind} content={content} onClose={() => setExpanded(false)} /> : null}
-      {imageModal === "crop" ? (
+      {content && expanded ? <ExpandOverlay kind={kind} content={content} onClose={() => setExpanded(false)} /> : null}
+      {content && imageModal === "crop" ? (
         <ImageCropModal src={content} onDone={applyImage} onClose={() => setImageModal(null)} />
       ) : null}
-      {imageModal === "edit" ? (
+      {content && imageModal === "edit" ? (
         <PrecisionEdit src={content} onDone={applyImage} onClose={() => setImageModal(null)} />
       ) : null}
-      {imageAction ? (
+      {content && imageAction ? (
         <ImageActionModal action={imageAction} sourceId={id} src={content} onClose={() => setImageAction(null)} />
       ) : null}
-      {videoAction ? (
+      {content && videoAction ? (
         <VideoActionModal action={videoAction} sourceId={id} src={content} onClose={() => setVideoAction(null)} />
       ) : null}
     </div>
