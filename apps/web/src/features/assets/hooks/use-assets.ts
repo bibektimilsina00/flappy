@@ -86,13 +86,22 @@ export function useAssets() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteCollection(id),
-    onSuccess: () => invalidate(),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Folder deleted");
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Failed to delete collection");
+    },
   });
 
   const assignMutation = useMutation({
     mutationFn: (v: { id: string; add?: string[]; remove?: string[] }) =>
       updateCollection(v.id, { add: v.add, remove: v.remove }),
     onSuccess: () => invalidate(),
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Failed to update folder assets");
+    },
   });
 
   const categorized = useMemo(() => new Set(collections.flatMap((c) => c.asset_ids)), [collections]);

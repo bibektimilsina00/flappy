@@ -17,6 +17,10 @@ export function getProviders(): Promise<Record<string, boolean>> {
   return api<Record<string, boolean>>("/auth/providers");
 }
 
+export function getCurrentUser(): Promise<import("../types").User> {
+  return api<import("../types").User>("/users/me");
+}
+
 export function oauthLoginUrl(provider: string): string {
   return `${API_BASE}/api/v1/auth/oauth/${provider}/login`;
 }

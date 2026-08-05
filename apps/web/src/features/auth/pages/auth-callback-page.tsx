@@ -2,8 +2,8 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
-import { api } from "@/lib/api";
-import { type SessionUser, useSession } from "@/stores/session";
+import { useSession } from "@/stores/session";
+import { getCurrentUser } from "../services/auth-api";
 
 // Landing point after an OAuth redirect: ?token=<jwt>. Store it, load the user,
 // then continue to the app.
@@ -18,7 +18,7 @@ export function AuthCallbackPage() {
       return;
     }
     useSession.getState().setToken(token);
-    api<SessionUser>("/users/me")
+    getCurrentUser()
       .then((user) => {
         useSession.getState().setAuth({ token, user });
         router.replace("/dashboard");
