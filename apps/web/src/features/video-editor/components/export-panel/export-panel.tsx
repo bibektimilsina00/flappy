@@ -1,51 +1,25 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	ArrowLeft,
-	CalendarClock,
 	Check,
-	ChevronRight,
 	Copy,
 	Download,
-	ExternalLink,
 	Link2,
 	Loader2,
-	type LucideIcon,
 	MessageSquareText,
-	MoreHorizontal,
 	Plus,
 	Presentation,
 	Send,
-	Trash2,
 	X,
 } from "lucide-react";
-import {
-	type ComponentType,
-	useCallback,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+import type { ComponentType } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/shared/components/select";
-import {
-	listSchedule,
-	listSocialAccounts,
-	type PublishResult,
-	socialConnectUrl,
-	socialProviders,
-	tiktokCreatorInfo,
-} from "@/features/clips/api";
-import {
-	publishEditorProject,
-	renderEditorProject,
-	shareEditorProject,
-} from "../services/video-editor-api";
-import { buildCaptions } from "../lib/captions";
-import type { VideoEditorDoc } from "../types";
+import { cn } from "@/lib/cn";
+import type { VideoEditorDoc } from "../../types";
+import { useExportPanel } from "./use-export-panel";
 
-const TERMINAL = new Set(["posted", "failed"]);
 const PRIVACY_LABEL: Record<string, string> = {
 	PUBLIC_TO_EVERYONE: "Public",
 	MUTUAL_FOLLOW_FRIENDS: "Friends",
@@ -62,7 +36,6 @@ interface ExportPanelProps {
 	onClose: () => void;
 }
 
-// ── brand glyphs (lucide has no brand icons) ────────────────────────────────
 type IconProps = { className?: string };
 const YouTubeIcon = (p: IconProps) => (
 	<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...p}>
@@ -120,176 +93,35 @@ const PLATFORM: Record<
 	linkedin: { name: "LinkedIn", icon: LinkedInIcon, bg: "bg-[#0A66C2]" },
 };
 
-export function ExportPanel({
-	projectId,
-	title: initialTitle,
-	doc,
-	share: initialShare,
-	saveFirst,
-	onClose,
-}: ExportPanelProps) {
-	const qc = useQueryClient();
-	const [view, setView] = useState<"menu" | "publish" | "share">("menu");
-
-	// render state
-	const [rendering, setRendering] = useState(false);
-	const [renderRes, setRenderRes] = useState<{
-		key: string;
-		url: string;
-		kind: string;
-		duration: number;
-	} | null>(null);
-
-	// publish form state
-	const [selectedAccs, setSelectedAccs] = useState<Set<string>>(new Set());
-	const [postTitle, setPostTitle] = useState(initialTitle);
-	const [postCaption, setPostCaption] = useState("");
-	const [tiktokPrivacy, setTiktokPrivacy] = useState("PUBLIC_TO_EVERYONE");
-	const [publishing, setPublishing] = useState(false);
-	const [publishResults, setPublishResults] = useState<PublishResult[] | null>(
-		null,
-	);
-	const [publishError, setPublishError] = useState<string | null>(null);
-
-	// share links state
-	const [shareTokens, setShareTokens] = useState<{
-		review: string | null;
-		presentation: string | null;
-	}>({
-		review: initialShare.review ?? null,
-		presentation: initialShare.presentation ?? null,
-	});
-	const [sharingMode, setSharingMode] = useState<
-		"review" | "presentation" | null
-	>(null);
-
-	// social accounts + tiktok privacy options
-	const { data: socialAccs = [] } = useQuery({
-		queryKey: ["social-accounts"],
-		queryFn: listSocialAccounts,
-	});
-
-	const tiktokAcc = socialAccs.find((a) => a.provider === "tiktok");
-	const { data: ttInfo } = useQuery({
-		queryKey: ["tiktok-creator-info", tiktokAcc?.id],
-		queryFn: () => tiktokCreatorInfo(tiktokAcc!.id),
-		enabled: !!tiktokAcc && selectedAccs.has(tiktokAcc.id),
-	});
-
-	// Poll publish results until terminal
-	const hasPending =
-		publishResults?.some((r) => !TERMINAL.has(r.status)) ?? false;
-	useQuery({
-		queryKey: ["editor-publish-status", projectId],
-		queryFn: async () => {
-			const res = await listSchedule();
-			setPublishResults((prev) => {
-				if (!prev) return prev;
-				const map = new Map(res.map((item) => [item.id, item]));
-				return prev.map((item) => map.get(item.id) ?? item);
-			});
-			return res;
-		},
-		enabled: hasPending,
-		refetchInterval: 2000,
-	});
-
-	// Fire an ffmpeg render job (or reuse the active one)
-	const triggerRender = useCallback(async () => {
-		if (renderRes || rendering) return renderRes;
-		setRendering(true);
-		try {
-			await saveFirst();
-			const res = await renderEditorProject(projectId, { format: "mp4" });
-			setRenderRes(res);
-			return res;
-		} finally {
-			setRendering(false);
-		}
-	}, [projectId, renderRes, rendering, saveFirst]);
-
-	// Auto-start render when switching into Publish view
-	useEffect(() => {
-		if (view === "publish" && !renderRes && !rendering) {
-			void triggerRender();
-		}
-	}, [view, renderRes, rendering, triggerRender]);
-
-	// Toggle account selection
-	const toggleAcc = (id: string) => {
-		setSelectedAccs((prev) => {
-			const next = new Set(prev);
-			if (next.has(id)) next.delete(id);
-			else next.add(id);
-			return next;
-		});
-	};
-
-	// Execute post creation
-	const handlePublish = async () => {
-		setPublishError(null);
-		let key = renderRes?.key;
-		if (!key) {
-			const r = await triggerRender();
-			key = r?.key;
-		}
-		if (!key) {
-			setPublishError("Render failed — cannot publish.");
-			return;
-		}
-		if (selectedAccs.size === 0) {
-			setPublishError("Select at least one social account.");
-			return;
-		}
-		setPublishing(true);
-		try {
-			const res = await publishEditorProject(projectId, {
-				render_key: key,
-				account_ids: Array.from(selectedAccs),
-				title: postTitle,
-				caption: postCaption,
-				tiktok_privacy: tiktokPrivacy,
-			});
-			setPublishResults(res);
-			qc.invalidateQueries({ queryKey: ["schedule"] });
-		} catch (e) {
-			setPublishError(
-				e instanceof Error ? e.message : "Failed to trigger publish",
-			);
-		} finally {
-			setPublishing(false);
-		}
-	};
-
-	// Toggle share link (create or revoke)
-	const toggleShare = async (mode: "review" | "presentation") => {
-		const active = !!shareTokens[mode];
-		setSharingMode(mode);
-		try {
-			await saveFirst();
-			const res = await shareEditorProject(projectId, mode, active);
-			setShareTokens((prev) => ({ ...prev, [mode]: res.token }));
-			qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
-		} finally {
-			setSharingMode(null);
-		}
-	};
-
-	// Download raw subtitle file (SRT / VTT)
-	const downloadSubtitle = (format: "srt" | "vtt") => {
-		const text = buildCaptions(doc, format);
-		if (!text) return;
-		const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement("a");
-		a.href = url;
-		a.download = `${initialTitle.replace(/\s+/g, "_")}.${format}`;
-		a.click();
-		URL.revokeObjectURL(url);
-	};
+export function ExportPanel(props: ExportPanelProps) {
+	const {
+		view,
+		setView,
+		rendering,
+		renderRes,
+		triggerRender,
+		socialAccs,
+		tiktokAcc,
+		selectedAccs,
+		toggleAcc,
+		postTitle,
+		setPostTitle,
+		postCaption,
+		setPostCaption,
+		tiktokPrivacy,
+		setTiktokPrivacy,
+		publishing,
+		publishResults,
+		publishError,
+		handlePublish,
+		shareTokens,
+		sharingMode,
+		toggleShare,
+		downloadSubtitle,
+	} = useExportPanel(props);
 
 	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 select-none">
 			<div className="relative flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
 				{/* header */}
 				<div className="flex items-center justify-between border-b border-border px-5 py-4">
@@ -313,7 +145,7 @@ export function ExportPanel({
 					</div>
 					<button
 						type="button"
-						onClick={onClose}
+						onClick={props.onClose}
 						className="grid size-8 place-items-center rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground"
 					>
 						<X className="size-4" />
@@ -325,7 +157,7 @@ export function ExportPanel({
 					{view === "menu" ? (
 						<div className="space-y-6">
 							{/* Primary Option: Direct Render Download */}
-							<div className="rounded-xl border border-teal-500/30 bg-teal-500/5 p-4 space-y-3">
+							<div className="rounded-xl border border-[#14b8a6]/30 bg-[#14b8a6]/5 p-4 space-y-3">
 								<div className="flex items-start gap-3">
 									<div className="grid size-10 shrink-0 place-items-center rounded-lg bg-[#14b8a6] text-black">
 										<Download className="size-5" />
@@ -345,7 +177,7 @@ export function ExportPanel({
 										</span>
 										<a
 											href={renderRes.url}
-											download={`${initialTitle}.mp4`}
+											download={`${props.title}.mp4`}
 											className="flex items-center gap-1.5 rounded-lg bg-[#14b8a6] px-3 py-1.5 text-xs font-semibold text-black transition-opacity hover:opacity-90"
 										>
 											<Download className="size-3.5" /> Save File
@@ -376,7 +208,7 @@ export function ExportPanel({
 								<button
 									type="button"
 									onClick={() => setView("publish")}
-									className="flex flex-col items-start gap-2 rounded-xl border border-border p-4 text-left transition-colors hover:border-teal-500/50 hover:bg-accent"
+									className="flex flex-col items-start gap-2 rounded-xl border border-border p-4 text-left transition-colors hover:border-[#14b8a6]/50 hover:bg-accent"
 								>
 									<Send className="size-5 text-[#14b8a6]" />
 									<div>
@@ -390,7 +222,7 @@ export function ExportPanel({
 								<button
 									type="button"
 									onClick={() => setView("share")}
-									className="flex flex-col items-start gap-2 rounded-xl border border-border p-4 text-left transition-colors hover:border-teal-500/50 hover:bg-accent"
+									className="flex flex-col items-start gap-2 rounded-xl border border-border p-4 text-left transition-colors hover:border-[#14b8a6]/50 hover:bg-accent"
 								>
 									<Link2 className="size-5 text-[#14b8a6]" />
 									<div>
@@ -428,7 +260,6 @@ export function ExportPanel({
 					) : view === "publish" ? (
 						/* PUBLISH VIEW */
 						<div className="space-y-5">
-							{/* Accounts checklist */}
 							<div className="space-y-2">
 								<label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
 									Target Accounts
@@ -485,7 +316,6 @@ export function ExportPanel({
 								)}
 							</div>
 
-							{/* Post Fields */}
 							<div className="space-y-3">
 								<div className="space-y-1">
 									<label className="text-xs font-medium">Post Title</label>
@@ -508,7 +338,6 @@ export function ExportPanel({
 									/>
 								</div>
 
-								{/* TikTok privacy option */}
 								{selectedAccs.has(tiktokAcc?.id ?? "") ? (
 									<div className="space-y-1">
 										<label className="text-xs font-medium">TikTok Audience</label>
@@ -530,7 +359,6 @@ export function ExportPanel({
 								</p>
 							) : null}
 
-							{/* Results list */}
 							{publishResults?.length ? (
 								<div className="space-y-2 border-t border-border pt-3">
 									<label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -561,7 +389,6 @@ export function ExportPanel({
 								</div>
 							) : null}
 
-							{/* Trigger Action */}
 							<button
 								type="button"
 								onClick={handlePublish}
@@ -586,7 +413,6 @@ export function ExportPanel({
 								Generate private share URLs for client review or presentation mode.
 							</p>
 
-							{/* Review Mode Link */}
 							<div className="rounded-xl border border-border p-4 space-y-3">
 								<div className="flex items-center justify-between">
 									<div className="flex items-center gap-2">
@@ -634,7 +460,6 @@ export function ExportPanel({
 								)}
 							</div>
 
-							{/* Presentation Mode Link */}
 							<div className="rounded-xl border border-border p-4 space-y-3">
 								<div className="flex items-center justify-between">
 									<div className="flex items-center gap-2">

@@ -1,9 +1,10 @@
 "use client";
 
 import { ChevronDown, Monitor } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
-import type { Clip, Track, VideoEditorDoc } from "../types";
+import type { VideoEditorDoc } from "../../types";
+import { usePreview } from "./use-preview";
 
 const ACCENT = "#14b8a6";
 const ASPECTS = [
@@ -11,8 +12,6 @@ const ASPECTS = [
   { label: "16:9 Video", w: 1920, h: 1080 },
   { label: "1:1 Square", w: 1080, h: 1080 },
 ];
-
-const laneOf = (kind: string) => (kind === "audio" ? "audio" : kind === "text" ? "text" : "visual");
 
 export function Preview({
   doc,
@@ -25,65 +24,7 @@ export function Preview({
   playhead: number;
   playing: boolean;
 }) {
-  const media = useRef<Map<string, HTMLMediaElement>>(new Map());
-
-  // Measure the available area and fit the canvas within BOTH dimensions (so wide
-  // ratios like 16:9 never overflow the panel).
-  const previewRo = useRef<ResizeObserver | null>(null);
-  const [box, setBox] = useState({ w: 0, h: 0 });
-  const fitCb = useCallback((el: HTMLDivElement | null) => {
-    previewRo.current?.disconnect();
-    if (!el) return;
-    const ro = new ResizeObserver(() => setBox({ w: el.clientWidth, h: el.clientHeight }));
-    ro.observe(el);
-    setBox({ w: el.clientWidth, h: el.clientHeight });
-    previewRo.current = ro;
-  }, []);
-  const ratio = doc.width / doc.height;
-  const bw = box.w && box.h ? Math.min(box.w, box.h * ratio) : 0;
-  const bh = bw / ratio;
-
-  const layers = useMemo(() => {
-    const visual: { clip: Clip; z: number }[] = [];
-    const audio: { clip: Clip; track: Track }[] = [];
-    doc.tracks.forEach((track, z) => {
-      if (track.hidden) return;
-      const hit = track.clips.find((c) => playhead >= c.start && playhead < c.start + c.duration);
-      if (!hit) return;
-      if (laneOf(track.kind) === "audio") audio.push({ clip: hit, track });
-      else visual.push({ clip: hit, z });
-    });
-    return { visual, audio };
-  }, [doc, playhead]);
-
-  const activeKey = [...layers.visual, ...layers.audio].map((l) => l.clip.id).join(",");
-  const all = [...layers.visual.map((l) => l.clip), ...layers.audio.map((l) => l.clip)];
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: activeKey subsumes clip identity
-  useEffect(() => {
-    for (const clip of all) {
-      const el = media.current.get(clip.id);
-      if (!el) continue;
-      const src = Math.max(0, clip.in + (playhead - clip.start) * clip.speed);
-      if (playing) {
-        if (Math.abs(el.currentTime - src) > 0.3) el.currentTime = src;
-        el.play().catch(() => {});
-      } else {
-        try {
-          el.currentTime = src;
-        } catch {}
-        el.pause();
-      }
-    }
-    for (const [id, el] of media.current) if (!all.some((c) => c.id === id)) el.pause();
-  }, [activeKey, playing, playhead]);
-
-  const setRef = (id: string) => (el: HTMLMediaElement | null) => {
-    if (el) media.current.set(id, el);
-    else media.current.delete(id);
-  };
-
-  const textLayers = layers.visual.filter((l) => l.clip.kind === "text");
+  const { fitCb, bw, bh, layers, textLayers, setRef } = usePreview(doc, playhead, playing);
 
   return (
     <div ref={fitCb} className="flex min-h-0 w-full flex-1 items-center justify-center">
@@ -116,6 +57,7 @@ export function Preview({
               ) : null;
             })
         )}
+
         {/* text as caption pill (bottom-centered) */}
         {textLayers.length ? (
           <div className="pointer-events-none absolute inset-x-0 bottom-6 z-40 flex flex-col items-center gap-1.5 px-4">
@@ -126,6 +68,7 @@ export function Preview({
             ))}
           </div>
         ) : null}
+
         {layers.audio.map(({ clip, track }) => {
           const url = urlOf(clip.assetId);
           return url ? (
@@ -148,6 +91,7 @@ export function AspectMenu({ doc, setAspect }: { doc: VideoEditorDoc; setAspect:
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
   const current = ASPECTS.find((a) => Math.abs(doc.width / doc.height - a.w / a.h) < 0.01);
+
   return (
     <div ref={ref} className="relative">
       <button

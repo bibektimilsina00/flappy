@@ -2,8 +2,8 @@
 
 import { ChevronDown } from "lucide-react";
 import type React from "react";
-import { changeDuration, moveClip, updateClip, updateTransform } from "../lib/doc-ops";
-import type { Clip, VideoEditorDoc } from "../types";
+import type { Clip, VideoEditorDoc } from "../../types";
+import { useInspector } from "./use-inspector";
 
 export function Inspector({
   clip,
@@ -20,12 +20,23 @@ export function Inspector({
   endGesture: (changed?: boolean) => void;
   onClose: () => void;
 }) {
-  const media = clip.kind === "video" || clip.kind === "audio";
-  const visual = clip.kind !== "audio";
-  const g = { onPointerDown: startGesture, onFocus: startGesture, onBlur: () => endGesture(true), onPointerUp: () => endGesture(true) };
+  const {
+    media,
+    visual,
+    gestureProps: g,
+    updateText,
+    updateStart,
+    updateDuration,
+    updateSpeed,
+    updateX,
+    updateY,
+    updateScale,
+    updateOpacity,
+    updateVolume,
+  } = useInspector({ clip, doc, startGesture, preview, endGesture });
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
+    <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin] select-none">
       <div className="flex items-center gap-1 border-b border-border px-2.5 py-2.5">
         <button
           type="button"
@@ -41,7 +52,7 @@ export function Inspector({
           <textarea
             value={clip.text?.content ?? ""}
             {...g}
-            onChange={(e) => preview(updateClip(doc, clip.id, { text: { ...(clip.text ?? {}), content: e.target.value } }))}
+            onChange={(e) => updateText(e.target.value)}
             className="w-full resize-none rounded-md border border-border bg-transparent p-2 text-sm outline-none focus:border-[#14b8a6]"
             rows={3}
           />
@@ -49,24 +60,14 @@ export function Inspector({
 
         <Section title="Timing">
           <Row label="Start">
-            <Num value={clip.start} min={0} step={0.1} g={g} onInput={(v) => preview(moveClip(doc, clip.id, Math.max(0, v)))} suffix="s" />
+            <Num value={clip.start} min={0} step={0.1} g={g} onInput={updateStart} suffix="s" />
           </Row>
           <Row label="Duration">
-            <Num value={clip.duration} min={0.1} step={0.1} g={g} onInput={(v) => preview(changeDuration(doc, clip.id, Math.max(0.1, v)))} suffix="s" />
+            <Num value={clip.duration} min={0.1} step={0.1} g={g} onInput={updateDuration} suffix="s" />
           </Row>
           {media ? (
             <Row label="Speed">
-              <Num
-                value={clip.speed}
-                min={0.25}
-                step={0.05}
-                g={g}
-                onInput={(v) => {
-                  const speed = Math.max(0.25, v);
-                  preview(updateClip(doc, clip.id, { speed, duration: (clip.out - clip.in) / speed }));
-                }}
-                suffix="×"
-              />
+              <Num value={clip.speed} min={0.25} step={0.05} g={g} onInput={updateSpeed} suffix="×" />
             </Row>
           ) : null}
         </Section>
@@ -74,16 +75,16 @@ export function Inspector({
         {visual ? (
           <Section title="Transform">
             <Row label="X">
-              <Num value={clip.transform.x} step={2} g={g} onInput={(v) => preview(updateTransform(doc, clip.id, { x: v }))} suffix="px" />
+              <Num value={clip.transform.x} step={2} g={g} onInput={updateX} suffix="px" />
             </Row>
             <Row label="Y">
-              <Num value={clip.transform.y} step={2} g={g} onInput={(v) => preview(updateTransform(doc, clip.id, { y: v }))} suffix="px" />
+              <Num value={clip.transform.y} step={2} g={g} onInput={updateY} suffix="px" />
             </Row>
             <Row label="Scale">
-              <Slide value={clip.transform.scale} min={0.1} max={3} step={0.01} g={g} onInput={(v) => preview(updateTransform(doc, clip.id, { scale: v }))} />
+              <Slide value={clip.transform.scale} min={0.1} max={3} step={0.01} g={g} onInput={updateScale} />
             </Row>
             <Row label="Opacity">
-              <Slide value={clip.transform.opacity} min={0} max={1} step={0.01} g={g} onInput={(v) => preview(updateTransform(doc, clip.id, { opacity: v }))} />
+              <Slide value={clip.transform.opacity} min={0} max={1} step={0.01} g={g} onInput={updateOpacity} />
             </Row>
           </Section>
         ) : null}
@@ -91,7 +92,7 @@ export function Inspector({
         {media ? (
           <Section title="Audio">
             <Row label="Volume">
-              <Slide value={clip.volume} min={0} max={1} step={0.01} g={g} onInput={(v) => preview(updateClip(doc, clip.id, { volume: v }))} />
+              <Slide value={clip.volume} min={0} max={1} step={0.01} g={g} onInput={updateVolume} />
             </Row>
           </Section>
         ) : null}
