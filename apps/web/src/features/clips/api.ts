@@ -15,6 +15,8 @@ export interface ClipItem {
 	clean?: boolean; // master has no burned captions (overlay/burn apply)
 	error?: string;
 	caption_edits?: { start: number; end: number; text: string }[] | null;
+	is_expired?: boolean;
+	expired_reason?: string;
 }
 
 export interface TranscriptSegment {
@@ -38,6 +40,14 @@ export interface ClipsJob {
 	duration: number | null;
 	created_at: string;
 	phase_started_at: string | null;
+	plan?: string;
+	is_free_plan?: boolean;
+	expires_at?: string | null;
+	hard_deletes_at?: string | null;
+	retention_status?: "active" | "expired" | "hard_deleted";
+	days_remaining?: number;
+	is_expired?: boolean;
+	is_hard_deleted?: boolean;
 	clips: ClipItem[];
 	transcript?: TranscriptSegment[]; // only on single-job GET
 	source_media_url?: string | null; // presigned source video (single-job GET)

@@ -16,4 +16,6 @@ celery_app.conf.beat_schedule = {
     "promote-due-posts": {"task": "promote_due_posts", "schedule": 300.0},
     # Daily sweep; each free workspace gets topped up once per 30 days.
     "refill-free-credits": {"task": "refill_free_credits", "schedule": 86400.0},
+    # Hourly sweep; purge free plan media files older than 5 days.
+    "purge-expired-free-clips": {"task": "purge_expired_free_clips", "schedule": 3600.0},
 }

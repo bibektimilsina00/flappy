@@ -93,7 +93,7 @@ def refill_free_credits() -> None:
         ).all()
         for credit, _ws in rows:
             last = credit.last_grant_at or credit.created_at
-            if (now - last).days >= 30:
+        if (now - last).days >= 30:
                 credit.balance = max(credit.balance, settings.free_monthly_credits)
                 credit.last_grant_at = now
                 session.add(credit)
@@ -101,3 +101,56 @@ def refill_free_credits() -> None:
         session.commit()
     if granted:
         log.info("free-credit refill: %d workspaces topped up", granted)
+
+
+@celery_app.task(name="purge_expired_free_clips")
+def purge_expired_free_clips() -> None:
+    """Hard delete media assets for Free plan clips jobs older than 5 days."""
+    from apps.api.app.features.clips.models import ClipsJob
+    from apps.api.app.features.workspaces.models import Workspace
+    from apps.api.app.storage.factory import get_storage
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    cutoff_hard = now - timedelta(days=5)
+    purged_count = 0
+    storage = get_storage()
+
+    with Session(engine) as session:
+        rows = session.exec(
+            select(ClipsJob, Workspace).where(
+                ClipsJob.workspace_id == Workspace.id,
+                Workspace.plan == "free",
+                ClipsJob.created_at < cutoff_hard,
+            )
+        ).all()
+
+        for job, _ws in rows:
+            if job.source_key:
+                try:
+                    storage.delete(job.source_key)
+                except Exception:
+                    pass
+                job.source_key = None
+            if job.source_thumb_key:
+                try:
+                    storage.delete(job.source_thumb_key)
+                except Exception:
+                    pass
+                job.source_thumb_key = None
+
+            new_clips = []
+            for c in job.clips or []:
+                key = c.get("key")
+                if key:
+                    try:
+                        storage.delete(key)
+                    except Exception:
+                        pass
+                new_clips.append({**c, "key": None, "url": None, "purged": True})
+            job.clips = new_clips
+            session.add(job)
+            purged_count += 1
+        session.commit()
+
+    if purged_count:
+        log.info("cleanup: purged media assets for %d expired free-plan clips jobs", purged_count)

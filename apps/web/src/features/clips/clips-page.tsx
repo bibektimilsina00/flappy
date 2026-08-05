@@ -1758,6 +1758,17 @@ function JobRow({
 							: `${PHASE_LABEL[job.phase] ?? job.phase}…`}
 					{" · "}
 					{new Date(job.created_at).toLocaleDateString()}
+					{job.is_free_plan ? (
+						job.is_expired || job.retention_status === "expired" || job.retention_status === "hard_deleted" ? (
+							<span className="ml-2 inline-flex items-center gap-1 rounded-md bg-red-500/20 px-2 py-0.5 text-[10px] font-semibold text-red-300">
+								Expired (Free)
+							</span>
+						) : (
+							<span className="ml-2 inline-flex items-center gap-1 rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+								{job.days_remaining === 1 ? "1d left" : `${job.days_remaining ?? 0}d left`}
+							</span>
+						)
+					) : null}
 				</span>
 				{running ? (
 					<span className="mt-1.5 block h-1 w-full overflow-hidden rounded-full bg-white/10">

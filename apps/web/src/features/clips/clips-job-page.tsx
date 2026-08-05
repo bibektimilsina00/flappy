@@ -1,11 +1,13 @@
 "use client";
 
 import {
+  AlertTriangle,
   ArrowLeft,
   AudioLines,
   CalendarClock,
   Check,
   Clapperboard,
+  Clock,
   Component,
   Download,
   DownloadCloud,
@@ -159,6 +161,41 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
         </div>
       ) : (
         <>
+          {/* Retention notice banner for Free plan */}
+          {job.is_free_plan ? (
+            job.is_expired || job.retention_status === "expired" || job.retention_status === "hard_deleted" ? (
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-xs text-red-200 shadow-md">
+                <div className="flex items-center gap-2.5">
+                  <AlertTriangle className="size-4 shrink-0 text-red-400" />
+                  <span>
+                    <strong>Clip Expired:</strong> This clip reached the 3-day Free plan retention limit (marked as deleted). Upgrade to Pro to preserve all future clips permanently.
+                  </span>
+                </div>
+                <a
+                  href="/pricing"
+                  className="rounded-lg bg-teal-400 px-3 py-1.5 font-semibold text-black transition-colors hover:bg-teal-300"
+                >
+                  Upgrade to Pro
+                </a>
+              </div>
+            ) : (
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-200 shadow-md">
+                <div className="flex items-center gap-2.5">
+                  <Clock className="size-4 shrink-0 text-amber-400" />
+                  <span>
+                    <strong>Free Plan Storage:</strong> Clips are retained for 3 days (<strong>{job.days_remaining === 1 ? "1 day left" : `${job.days_remaining ?? 0} days left`}</strong>). Media files are permanently purged after 5 days.
+                  </span>
+                </div>
+                <a
+                  href="/pricing"
+                  className="rounded-lg bg-teal-400 px-3 py-1.5 font-semibold text-black transition-colors hover:bg-teal-300"
+                >
+                  Upgrade for Permanent Cloud Storage
+                </a>
+              </div>
+            )
+          ) : null}
+
           <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
             <div className="flex min-w-0 items-center gap-4">
               {job.source_thumb_url && job.status !== "running" && job.status !== "queued" ? (

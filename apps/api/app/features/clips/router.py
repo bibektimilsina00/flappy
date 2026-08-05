@@ -33,7 +33,60 @@ def _oembed(url: str) -> dict | None:
         return None
 
 
-def _job_out(job: ClipsJob, storage, with_transcript: bool = False) -> dict:
+def _job_out(
+    job: ClipsJob,
+    storage,
+    with_transcript: bool = False,
+    session: Session | None = None,
+) -> dict:
+    from datetime import UTC, datetime, timedelta
+    from apps.api.app.features.workspaces import repository as workspaces_repo
+
+    plan = "free"
+    if session:
+        ws = workspaces_repo.get(session, job.workspace_id)
+        if ws:
+            plan = ws.plan
+
+    created_at = job.created_at
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=UTC)
+
+    now = datetime.now(UTC)
+    age_days = (now - created_at).total_seconds() / 86400.0
+
+    is_free = plan == "free"
+    expires_at = (created_at + timedelta(days=3)).isoformat() if is_free else None
+    hard_deletes_at = (created_at + timedelta(days=5)).isoformat() if is_free else None
+
+    is_expired = is_free and (age_days >= 3.0)
+    is_hard_deleted = is_free and (age_days >= 5.0)
+
+    # Days remaining for active free clips
+    days_remaining = max(0, int(3.0 - age_days)) if (is_free and not is_expired) else 0
+
+    retention_status = "active"
+    if is_free:
+        if is_hard_deleted or any(c.get("purged") for c in (job.clips or [])):
+            retention_status = "hard_deleted"
+        elif is_expired:
+            retention_status = "expired"
+
+    processed_clips = []
+    for c in job.clips or []:
+        clip_data = {**c}
+        if is_expired or is_hard_deleted or c.get("purged"):
+            clip_data["url"] = None
+            clip_data["is_expired"] = True
+            clip_data["expired_reason"] = (
+                "Free plan clip expired (3-day retention limit). Upgrade to Pro for permanent storage."
+            )
+        else:
+            clip_data["url"] = storage.url(c["key"]) if c.get("key") else None
+            clip_data["is_expired"] = False
+
+        processed_clips.append(clip_data)
+
     out = {
         "id": str(job.id),
         "status": job.status,
@@ -42,19 +95,29 @@ def _job_out(job: ClipsJob, storage, with_transcript: bool = False) -> dict:
         "error": job.error,
         "source_url": job.source_url,
         "source_title": job.source_title,
-        "source_thumb_url": storage.url(job.source_thumb_key) if job.source_thumb_key else None,
+        "source_thumb_url": (
+            storage.url(job.source_thumb_key)
+            if job.source_thumb_key and not is_hard_deleted
+            else None
+        ),
         "params": job.params,
         "duration": job.duration,
         "created_at": job.created_at.isoformat(),
         "phase_started_at": job.phase_started_at.isoformat() if job.phase_started_at else None,
-        "clips": [
-            {**c, "url": storage.url(c["key"]) if c.get("key") else None} for c in (job.clips or [])
-        ],
+        "plan": plan,
+        "is_free_plan": is_free,
+        "expires_at": expires_at,
+        "hard_deletes_at": hard_deletes_at,
+        "retention_status": retention_status,
+        "days_remaining": days_remaining,
+        "is_expired": is_expired,
+        "is_hard_deleted": is_hard_deleted,
+        "clips": processed_clips,
     }
     if with_transcript:
-        # Source playback for the clip editor (trim against the full video).
-        out["source_media_url"] = storage.url(job.source_key) if job.source_key else None
-        # Words included: the player overlays live karaoke captions from them.
+        out["source_media_url"] = (
+            storage.url(job.source_key) if job.source_key and not is_hard_deleted else None
+        )
         out["transcript"] = [
             {"text": s["text"], "start": s["start"], "end": s["end"], "words": s.get("words") or []}
             for s in (job.transcript or [])
@@ -118,85 +181,82 @@ def probe_source(
         if meta:
             return {
                 "title": meta.get("title"),
-                "duration": None,
                 "thumbnail": meta.get("thumbnail_url"),
-                "height": None,
                 "blocked": True,
                 "message": PRO_LINK_MSG,
             }
-        raise HTTPException(status_code=402, detail=PRO_LINK_MSG)
+        return {"blocked": True, "message": PRO_LINK_MSG}
 
     try:
-        info = ydl_extract(url, download=False, allow_proxy=not free)
-    except Exception as exc:
-        friendly = friendly_link_error(exc)
-        if "upload the file" in friendly:
-            # Bot-walled: YouTube's public oEmbed still serves metadata, so the
-            # UI can show a card pointing the user at the upload path.
+        data = ydl_extract(url, download=False)
+        return {
+            "title": data.get("title"),
+            "duration": data.get("duration"),
+            "thumbnail": data.get("thumbnail"),
+            "height": data.get("height"),
+        }
+    except Exception as e:
+        msg = friendly_link_error(e)
+        if "YouTube link import needs a paid plan" in msg:
             meta = _oembed(url)
-            if meta:
-                return {
-                    "title": meta.get("title"),
-                    "duration": None,
-                    "thumbnail": meta.get("thumbnail_url"),
-                    "height": None,
-                    "blocked": True,
-                    "message": friendly,
-                }
-        raise HTTPException(status_code=422, detail=friendly) from exc
-    return {
-        "title": info.get("title"),
-        "duration": info.get("duration"),
-        "thumbnail": info.get("thumbnail"),
-        "height": info.get("height"),
-    }
+            return {
+                "title": meta.get("title") if meta else None,
+                "thumbnail": meta.get("thumbnail_url") if meta else None,
+                "blocked": True,
+                "message": msg,
+            }
+        raise HTTPException(status_code=400, detail=msg) from e
 
 
-class JobCreate(BaseModel):
+class JobCreateRequest(BaseModel):
     source_url: str | None = None
     source_key: str | None = None
     source_title: str | None = None
-    source_duration: float | None = None  # seconds, from the probe — drives the cost check
-    workflow_id: uuid.UUID | None = None  # link to an existing project (its Clips tab)
+    source_duration: float | None = None
+    workflow_id: uuid.UUID | None = None  # optional link to an editor project
     params: dict = {}
 
 
 @router.post("/jobs", status_code=201)
 def create_job(
-    body: JobCreate,
-    session: Session = Depends(get_session),
+    body: JobCreateRequest,
+    user: User = Depends(get_current_user),
     workspace_id: uuid.UUID = Depends(current_workspace_id),
-    _user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ) -> dict:
-    if bool(body.source_url) == bool(body.source_key):
+    if not body.source_url and not body.source_key:
         raise HTTPException(
-            status_code=422, detail="Provide either a video link or an uploaded file."
+            status_code=422, detail="Provide either source_url (link) or source_key (uploaded file)."
         )
-    if body.source_url and not URL_RE.match(body.source_url.strip()):
-        raise HTTPException(status_code=422, detail="That doesn't look like a valid link.")
 
-    from apps.api.app.features.billing.plans import source_limit_min
-    from apps.api.app.features.clips.pipeline import estimate_credits, workspace_plan
+    from apps.api.app.features.billing import service as billing_service
+    from apps.api.app.features.clips.pipeline import estimate_credits, is_free_plan
 
-    plan = workspace_plan(session, workspace_id)
-    if plan == "free" and body.source_url and YOUTUBE_RE.search(body.source_url):
+    free = is_free_plan(session, workspace_id)
+    if free and body.source_url and YOUTUBE_RE.search(body.source_url):
         raise HTTPException(status_code=402, detail=PRO_LINK_MSG)
-    limit = source_limit_min(plan)
-    if body.source_duration and body.source_duration > limit * 60:
-        raise HTTPException(
-            status_code=402,
-            detail=f"Your plan's sources are capped at {limit} minutes — upgrade for longer videos.",
-        )
 
-    params = body.params or {}
-    # Non-9:16 ratios are paid — free plan is coerced to 9:16 (UI already gates).
-    if plan == "free" and params.get("ratio") not in (None, "9:16"):
-        params["ratio"] = "9:16"
-    estimated = estimate_credits(body.source_duration, params.get("count", "auto"))
-    if not billing_service.has_credits(session, workspace_id, estimated):
-        raise HTTPException(
-            status_code=402, detail=f"Not enough credits (about {estimated:.0f} needed)."
-        )
+    count = body.params.get("count", "auto")
+    cost = estimate_credits(body.source_duration, count)
+
+    def charge(credits: float, label: str):
+        billing_service.spend(session, workspace_id, credits, label, user_id=user.id)
+
+    charge(cost, "Clips job start")
+
+    params = {
+        "layout": "fit",
+        "count": "auto",
+        "duration": "auto",
+        "ratio": "9:16",
+        "captions": True,
+        "caption_style": "clean",
+        "add_emojis": False,
+        "highlight_keywords": False,
+        "auto_censor": False,
+        "language": "auto",
+        **(body.params or {}),
+    }
 
     job = repository.add(
         session,
@@ -221,7 +281,7 @@ def create_job(
         create_project_for_job(session, job)
     job = repository.save(session, job)
     celery_app.send_task("run_clips_job", args=[str(job.id)])
-    return _job_out(job, get_storage())
+    return _job_out(job, get_storage(), session=session)
 
 
 @router.get("/estimate")
@@ -244,7 +304,10 @@ def list_jobs(
     _user: User = Depends(get_current_user),
 ) -> list[dict]:
     storage = get_storage()
-    return [_job_out(j, storage) for j in repository.list_for_workspace(session, workspace_id)]
+    return [
+        _job_out(j, storage, session=session)
+        for j in repository.list_for_workspace(session, workspace_id)
+    ]
 
 
 @router.get("/jobs/{job_id}")
@@ -257,7 +320,7 @@ def get_job(
     job = repository.get(session, workspace_id, job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
-    return _job_out(job, get_storage(), with_transcript=True)
+    return _job_out(job, get_storage(), with_transcript=True, session=session)
 
 
 class RerenderRequest(BaseModel):
