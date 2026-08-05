@@ -3,7 +3,6 @@
 import {
   Bell,
   LogOut,
-  Search,
   SlidersHorizontal,
   User,
 } from "lucide-react";
@@ -17,7 +16,6 @@ export function AppHeader() {
   const user = useSession((s) => s.user);
   const clearSession = useSession((s) => s.clear);
   const [userOpen, setUserOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const userRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -29,13 +27,6 @@ export function AppHeader() {
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, []);
-
-  const onSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-    }
-  };
 
   const initial = user?.name ? user.name[0]?.toUpperCase() : "U";
 
@@ -59,17 +50,6 @@ export function AppHeader() {
 
       {/* Right Controls */}
       <div className="flex items-center gap-3">
-        {/* Search Bar */}
-        <form onSubmit={onSearchSubmit} className="relative hidden sm:block">
-          <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search projects, clips..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-8 w-44 rounded-lg border border-white/10 bg-[#161824] pl-8 pr-3 text-xs text-white placeholder-muted-foreground/60 transition-all focus:w-60 focus:border-teal-400/50 focus:outline-none"
-          />
-        </form>
 
         {/* Notifications Bell */}
         <button
