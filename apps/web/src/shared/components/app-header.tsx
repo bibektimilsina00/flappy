@@ -4,7 +4,6 @@ import {
   Bell,
   LogOut,
   Search,
-  Share2,
   SlidersHorizontal,
   User,
 } from "lucide-react";
@@ -82,16 +81,6 @@ export function AppHeader() {
           <span className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-purple-600 text-[10px] font-bold text-white shadow-sm">
             3
           </span>
-        </button>
-
-        {/* Primary Action Button (Share / Export) */}
-        <button
-          type="button"
-          onClick={() => router.push("/clips")}
-          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-md shadow-purple-600/30 transition-all hover:brightness-110 active:scale-95"
-        >
-          <Share2 className="size-3.5" />
-          <span>Share</span>
         </button>
 
         {/* User Profile Avatar & Menu */}
