@@ -1,15 +1,4 @@
-// Subscription tiers — the ONE frontend source of truth, mirroring the
-// backend ladder in apps/api/app/features/billing/plans.py.
-// Monthly billing only (yearly returns when yearly products exist).
-export interface Plan {
-  id: string;
-  name: string;
-  tagline: string;
-  monthly: number; // $/month
-  credits: number; // granted each billing cycle
-  popular?: boolean;
-  features: string[];
-}
+import type { Plan, StudioSize } from "../types";
 
 export const PLANS: Plan[] = [
   {
@@ -59,8 +48,8 @@ export const PLANS: Plan[] = [
     id: "studio",
     name: "Studio",
     tagline: "Best for series, films, and ads — pick your size.",
-    monthly: 140, // base (S); scales with STUDIO_SIZES.mult
-    credits: 20000, // base (S); scales with STUDIO_SIZES.mult
+    monthly: 140,
+    credits: 20000,
     features: [
       "20,000+ credits / month — scales with size",
       "Everything in Ultra",
@@ -71,8 +60,7 @@ export const PLANS: Plan[] = [
   },
 ];
 
-// Studio scales via the size selector (credits × price grow together).
-export const STUDIO_SIZES = [
+export const STUDIO_SIZES: StudioSize[] = [
   { label: "S", mult: 1 },
   { label: "M", mult: 2 },
   { label: "L", mult: 4 },

@@ -2,8 +2,7 @@
 
 import { Check } from "lucide-react";
 import { useState } from "react";
-import { type Plan, PLANS, STUDIO_SIZES } from "@/features/pricing/plans";
-import { UpgradeCta } from "@/features/pricing/upgrade-cta";
+import { type Plan, PLANS, STUDIO_SIZES, UpgradeCta } from "@/features/billing";
 import { cn } from "@/lib/cn";
 import { BRAND } from "./content";
 

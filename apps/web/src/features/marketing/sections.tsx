@@ -47,7 +47,7 @@ export function Hero() {
           </p>
         </div>
 
-        <div className="mk-in relative mx-auto mt-16 max-w-5xl" style={{ animationDelay: "360ms" }}>
+        <div className="mk-in relative mx-auto mt-16 max-w-6xl" style={{ animationDelay: "360ms" }}>
           {/* generated-clip thumbnails peeking from behind, gently floating (wide screens) */}
           <Poster src={unsplash("1470225620780-dba8ba36b745", 400)} ratio="9 / 16" style={{ "--mk-r": "-8deg" } as React.CSSProperties} className="mk-float pointer-events-none absolute -left-20 top-4 hidden w-24 shadow-2xl 2xl:block" />
           <Poster src={unsplash("1492691527719-9d1e07e534b4", 400)} ratio="9 / 16" style={{ "--mk-r": "8deg", animationDelay: "1.2s" } as React.CSSProperties} className="mk-float pointer-events-none absolute -right-20 top-10 hidden w-24 shadow-2xl 2xl:block" />

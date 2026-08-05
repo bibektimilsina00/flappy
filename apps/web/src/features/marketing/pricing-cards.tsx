@@ -1,5 +1,5 @@
 import { Check } from "lucide-react";
-import { UpgradeCta } from "@/features/pricing/upgrade-cta";
+import { UpgradeCta } from "@/features/billing";
 import { cn } from "@/lib/cn";
 import { BRAND, PRICING } from "./content";
 import { Button } from "./ui";
