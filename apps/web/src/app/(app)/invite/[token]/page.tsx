@@ -3,7 +3,7 @@
 import { Loader2, XCircle } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { joinWorkspace } from "@/features/account/api";
+import { joinWorkspace } from "@/features/account";
 
 // Invite link landing: join the workspace, make it active, go to the dashboard.
 // (AuthGuard wraps this route, so the user is signed in by the time it runs.)

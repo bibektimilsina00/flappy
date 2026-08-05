@@ -4,7 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Check, ChevronDown, Loader2, PanelLeft, Plus, Send, SlidersHorizontal } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { createInviteLink, createWorkspace, listWorkspaces } from "@/features/account/api";
+import { createInviteLink, createWorkspace, listWorkspaces } from "@/features/account";
 import { cn } from "@/lib/cn";
 
 interface WorkspaceSwitcherProps {

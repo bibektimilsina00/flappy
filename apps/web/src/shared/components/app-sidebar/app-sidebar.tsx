@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Building2, CreditCard, Link2, SlidersHorizontal, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { getWorkspace } from "@/features/account/api";
+import { getWorkspace } from "@/features/account";
 import { cn } from "@/lib/cn";
 import { FOOTER_NAV, LIBRARY_NAV, PRIMARY_NAV } from "@/shared/constants/navigation";
 import { useSession } from "@/stores/session";

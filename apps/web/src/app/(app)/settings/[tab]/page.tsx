@@ -1,4 +1,4 @@
-import { SettingsContent } from "@/features/account/settings-tabs";
+import { SettingsContent } from "@/features/account";
 
 export default async function Page({ params }: { params: Promise<{ tab: string }> }) {
   const { tab } = await params;

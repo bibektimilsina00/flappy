@@ -1,11 +1,5 @@
 import { api } from "@/lib/api";
-
-export interface Me {
-  id: string;
-  email: string;
-  name: string;
-  auth_provider: string; // password | google | discord
-}
+import type { Me, UsageEntry, Workspace, WorkspaceListItem, WorkspaceMember } from "../types";
 
 export function getMe(): Promise<Me> {
   return api("/users/me");
@@ -26,26 +20,12 @@ export function getSpend(): Promise<{ today: number; week: number; month: number
   return api("/billing/spend");
 }
 
-export interface UsageEntry {
-  created_at: string;
-  kind: string; // "clips" | node kind
-  label: string; // e.g. clips-ingest / clips-select / clips-render / node id
-  credits: number;
-}
-
 export function getUsage(): Promise<UsageEntry[]> {
   return api("/billing/usage");
 }
 
 export function cancelSubscription(): Promise<void> {
   return api("/billing/cancel", { method: "POST" });
-}
-
-export interface Workspace {
-  id: string;
-  name: string;
-  plan: string;
-  preferences: { clip_defaults?: Record<string, string> } | null;
 }
 
 export function getWorkspace(): Promise<Workspace> {
@@ -57,13 +37,6 @@ export function updateWorkspace(body: {
   preferences?: Record<string, unknown>;
 }): Promise<Workspace> {
   return api("/workspaces/current", { method: "PATCH", body: JSON.stringify(body) });
-}
-
-export interface WorkspaceListItem {
-  id: string;
-  name: string;
-  plan: string;
-  role: "owner" | "member";
 }
 
 export function listWorkspaces(): Promise<WorkspaceListItem[]> {
@@ -80,13 +53,6 @@ export function createInviteLink(): Promise<{ url: string }> {
 
 export function joinWorkspace(token: string): Promise<Workspace> {
   return api("/workspaces/join", { method: "POST", body: JSON.stringify({ token }) });
-}
-
-export interface WorkspaceMember {
-  user_id: string;
-  name: string;
-  email: string;
-  role: "owner" | "member";
 }
 
 export function listMembers(): Promise<WorkspaceMember[]> {

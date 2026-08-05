@@ -28,7 +28,7 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { getWorkspace } from "@/features/account/api";
+import { getWorkspace } from "@/features/account";
 import { useBalance } from "@/features/billing";
 import { createWorkflow } from "@/features/projects/services/workflows-api";
 import { cn } from "@/lib/cn";
@@ -370,8 +370,8 @@ export function ClipsPage() {
 	};
 
 	return (
-		<div className="flex h-full w-full flex-col">
-			<div className="min-h-0 flex-1 overflow-y-auto">
+		<div className="flex h-full w-full flex-col gap-2 p-2">
+			<div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-border">
 				<div className="relative mx-auto w-full max-w-4xl px-6 py-12">
 					{/* ambient glow */}
 					<div
@@ -778,7 +778,8 @@ export function ClipsPage() {
 					)}
 				</div>
 			</div>
-			<EditorModeTabs projectId={projectId} mode="clips" />
+			{/* mode tabs: floating bar below the content card */}
+			<EditorModeTabs projectId={projectId} mode="clips" className="shrink-0 overflow-hidden rounded-lg border border-border" />
 		</div>
 	);
 }
