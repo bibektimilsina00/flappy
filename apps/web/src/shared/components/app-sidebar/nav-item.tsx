@@ -18,11 +18,11 @@ export function NavItem({ label, href, icon: Icon, active, collapsed }: NavItemP
       className={cn(
         "flex items-center gap-3 rounded-md py-2 text-sm text-muted-foreground transition-all duration-150",
         "hover:bg-white/5 hover:text-white",
-        active && "bg-white/[0.08] text-sky-400 font-semibold shadow-sm border-l-2 border-sky-400",
+        active && "bg-white/[0.08] text-white font-semibold shadow-sm border-l-2 border-teal-400",
         collapsed ? "justify-center px-0" : "px-3",
       )}
     >
-      {Icon ? <Icon className="size-4 shrink-0" /> : null}
+      {Icon ? <Icon className={cn("size-4 shrink-0", active && "text-teal-400")} /> : null}
       {collapsed ? null : <span className="truncate">{label}</span>}
     </Link>
   );
