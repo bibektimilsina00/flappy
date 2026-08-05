@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { getWorkspace } from "@/features/account/api";
 import { cn } from "@/lib/cn";
 import { FOOTER_NAV, LIBRARY_NAV, PRIMARY_NAV } from "@/shared/constants/navigation";
+import { useSession } from "@/stores/session";
 import { NavItem } from "./nav-item";
 import { NavSection } from "./nav-section";
 import { WorkspaceSwitcher } from "./workspace-switcher";
@@ -42,8 +43,10 @@ export function AppSidebar({
   onToggleCollapse?: () => void;
 }) {
   const pathname = usePathname();
+  const user = useSession((s) => s.user);
   const { data: workspace } = useQuery({ queryKey: ["workspace"], queryFn: getWorkspace });
-  const wsName = workspace?.name ?? "Workspace";
+  const fallbackName = user?.name ? `${user.name.split(" ")[0]}'s Workspace` : "Personal Workspace";
+  const wsName = workspace?.name || fallbackName;
 
   // Settings takes over the whole sidebar: switcher + back + grouped tabs.
   if (pathname.startsWith("/settings")) {
