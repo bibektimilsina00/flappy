@@ -1,14 +1,15 @@
 "use client";
 
-import { ArrowUp, Clapperboard, Component, Image as ImageIcon, Sparkles, Video } from "lucide-react";
+import { ArrowUp, Clapperboard, Component, Image as ImageIcon, Type, Video } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { unsplash } from "./media";
 
 /**
- * Interactive product mock: a live mini node-canvas. Drag the nodes around —
- * the edges follow — with a real cycling prompt, a real image, and a playing
- * video. Self-contained; only depends on the marketing theme tokens.
+ * Interactive product mock: a live mini node-canvas whose nodes mirror the real
+ * canvas nodes (header above a bordered box, flush media, side port bars). Drag
+ * the nodes — the edges follow — with a real cycling prompt, image, and video.
+ * Self-contained; only marketing theme tokens.
  */
 
 const PROMPTS = [
@@ -19,19 +20,26 @@ const PROMPTS = [
 const IMG = unsplash("1540959733332-eab4deabeeaf", 480);
 const VIDEO = "https://videos.pexels.com/video-files/2098989/2098989-hd_1920_1080_30fps.mp4";
 
-type NodeId = "prompt" | "image" | "video";
-// initial positions as a fraction of the canvas (scales with width) + approx px
-// dimensions used for the edge anchors and the drag clamp.
+type NodeId = "text" | "image" | "video";
+const NODE: Record<NodeId, { title: string; Icon: typeof Type; inputs: number; flush: boolean }> = {
+  text: { title: "Text", Icon: Type, inputs: 1, flush: false },
+  image: { title: "Image", Icon: ImageIcon, inputs: 2, flush: true },
+  video: { title: "Video", Icon: Video, inputs: 3, flush: true },
+};
+
+const HEADER = 24; // header row height above the box
+// initial position as a fraction of the canvas + the box width/height in px
 const INIT: Record<NodeId, { fx: number; fy: number }> = {
-  prompt: { fx: 0.03, fy: 0.09 },
-  image: { fx: 0.4, fy: 0.32 },
-  video: { fx: 0.7, fy: 0.54 },
+  text: { fx: 0.03, fy: 0.08 },
+  image: { fx: 0.4, fy: 0.3 },
+  video: { fx: 0.7, fy: 0.52 },
 };
-const DIM: Record<NodeId, { w: number; h: number }> = {
-  prompt: { w: 188, h: 96 },
-  image: { w: 152, h: 132 },
-  video: { w: 176, h: 132 },
+const DIM: Record<NodeId, { w: number; boxH: number }> = {
+  text: { w: 194, boxH: 66 },
+  image: { w: 156, boxH: 104 },
+  video: { w: 182, boxH: 104 },
 };
+const totalH = (id: NodeId) => HEADER + DIM[id].boxH;
 
 export function ProductMock({ className }: { className?: string }) {
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -40,7 +48,6 @@ export function ProductMock({ className }: { className?: string }) {
   const drag = useRef<{ id: NodeId; ox: number; oy: number } | null>(null);
   const [dragging, setDragging] = useState<NodeId | null>(null);
 
-  // measure the canvas so edges + drag clamp work in real px
   useEffect(() => {
     const el = canvasRef.current;
     if (!el) return;
@@ -52,7 +59,6 @@ export function ProductMock({ className }: { className?: string }) {
     return () => ro.disconnect();
   }, []);
 
-  // drag via window listeners so it keeps tracking if the pointer leaves a node
   useEffect(() => {
     if (!dragging) return;
     const move = (e: PointerEvent) => {
@@ -61,7 +67,7 @@ export function ProductMock({ className }: { className?: string }) {
       if (!d || !el) return;
       const r = el.getBoundingClientRect();
       const x = Math.max(6, Math.min(r.width - DIM[d.id].w - 6, e.clientX - r.left - d.ox));
-      const y = Math.max(6, Math.min(r.height - DIM[d.id].h - 6, e.clientY - r.top - d.oy));
+      const y = Math.max(6, Math.min(r.height - totalH(d.id) - 6, e.clientY - r.top - d.oy));
       setPos((p) => ({ ...p, [d.id]: { fx: x / r.width, fy: y / r.height } }));
     };
     const up = () => {
@@ -89,10 +95,12 @@ export function ProductMock({ className }: { className?: string }) {
   };
 
   const px = (id: NodeId) => ({ x: pos[id].fx * size.w, y: pos[id].fy * size.h });
+  // handles sit on the box (below the header), at its vertical middle
+  const anchorY = (id: NodeId) => px(id).y + HEADER + DIM[id].boxH / 2;
   const edge = (a: NodeId, b: NodeId) => {
-    const s = { x: px(a).x + DIM[a].w, y: px(a).y + DIM[a].h / 2 };
-    const e = { x: px(b).x, y: px(b).y + DIM[b].h / 2 };
-    const dx = Math.max(36, Math.abs(e.x - s.x) * 0.5);
+    const s = { x: px(a).x + DIM[a].w, y: anchorY(a) };
+    const e = { x: px(b).x, y: anchorY(b) };
+    const dx = Math.max(34, Math.abs(e.x - s.x) * 0.5);
     return `M ${s.x} ${s.y} C ${s.x + dx} ${s.y}, ${e.x - dx} ${e.y}, ${e.x} ${e.y}`;
   };
 
@@ -118,16 +126,16 @@ export function ProductMock({ className }: { className?: string }) {
       {/* canvas */}
       <div ref={canvasRef} className="relative h-[320px] bg-mk-bg mk-bg-grid sm:h-[360px]">
         <svg className="pointer-events-none absolute inset-0 size-full" aria-hidden="true">
-          <path d={edge("prompt", "image")} fill="none" stroke="rgba(20,184,166,0.55)" strokeWidth="2" />
-          <path d={edge("image", "video")} fill="none" stroke="rgba(20,184,166,0.55)" strokeWidth="2" />
+          <path d={edge("text", "image")} fill="none" stroke="rgba(20,184,166,0.5)" strokeWidth="2" />
+          <path d={edge("image", "video")} fill="none" stroke="rgba(20,184,166,0.5)" strokeWidth="2" />
         </svg>
 
-        <NodeCard id="prompt" p={px("prompt")} active={dragging === "prompt"} onDrag={startDrag("prompt")} icon={<Sparkles className="size-3.5" />} title="Prompt">
+        <NodeCard id="text" p={px("text")} active={dragging === "text"} onDrag={startDrag("text")}>
           <Typewriter />
         </NodeCard>
 
-        <NodeCard id="image" p={px("image")} active={dragging === "image"} onDrag={startDrag("image")} icon={<ImageIcon className="size-3.5" />} title="Image">
-          <div className="relative overflow-hidden rounded-md" style={{ height: DIM.image.h - 44 }}>
+        <NodeCard id="image" p={px("image")} active={dragging === "image"} onDrag={startDrag("image")}>
+          <div className="relative size-full">
             {/* biome-ignore lint/nursery/noImgElement: marketing static image */}
             {/* biome-ignore lint/a11y/useAltText: decorative */}
             <img src={IMG} alt="" draggable={false} className="size-full object-cover" />
@@ -135,8 +143,8 @@ export function ProductMock({ className }: { className?: string }) {
           </div>
         </NodeCard>
 
-        <NodeCard id="video" p={px("video")} active={dragging === "video"} onDrag={startDrag("video")} icon={<Video className="size-3.5" />} title="Video" running>
-          <div className="relative overflow-hidden rounded-md bg-mk-surface2" style={{ height: DIM.video.h - 44 }}>
+        <NodeCard id="video" p={px("video")} active={dragging === "video"} onDrag={startDrag("video")}>
+          <div className="relative size-full bg-mk-surface2">
             {/* biome-ignore lint/a11y/useMediaCaption: decorative */}
             <video src={VIDEO} className="size-full object-cover" autoPlay muted loop playsInline />
             <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.4),transparent_50%)]" />
@@ -188,42 +196,63 @@ export function ProductMock({ className }: { className?: string }) {
   );
 }
 
+// A node that mirrors the real canvas node: header (icon + title) above a
+// bordered box, flush media or padded text, with input/output port bars.
 function NodeCard({
   id,
   p,
   active,
   onDrag,
-  icon,
-  title,
-  running,
   children,
 }: {
   id: NodeId;
   p: { x: number; y: number };
   active: boolean;
   onDrag: (e: React.PointerEvent) => void;
-  icon: React.ReactNode;
-  title: string;
-  running?: boolean;
   children: React.ReactNode;
 }) {
+  const meta = NODE[id];
+  const { Icon } = meta;
   return (
     <div
       onPointerDown={onDrag}
       style={{ left: p.x, top: p.y, width: DIM[id].w, touchAction: "none" }}
       className={cn(
-        "absolute rounded-xl border bg-mk-surface p-2.5 shadow-lg transition-[box-shadow,border-color]",
-        active
-          ? "z-20 cursor-grabbing border-mk-accent/60 shadow-2xl shadow-black/50"
-          : "z-10 cursor-grab border-mk-borders hover:border-mk-accent/40",
+        "group/node absolute",
+        active ? "z-20 cursor-grabbing" : "z-10 cursor-grab",
       )}
     >
-      <div className="mb-2 flex items-center gap-1.5 text-[11px] font-medium text-mk-fg">
-        <span className="text-mk-accent">{icon}</span>
-        {title}
-        {running ? <span className="ml-auto size-1.5 animate-pulse rounded-full bg-mk-accent" /> : null}
+      {/* header above the box */}
+      <div className="mb-1.5 flex items-center gap-1.5 px-1 text-[12px] font-medium text-mk-fg">
+        <Icon className="size-3.5 shrink-0 text-mk-muted" />
+        <span className="truncate">{meta.title}</span>
       </div>
-      {children}
+
+      {/* box */}
+      <div
+        style={{ height: DIM[id].boxH }}
+        className={cn(
+          "relative rounded-lg border bg-mk-surface transition-[border-color,box-shadow]",
+          active ? "border-white/60 shadow-2xl shadow-black/50" : "border-mk-border shadow-lg",
+        )}
+      >
+        {meta.flush ? (
+          <div className="size-full overflow-hidden rounded-[7px]">{children}</div>
+        ) : (
+          <div className="size-full overflow-hidden p-2.5">{children}</div>
+        )}
+
+        {/* input port bars (left) + output port bar (right) */}
+        {Array.from({ length: meta.inputs }).map((_, i) => (
+          <span
+            // biome-ignore lint/suspicious/noArrayIndexKey: fixed decorative ports
+            key={i}
+            style={{ top: `${((i + 1) * 100) / (meta.inputs + 1)}%` }}
+            className="absolute -left-[6px] h-[16px] w-[5px] -translate-y-1/2 rounded-l-[3px] bg-mk-muted/50"
+          />
+        ))}
+        <span className="absolute -right-[6px] top-1/2 h-[16px] w-[5px] -translate-y-1/2 rounded-r-[3px] bg-mk-muted/50" />
+      </div>
     </div>
   );
 }
@@ -255,7 +284,7 @@ function Typewriter() {
     return () => clearTimeout(timer);
   }, []);
   return (
-    <p className="min-h-[2.75rem] text-[11px] leading-snug text-mk-muted">
+    <p className="text-[11px] leading-snug text-mk-muted">
       {text}
       <span className="ml-px inline-block h-3 w-px translate-y-0.5 animate-pulse bg-mk-accent align-middle" />
     </p>
