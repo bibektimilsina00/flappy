@@ -1,13 +1,108 @@
+"use client";
+
 import { ArrowUp, Clapperboard, Component, Image as ImageIcon, Sparkles, Video } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
+import { unsplash } from "./media";
 
 /**
- * A stylized, self-contained mock of the product (node canvas + magnetic timeline).
- * Pure CSS/SVG, flat colours — reads as a clean product screenshot placeholder.
+ * Interactive product mock: a live mini node-canvas. Drag the nodes around —
+ * the edges follow — with a real cycling prompt, a real image, and a playing
+ * video. Self-contained; only depends on the marketing theme tokens.
  */
+
+const PROMPTS = [
+  "Drone shot over neon Tokyo at night, cinematic, volumetric fog",
+  "Slow push-in on a rain-slick Seoul alley, moody, 24fps",
+  "Golden-hour sweep across Himalayan peaks, epic wide shot",
+];
+const IMG = unsplash("1540959733332-eab4deabeeaf", 480);
+const VIDEO = "https://videos.pexels.com/video-files/2098989/2098989-hd_1920_1080_30fps.mp4";
+
+type NodeId = "prompt" | "image" | "video";
+// initial positions as a fraction of the canvas (scales with width) + approx px
+// dimensions used for the edge anchors and the drag clamp.
+const INIT: Record<NodeId, { fx: number; fy: number }> = {
+  prompt: { fx: 0.03, fy: 0.09 },
+  image: { fx: 0.4, fy: 0.32 },
+  video: { fx: 0.7, fy: 0.54 },
+};
+const DIM: Record<NodeId, { w: number; h: number }> = {
+  prompt: { w: 188, h: 96 },
+  image: { w: 152, h: 132 },
+  video: { w: 176, h: 132 },
+};
+
 export function ProductMock({ className }: { className?: string }) {
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ w: 680, h: 340 });
+  const [pos, setPos] = useState(INIT);
+  const drag = useRef<{ id: NodeId; ox: number; oy: number } | null>(null);
+  const [dragging, setDragging] = useState<NodeId | null>(null);
+
+  // measure the canvas so edges + drag clamp work in real px
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => {
+      const r = e.contentRect;
+      setSize({ w: r.width, h: r.height });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // drag via window listeners so it keeps tracking if the pointer leaves a node
+  useEffect(() => {
+    if (!dragging) return;
+    const move = (e: PointerEvent) => {
+      const d = drag.current;
+      const el = canvasRef.current;
+      if (!d || !el) return;
+      const r = el.getBoundingClientRect();
+      const x = Math.max(6, Math.min(r.width - DIM[d.id].w - 6, e.clientX - r.left - d.ox));
+      const y = Math.max(6, Math.min(r.height - DIM[d.id].h - 6, e.clientY - r.top - d.oy));
+      setPos((p) => ({ ...p, [d.id]: { fx: x / r.width, fy: y / r.height } }));
+    };
+    const up = () => {
+      drag.current = null;
+      setDragging(null);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+  }, [dragging]);
+
+  const startDrag = (id: NodeId) => (e: React.PointerEvent) => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    drag.current = {
+      id,
+      ox: e.clientX - r.left - pos[id].fx * r.width,
+      oy: e.clientY - r.top - pos[id].fy * r.height,
+    };
+    setDragging(id);
+  };
+
+  const px = (id: NodeId) => ({ x: pos[id].fx * size.w, y: pos[id].fy * size.h });
+  const edge = (a: NodeId, b: NodeId) => {
+    const s = { x: px(a).x + DIM[a].w, y: px(a).y + DIM[a].h / 2 };
+    const e = { x: px(b).x, y: px(b).y + DIM[b].h / 2 };
+    const dx = Math.max(36, Math.abs(e.x - s.x) * 0.5);
+    return `M ${s.x} ${s.y} C ${s.x + dx} ${s.y}, ${e.x - dx} ${e.y}, ${e.x} ${e.y}`;
+  };
+
   return (
-    <div className={cn("w-full overflow-hidden rounded-2xl border border-mk-border bg-mk-surface", className)}>
+    <div
+      className={cn(
+        "w-full select-none overflow-hidden rounded-2xl border border-mk-border bg-mk-surface",
+        className,
+      )}
+    >
       {/* window chrome */}
       <div className="flex items-center gap-2 border-b border-mk-border bg-mk-surface2 px-4 py-2.5">
         <span className="flex gap-1.5">
@@ -21,25 +116,37 @@ export function ProductMock({ className }: { className?: string }) {
       </div>
 
       {/* canvas */}
-      <div className="relative h-[300px] bg-mk-bg mk-bg-grid sm:h-[340px]">
-        <svg className="absolute inset-0 size-full" aria-hidden="true" focusable="false">
-          <path d="M172 96 C 240 96, 240 150, 300 150" fill="none" stroke="rgba(20,184,166,0.55)" strokeWidth="2" />
-          <path d="M420 150 C 480 150, 480 210, 540 210" fill="none" stroke="rgba(20,184,166,0.55)" strokeWidth="2" />
+      <div ref={canvasRef} className="relative h-[320px] bg-mk-bg mk-bg-grid sm:h-[360px]">
+        <svg className="pointer-events-none absolute inset-0 size-full" aria-hidden="true">
+          <path d={edge("prompt", "image")} fill="none" stroke="rgba(20,184,166,0.55)" strokeWidth="2" />
+          <path d={edge("image", "video")} fill="none" stroke="rgba(20,184,166,0.55)" strokeWidth="2" />
         </svg>
 
-        <NodeCard className="left-6 top-10 w-40" icon={<Sparkles className="size-3.5" />} title="Prompt">
-          <p className="line-clamp-2 text-[11px] leading-snug text-mk-muted">Drone shot over neon Tokyo at night, cinematic…</p>
+        <NodeCard id="prompt" p={px("prompt")} active={dragging === "prompt"} onDrag={startDrag("prompt")} icon={<Sparkles className="size-3.5" />} title="Prompt">
+          <Typewriter />
         </NodeCard>
 
-        <NodeCard className="left-[300px] top-[118px] w-32" icon={<ImageIcon className="size-3.5" />} title="Image">
-          <div className="h-12 rounded-md bg-mk-surface2" />
+        <NodeCard id="image" p={px("image")} active={dragging === "image"} onDrag={startDrag("image")} icon={<ImageIcon className="size-3.5" />} title="Image">
+          <div className="relative overflow-hidden rounded-md" style={{ height: DIM.image.h - 44 }}>
+            {/* biome-ignore lint/nursery/noImgElement: marketing static image */}
+            {/* biome-ignore lint/a11y/useAltText: decorative */}
+            <img src={IMG} alt="" draggable={false} className="size-full object-cover" />
+            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.35),transparent_55%)]" />
+          </div>
         </NodeCard>
 
-        <NodeCard className="right-6 top-[178px] w-36" icon={<Video className="size-3.5" />} title="Video" running>
-          <div className="h-12 rounded-md bg-mk-accent/25" />
+        <NodeCard id="video" p={px("video")} active={dragging === "video"} onDrag={startDrag("video")} icon={<Video className="size-3.5" />} title="Video" running>
+          <div className="relative overflow-hidden rounded-md bg-mk-surface2" style={{ height: DIM.video.h - 44 }}>
+            {/* biome-ignore lint/a11y/useMediaCaption: decorative */}
+            <video src={VIDEO} className="size-full object-cover" autoPlay muted loop playsInline />
+            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.4),transparent_50%)]" />
+            <span className="absolute bottom-1 right-1 rounded bg-black/50 px-1 py-px text-[8px] font-medium text-white backdrop-blur">
+              1080p
+            </span>
+          </div>
         </NodeCard>
 
-        <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-mk-border bg-mk-surface px-2 py-1.5">
+        <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-mk-border bg-mk-surface px-2 py-1.5 shadow-lg">
           <span className="px-2 text-[11px] text-mk-muted">Google Veo · 1080p</span>
           <span className="grid size-6 place-items-center rounded-full bg-mk-accent text-mk-accentfg">
             <ArrowUp className="size-3.5" />
@@ -72,7 +179,7 @@ export function ProductMock({ className }: { className?: string }) {
               <Clip className="left-0 w-full bg-mk-surface ring-1 ring-mk-border" label="music" muted />
             </TimelineRow>
           </div>
-          <div className="pointer-events-none absolute inset-y-2 left-[40%] w-px bg-mk-accent">
+          <div className="mk-sweep pointer-events-none absolute inset-y-2 w-px bg-mk-accent">
             <span className="absolute -left-[3px] top-0 size-1.5 rounded-sm bg-mk-accent" />
           </div>
         </div>
@@ -81,9 +188,36 @@ export function ProductMock({ className }: { className?: string }) {
   );
 }
 
-function NodeCard({ className, icon, title, running, children }: { className?: string; icon: React.ReactNode; title: string; running?: boolean; children: React.ReactNode }) {
+function NodeCard({
+  id,
+  p,
+  active,
+  onDrag,
+  icon,
+  title,
+  running,
+  children,
+}: {
+  id: NodeId;
+  p: { x: number; y: number };
+  active: boolean;
+  onDrag: (e: React.PointerEvent) => void;
+  icon: React.ReactNode;
+  title: string;
+  running?: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <div className={cn("absolute rounded-xl border border-mk-borders bg-mk-surface p-2.5 shadow-lg", className)}>
+    <div
+      onPointerDown={onDrag}
+      style={{ left: p.x, top: p.y, width: DIM[id].w, touchAction: "none" }}
+      className={cn(
+        "absolute rounded-xl border bg-mk-surface p-2.5 shadow-lg transition-[box-shadow,border-color]",
+        active
+          ? "z-20 cursor-grabbing border-mk-accent/60 shadow-2xl shadow-black/50"
+          : "z-10 cursor-grab border-mk-borders hover:border-mk-accent/40",
+      )}
+    >
       <div className="mb-2 flex items-center gap-1.5 text-[11px] font-medium text-mk-fg">
         <span className="text-mk-accent">{icon}</span>
         {title}
@@ -91,6 +225,40 @@ function NodeCard({ className, icon, title, running, children }: { className?: s
       </div>
       {children}
     </div>
+  );
+}
+
+// Cycles through prompts with a type/hold/erase effect (static on reduced-motion).
+function Typewriter() {
+  const [text, setText] = useState(PROMPTS[0]);
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let pi = 0;
+    let ci = PROMPTS[0].length;
+    let deleting = true;
+    let timer = window.setTimeout(step, 1600);
+    function step() {
+      const full = PROMPTS[pi];
+      ci += deleting ? -1 : 1;
+      setText(full.slice(0, ci));
+      let delay = deleting ? 24 : 52;
+      if (!deleting && ci >= full.length) {
+        deleting = true;
+        delay = 1600;
+      } else if (deleting && ci <= 0) {
+        deleting = false;
+        pi = (pi + 1) % PROMPTS.length;
+        delay = 320;
+      }
+      timer = window.setTimeout(step, delay);
+    }
+    return () => clearTimeout(timer);
+  }, []);
+  return (
+    <p className="min-h-[2.75rem] text-[11px] leading-snug text-mk-muted">
+      {text}
+      <span className="ml-px inline-block h-3 w-px translate-y-0.5 animate-pulse bg-mk-accent align-middle" />
+    </p>
   );
 }
 
