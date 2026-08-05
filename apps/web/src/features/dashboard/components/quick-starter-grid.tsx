@@ -1,6 +1,6 @@
 "use client";
 
-import { Film, Scissors, Sparkles, Wand2, Youtube } from "lucide-react";
+import { Film, Scissors, Sparkles, Video, Wand2 } from "lucide-react";
 import Link from "next/link";
 
 interface QuickStarterGridProps {
@@ -26,7 +26,7 @@ export function QuickStarterGrid({ onSelectPrompt }: QuickStarterGridProps) {
           <div>
             <div className="mb-3 flex items-center justify-between">
               <div className="grid size-9 place-items-center rounded-lg bg-teal-500/10 text-teal-400 group-hover:bg-teal-500/20">
-                <Youtube className="size-5" />
+                <Video className="size-5" />
               </div>
               <span className="rounded-full bg-teal-400/10 px-2 py-0.5 text-[10px] font-semibold text-teal-300">
                 Popular
