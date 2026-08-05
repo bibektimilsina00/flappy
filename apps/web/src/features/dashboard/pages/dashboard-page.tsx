@@ -8,6 +8,7 @@ import { createWorkflow, RecentProjects } from "@/features/projects";
 import { useSession } from "@/stores/session";
 import { Composer } from "../components/composer";
 import { Greeting } from "../components/greeting";
+import { QuickStarterGrid } from "../components/quick-starter-grid";
 import { useComposer } from "../hooks/use-composer";
 
 const PLACEHOLDER: Record<NodeKind, string> = {
@@ -70,11 +71,14 @@ export function DashboardPage() {
 
 	const composer = useComposer(start);
 
+	const handleSelectPrompt = (promptText: string, promptKind: NodeKind) => {
+		setKind(promptKind);
+		composer.setValue(promptText);
+	};
+
 	return (
 		<div className="relative h-full overflow-y-auto">
-			{/* One column, uniform gap between every block. Anchored from the top
-          (pt), so blocks below never shift the greeting/composer up. */}
-			<div className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 pb-20 pt-[24vh]">
+			<div className="mx-auto flex w-full max-w-5xl flex-col gap-9 px-6 pb-20 pt-8 md:pt-12">
 				<div className="w-full space-y-6">
 					<Greeting name={userName} />
 					<Composer
@@ -89,8 +93,12 @@ export function DashboardPage() {
 						placeholder={PLACEHOLDER[kind]}
 					/>
 				</div>
+
+				{/* Quick Workflows / Starter Grid */}
+				<QuickStarterGrid onSelectPrompt={handleSelectPrompt} />
+
+				{/* Recent Projects or Starter Templates when empty */}
 				<RecentProjects />
-				{/* Community works hidden until there's real community content. */}
 			</div>
 		</div>
 	);
