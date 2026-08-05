@@ -11,8 +11,8 @@ export function CreditsBadge() {
   const pathname = usePathname();
   const { data } = useBalance();
   if (!data) return null;
-  // Hidden in the video editor — its Export button sits in the same corner.
-  if (pathname?.startsWith("/video-editor")) return null;
+  // Hidden on dashboard & video editor for now.
+  if (!pathname || pathname === "/" || pathname === "/dashboard" || pathname.startsWith("/video-editor")) return null;
 
   const low = data.balance < 25;
   const amount =
