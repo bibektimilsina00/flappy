@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Crown, Loader2, Pencil, Plus, Send, Unlink, Zap } from "lucide-react";
+import { Check, Crown, Gem, Loader2, Pencil, Plus, Send, Unlink } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -473,11 +473,21 @@ function BillingTab() {
           ) : null}
         </span>
       </Row>
-      <Row label="Credits">
-        <span className="flex items-center gap-1.5 text-sm font-medium tabular-nums">
-          <Zap className="size-3.5 text-teal-300" />
-          {balance ? Math.floor(balance.balance).toLocaleString() : "…"}
-        </span>
+      <Row label="Available credits">
+        <div className="flex items-center gap-3">
+          <span className="flex items-center gap-2 rounded-full border border-teal-400/30 bg-teal-400/10 px-3 py-1 text-sm font-bold tabular-nums text-teal-300">
+            <span className="grid size-5 place-items-center rounded-full bg-teal-400 text-black">
+              <Gem className="size-3 fill-black text-black" />
+            </span>
+            {balance ? Math.floor(balance.balance).toLocaleString() : "…"} credits
+          </span>
+          <a
+            href="/pricing"
+            className="rounded-lg border border-white/15 bg-white/5 px-3 py-1 text-xs font-semibold transition-colors hover:bg-white/10"
+          >
+            Get More
+          </a>
+        </div>
       </Row>
       {isPaid ? (
         <Row label="Cancel subscription" hint="Access and credits stay until the end of the billing period">

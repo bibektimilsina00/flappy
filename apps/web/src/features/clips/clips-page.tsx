@@ -23,7 +23,7 @@ import {
 	Trash2,
 	Upload,
 	XCircle,
-	Zap,
+	Gem,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -1476,17 +1476,17 @@ function ConfigPanel({
 			</div>
 
 			{/* Floating CTA — sticks to the bottom of the scroll area, always in view */}
-			<div className="pointer-events-none sticky bottom-4 z-20 flex justify-center pt-2">
+			<div className="pointer-events-none sticky bottom-4 z-20 flex flex-col items-center gap-2.5 pt-2">
 				<button
 					type="button"
 					disabled={busy !== null || tooLong || insufficient}
 					onClick={onStart}
-					className="group pointer-events-auto flex items-center justify-center gap-2 rounded-lg bg-teal-400/80 px-6 py-3.5 text-sm font-semibold text-black backdrop-blur-lg transition-colors hover:bg-teal-400 disabled:opacity-60"
+					className="group pointer-events-auto flex items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-teal-400 via-teal-300 to-emerald-400 px-7 py-3.5 text-sm font-bold text-black shadow-[0_10px_30px_-8px_rgba(45,212,191,0.5)] backdrop-blur-lg transition-all duration-150 hover:brightness-105 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:hover:scale-100"
 				>
 					{busy ? (
 						<Loader2 className="size-4 animate-spin" />
 					) : (
-						<Scissors className="size-4" />
+						<Scissors className="size-4 stroke-[2.5]" />
 					)}
 					{busy
 						? "Starting…"
@@ -1494,19 +1494,28 @@ function ConfigPanel({
 							? "Get AI clips & Schedule"
 							: "Get AI clips"}
 					{!busy && cost !== null ? (
-						<span className="ml-1 flex items-center gap-1 border-l border-black/20 pl-3 text-[13px] font-semibold text-black/70">
-							<Zap className="size-3.5 fill-black/70" />
-							{Math.round(cost)}
+						<span className="ml-1 flex items-center gap-1 rounded-full bg-black/15 px-2.5 py-0.5 text-xs font-extrabold text-black">
+							<Gem className="size-3 fill-black text-black" />
+							{Math.round(cost)} credits
 						</span>
 					) : null}
 				</button>
+
+				{insufficient ? (
+					<div className="pointer-events-auto flex items-center gap-2.5 rounded-xl border border-amber-500/30 bg-[#1c140d]/90 px-4 py-2 text-xs text-amber-200 shadow-xl backdrop-blur-md">
+						<Gem className="size-4 text-amber-400 fill-amber-400 shrink-0" />
+						<span>
+							Not enough credits (you have <strong>{Math.floor(balance?.balance ?? 0)}</strong>, this job needs <strong>{Math.round(cost ?? 0)}</strong>).
+						</span>
+						<a
+							href="/pricing"
+							className="ml-1 rounded-lg bg-amber-400 px-3 py-1 text-[11px] font-bold text-black transition-colors hover:bg-amber-300"
+						>
+							Get Credits
+						</a>
+					</div>
+				) : null}
 			</div>
-			{insufficient ? (
-				<p className="text-center text-xs text-amber-300">
-					Not enough credits — you have {Math.floor(balance?.balance ?? 0)},
-					this needs about {Math.round(cost ?? 0)}.
-				</p>
-			) : null}
 			{scheduleOpen && params.schedule ? (
 				<ScheduleModal
 					value={params.schedule}
