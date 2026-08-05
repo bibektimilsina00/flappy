@@ -40,6 +40,7 @@ def _job_out(
     session: Session | None = None,
 ) -> dict:
     from datetime import UTC, datetime, timedelta
+
     from apps.api.app.features.workspaces import repository as workspaces_repo
 
     plan = "free"
@@ -226,10 +227,10 @@ def create_job(
 ) -> dict:
     if not body.source_url and not body.source_key:
         raise HTTPException(
-            status_code=422, detail="Provide either source_url (link) or source_key (uploaded file)."
+            status_code=422,
+            detail="Provide either source_url (link) or source_key (uploaded file).",
         )
 
-    from apps.api.app.features.billing import service as billing_service
     from apps.api.app.features.clips.pipeline import estimate_credits, is_free_plan
 
     free = is_free_plan(session, workspace_id)

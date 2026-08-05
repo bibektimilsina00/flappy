@@ -49,6 +49,7 @@ import {
 	uploadClipsSource,
 } from "./api";
 import { CaptionStylePicker } from "./caption-templates";
+import { extractVideoMetadata } from "./local-video-meta";
 import { PLATFORMS as SOCIAL_PLATFORMS } from "./publish-panel";
 import { defaultSchedule, ScheduleModal } from "./schedule-modal";
 
