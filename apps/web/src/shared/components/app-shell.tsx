@@ -19,7 +19,7 @@ export function AppShell({ children, recentSlot }: { children: React.ReactNode; 
         <div className="shrink-0 bg-[#242832]">
           <AppSidebar collapsed={collapsed} onToggleCollapse={() => setCollapsed((v) => !v)} recentSlot={recentSlot} />
         </div>
-        <main className="m-2 min-w-0 flex-1 overflow-auto rounded-xl border border-white/[0.08] bg-[#1c202a] shadow-2xl">
+        <main className="m-2 min-w-0 flex-1 overflow-auto rounded-xl border border-white/[0.08] bg-[#13161f] shadow-2xl">
           {children}
         </main>
       </div>
