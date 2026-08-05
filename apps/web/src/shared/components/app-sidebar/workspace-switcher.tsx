@@ -77,7 +77,7 @@ export function WorkspaceSwitcher({ name, initial, collapsed, onToggle }: Worksp
           type="button"
           onClick={onToggle}
           aria-label="Expand sidebar"
-          className="flex size-8 items-center justify-center rounded-md bg-blue-500 text-xs font-semibold text-white"
+          className="flex size-8 items-center justify-center rounded-md bg-[#14b8a6] text-xs font-bold text-white shadow-sm"
         >
           {initial}
         </button>
@@ -93,7 +93,7 @@ export function WorkspaceSwitcher({ name, initial, collapsed, onToggle }: Worksp
           onClick={() => setOpen((v) => !v)}
           className="flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1 hover:bg-accent"
         >
-          <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-blue-500 text-xs font-semibold text-white">
+          <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-[#14b8a6] text-xs font-bold text-white shadow-sm">
             {initial}
           </span>
           <span className="truncate whitespace-nowrap text-xs font-medium">{name}</span>
@@ -125,7 +125,7 @@ export function WorkspaceSwitcher({ name, initial, collapsed, onToggle }: Worksp
                     active ? "bg-white/[0.07]" : "hover:bg-white/[0.04]",
                   )}
                 >
-                  <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-blue-500 text-xs font-semibold text-white">
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-[#14b8a6] text-xs font-bold text-white shadow-sm">
                     {w.name[0]?.toUpperCase()}
                   </span>
                   <span className="min-w-0 flex-1 truncate">{w.name}</span>

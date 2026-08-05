@@ -55,5 +55,7 @@ def oauth_callback(
     if not info["email"]:
         raise HTTPException(status_code=400, detail="Provider did not return an email")
 
-    token, _user = service.login_oauth(session, provider, info["email"], info["name"])
+    token, _user = service.login_oauth(
+        session, provider, info["email"], info["name"], avatar_url=info.get("avatar_url")
+    )
     return RedirectResponse(f"{settings.frontend_url}/auth/callback?token={token}")

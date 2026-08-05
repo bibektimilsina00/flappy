@@ -85,4 +85,9 @@ def exchange(provider: str, code: str) -> dict:
         or info.get("username")
         or (email.split("@")[0] if email else "User")
     )
-    return {"email": email, "name": name}
+    avatar_url = (
+        info.get("picture")
+        or info.get("avatar_url")
+        or info.get("avatar")
+    )
+    return {"email": email, "name": name, "avatar_url": avatar_url}

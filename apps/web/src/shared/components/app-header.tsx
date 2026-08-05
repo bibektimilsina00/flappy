@@ -2,6 +2,7 @@
 
 import {
   Bell,
+  ChevronDown,
   LogOut,
   SlidersHorizontal,
   User,
@@ -69,17 +70,20 @@ export function AppHeader() {
             type="button"
             onClick={() => setUserOpen((v) => !v)}
             aria-label="User account menu"
-            className="grid size-8 place-items-center overflow-hidden rounded-full border border-teal-400/40 bg-[#14b8a6] text-xs font-bold text-white shadow-md transition-transform hover:scale-105"
+            className="flex items-center gap-1.5 rounded-full p-0.5 transition-opacity hover:opacity-90"
           >
-            {user?.avatar_url ? (
-              <img
-                src={user.avatar_url}
-                alt={user.name ?? "Avatar"}
-                className="size-full object-cover"
-              />
-            ) : (
-              initial
-            )}
+            <div className="grid size-8 place-items-center overflow-hidden rounded-full border border-teal-400/40 bg-[#14b8a6] text-xs font-bold text-white shadow-md">
+              {user?.avatar_url ? (
+                <img
+                  src={user.avatar_url}
+                  alt={user.name ?? "Avatar"}
+                  className="size-full object-cover"
+                />
+              ) : (
+                initial
+              )}
+            </div>
+            <ChevronDown className={cn("size-3.5 text-muted-foreground transition-transform", userOpen && "rotate-180")} />
           </button>
 
           {userOpen ? (

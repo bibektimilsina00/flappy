@@ -49,13 +49,30 @@ def login(session: Session, email: str, password: str) -> tuple[str, User]:
     return create_access_token(str(user.id)), user
 
 
-def login_oauth(session: Session, provider: str, email: str, name: str) -> tuple[str, User]:
+def login_oauth(
+    session: Session,
+    provider: str,
+    email: str,
+    name: str,
+    avatar_url: str | None = None,
+) -> tuple[str, User]:
     """Find-or-create a user from an OAuth identity (matched by email)."""
     user = users_repo.get_by_email(session, email)
     if user is None:
         user = users_repo.add(
             session,
-            User(email=email, name=name, hashed_password=None, auth_provider=provider),
+            User(
+                email=email,
+                name=name,
+                avatar_url=avatar_url,
+                hashed_password=None,
+                auth_provider=provider,
+            ),
         )
         _provision(session, user)
+    elif avatar_url and not user.avatar_url:
+        user.avatar_url = avatar_url
+        session.add(user)
+        session.commit()
+        session.refresh(user)
     return create_access_token(str(user.id)), user
