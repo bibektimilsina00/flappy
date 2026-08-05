@@ -94,10 +94,10 @@ def refill_free_credits() -> None:
         for credit, _ws in rows:
             last = credit.last_grant_at or credit.created_at
         if (now - last).days >= 30:
-                credit.balance = max(credit.balance, settings.free_monthly_credits)
-                credit.last_grant_at = now
-                session.add(credit)
-                granted += 1
+            credit.balance = max(credit.balance, settings.free_monthly_credits)
+            credit.last_grant_at = now
+            session.add(credit)
+            granted += 1
         session.commit()
     if granted:
         log.info("free-credit refill: %d workspaces topped up", granted)
