@@ -58,7 +58,7 @@ export function AppHeader() {
           className="relative grid size-8 place-items-center rounded-lg border border-white/10 bg-[#161824] text-muted-foreground transition-colors hover:bg-white/10 hover:text-white"
         >
           <Bell className="size-4" />
-          <span className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-purple-600 text-[10px] font-bold text-white shadow-sm">
+          <span className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-[#14b8a6] text-[10px] font-bold text-white shadow-sm">
             3
           </span>
         </button>
@@ -68,9 +68,18 @@ export function AppHeader() {
           <button
             type="button"
             onClick={() => setUserOpen((v) => !v)}
-            className="grid size-8 place-items-center rounded-full border border-white/20 bg-gradient-to-tr from-purple-700 to-indigo-500 text-xs font-bold text-white shadow-md transition-transform hover:scale-105"
+            aria-label="User account menu"
+            className="grid size-8 place-items-center overflow-hidden rounded-full border border-teal-400/40 bg-[#14b8a6] text-xs font-bold text-white shadow-md transition-transform hover:scale-105"
           >
-            {initial}
+            {user?.avatar_url ? (
+              <img
+                src={user.avatar_url}
+                alt={user.name ?? "Avatar"}
+                className="size-full object-cover"
+              />
+            ) : (
+              initial
+            )}
           </button>
 
           {userOpen ? (
