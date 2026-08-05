@@ -1,11 +1,7 @@
 import { api } from "@/lib/api";
-import type { SessionUser } from "@/stores/session";
+import type { AuthResponse } from "../types";
 
-export interface AuthResponse {
-  access_token: string;
-  token_type: string;
-  user: SessionUser;
-}
+export type { AuthResponse };
 
 export function register(data: {
   email: string;

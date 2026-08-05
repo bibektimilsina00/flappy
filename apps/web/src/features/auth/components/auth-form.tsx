@@ -1,27 +1,51 @@
 "use client";
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "../hooks/use-auth";
+import { loginSchema, registerSchema } from "../schemas/auth-schemas";
+import { useAuthStore } from "../stores/use-auth-store";
 import { OAuthButtons } from "./oauth-buttons";
 
 export function AuthForm() {
-  const [mode, setMode] = useState<"login" | "register">("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const { loginMutation, registerMutation } = useAuth();
+  const mode = useAuthStore((s) => s.mode);
+  const setMode = useAuthStore((s) => s.setMode);
+  const email = useAuthStore((s) => s.email);
+  const setEmail = useAuthStore((s) => s.setEmail);
+  const password = useAuthStore((s) => s.password);
+  const setPassword = useAuthStore((s) => s.setPassword);
+  const name = useAuthStore((s) => s.name);
+  const setName = useAuthStore((s) => s.setName);
+  const formError = useAuthStore((s) => s.formError);
+  const setFormError = useAuthStore((s) => s.setFormError);
 
+  const { loginMutation, registerMutation } = useAuth();
   const pending = loginMutation.isPending || registerMutation.isPending;
-  const error = loginMutation.error ?? registerMutation.error;
+  const apiError = (loginMutation.error ?? registerMutation.error) as Error | null;
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (mode === "login") loginMutation.mutate({ email, password });
-    else registerMutation.mutate({ email, password, name });
+    setFormError(null);
+
+    if (mode === "login") {
+      const parsed = loginSchema.safeParse({ email, password });
+      if (!parsed.success) {
+        setFormError(parsed.error.issues[0]?.message ?? "Invalid input");
+        return;
+      }
+      loginMutation.mutate({ email, password });
+    } else {
+      const parsed = registerSchema.safeParse({ email, password, name });
+      if (!parsed.success) {
+        setFormError(parsed.error.issues[0]?.message ?? "Invalid input");
+        return;
+      }
+      registerMutation.mutate({ email, password, name });
+    }
   };
+
+  const displayError = formError ?? apiError?.message ?? null;
 
   return (
     <form
@@ -64,7 +88,7 @@ export function AuthForm() {
         />
       </div>
 
-      {error ? <p className="text-sm text-destructive">{(error as Error).message}</p> : null}
+      {displayError ? <p className="text-sm text-destructive">{displayError}</p> : null}
 
       <Button type="submit" className="w-full" disabled={pending}>
         {pending ? "Please wait…" : mode === "login" ? "Sign in" : "Sign up"}
