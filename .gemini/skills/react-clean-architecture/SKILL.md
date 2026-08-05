@@ -2,13 +2,13 @@
 name: react-clean-architecture
 description: >-
   Project-scoped standard enforcing Clean Architecture, SOLID principles, Separation of Concerns,
-  Dumb UI components, Zod schema validation, Zustand state stores, and standardized 1:1 feature folder structure for React/Next.js.
+  Dumb UI components, Zod schema validation, Zustand state stores, standardized 1:1 feature folder structure, and mandatory feature audit protocol for React/Next.js.
   Automatically active for all frontend feature modifications in this workspace.
 ---
 
 # React Clean Architecture & Feature Standard (Project Scope)
 
-This skill defines the mandatory architectural standard for all React and Next.js feature development in this repository. It ensures maximum maintainability, testability, separation of concerns, and clean code hygiene.
+This skill defines the mandatory architectural standard and audit protocol for all React and Next.js feature development in this repository. It ensures maximum maintainability, testability, separation of concerns, and clean code hygiene.
 
 ---
 
@@ -43,43 +43,24 @@ apps/web/src/features/<feature-name>/
 
 ---
 
-## 🛡️ Core Architectural Principles
+## 🔍 Mandatory Feature Audit Protocol
 
-### 1. Single Responsibility & Separation of Concerns (SOLID)
-- **Dumb Presentational UI (`components/`)**:
-  - UI components MUST be purely presentational.
-  - No direct `fetch()` or `api()` calls.
-  - No complex `useEffect` synchronization loops or gesture state machines.
-  - Accept values and callback props (or consume Zustand selectors) exclusively.
-- **Custom Hooks (`hooks/`)**:
-  - Encapsulate React lifecycles, event listeners, keyboard shortcuts, and state orchestration.
-  - Keep page components small (<200 lines).
-- **API Services (`services/`)**:
-  - Exclusively perform HTTP requests (`api<T>()`), file uploads, and payload transformations.
-  - Pure functions returning Promises.
-- **Pure Domain Engine (`lib/`)**:
-  - Pure functions with zero React or DOM dependencies. Given input $A$, always return output $B$.
-  - Essential for complex logic (magnetic timeline, graph operations, calculations).
+Whenever creating, refactoring, or completing any feature task, the AI agent **MUST automatically perform this 5-point Audit Protocol before declaring completion**:
 
----
+1. **Root Directory Hygiene Audit**:
+   - Verify `src/features/<feature-name>/` contains ONLY `index.ts` and `types.ts` at the root level.
+   - Confirm zero loose `.tsx`, `.ts`, or test files exist at the feature root.
 
-### 2. Zod Schema Validation Standard (`schemas/`)
-- **Mandatory Input Validation**: Every user input field (text inputs, numeric sliders, form submissions, query parameters) MUST be validated through a Zod schema in `schemas/`.
-- **Parsing Rules**:
-  - Use `.parse()` when executing mutations where invalid data should halt execution and trigger error feedback (e.g., Sonner toast).
-  - Use `.safeParse()` for live inline input validation inside handlers.
+2. **SOLID & Dumb UI Audit**:
+   - Verify components in `components/` are purely presentational and do NOT invoke direct `fetch()` or `api()` calls.
+   - Confirm large components with internal DOM refs/observers have extracted co-located hooks (`components/<name>/use-<name>.ts`).
 
----
+3. **Zod Validation Audit**:
+   - Verify all form inputs, text fields, sliders, or user mutation payloads pass through a Zod schema in `schemas/<feature>-schemas.ts`.
 
-### 3. Zustand Reactive State Store (`stores/`)
-- **Use Zustand for Interactive UI State**:
-  - Cross-component UI interaction states (e.g. active playhead, selection set, zoom level, open modals, tool drawer collapsed, drag gesture state machine) MUST be managed via Zustand.
-  - Eliminates prop-drilling across multi-level component trees.
-- **Use React Query for Server State**:
-  - Server data caching, revalidation, and API mutations belong in React Query (`useQuery`, `useMutation`). Do NOT cache server API responses inside Zustand.
+4. **Zustand & Toast Feedback Audit**:
+   - Verify cross-component interactive UI states are managed in `stores/use-<feature>-store.ts`.
+   - Verify all mutations provide user-facing feedback (`toast.success` and `toast.error`).
 
----
-
-### 4. Zero Feature Root Clutter
-- **Strict Prohibition**: Never create loose `.tsx` or `.ts` implementation files directly inside `src/features/<feature-name>/`.
-- **Allowed Root Files**: ONLY `index.ts` (barrel export) and `types.ts` (type definitions) are permitted at the root level of a feature.
+5. **Typecheck & Empirical Verification Audit**:
+   - Run `pnpm --filter web typecheck` (or `npx tsc --noEmit`) to empirically verify **0 TypeScript errors** before declaring completion.

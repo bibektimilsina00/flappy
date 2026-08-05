@@ -15,5 +15,10 @@ All code in `apps/web/src/features/<feature-name>/` MUST be structured cleanly i
 8. `pages/` -> Concise page orchestrator (<200 lines).
 9. Root of Feature: **ONLY `index.ts` and `types.ts` are permitted at the root level.**
 
-## 🛡️ Verification Command
-Always run `pnpm --filter web typecheck` after edits to verify 0 TypeScript errors.
+## 🔍 MANDATORY FEATURE AUDIT PROTOCOL
+Before declaring any feature work finished, the AI agent MUST perform this 5-step self-audit:
+1. **Root Hygiene**: Check feature root has zero loose files except `index.ts` and `types.ts`.
+2. **Dumb UI**: Check `components/` perform zero direct API requests.
+3. **Zod Validation**: Check input payloads pass through Zod schemas in `schemas/`.
+4. **Zustand & Toasts**: Check interactive UI state uses Zustand stores and mutations show toasts.
+5. **Typecheck Verification**: Execute `pnpm --filter web typecheck` and ensure 0 errors.

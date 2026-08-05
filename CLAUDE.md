@@ -1,6 +1,6 @@
 # RioCut — Claude Code Guidelines & Clean Architecture Standard
 
-This project enforces strict **Clean Architecture**, **SOLID principles**, **Zod validation**, **Zustand state management**, and **100% Separation of Concerns**.
+This project enforces strict **Clean Architecture**, **SOLID principles**, **Zod validation**, **Zustand state management**, **100% Separation of Concerns**, and a **Mandatory Self-Audit Protocol**.
 
 ---
 
@@ -35,11 +35,12 @@ apps/web/src/features/<feature-name>/
 
 ---
 
-## 🛡️ Core Rules for Claude Code
+## 🔍 Mandatory Self-Audit Protocol Before Completion
 
-1. **Dumb UI Components**: UI components inside `components/` MUST be purely presentational. They emit callbacks and render UI. They do not execute `fetch()`, direct API requests, or complex state loops.
-2. **Zod Validation**: Every form, text field, numeric slider, or user payload MUST pass through a Zod schema in `schemas/<feature>-schemas.ts`.
-3. **Zustand State Stores**: Interactive cross-component UI states (active selection, playhead, active tab, tool panel toggles, modal open state) MUST be managed in `stores/use-<feature>-store.ts`.
-4. **Pure Services**: All API requests MUST be isolated inside `services/<feature>-api.ts`.
-5. **Zero Root Clutter**: Never leave loose component files or API files at `src/features/<feature-name>/`. Only `index.ts` and `types.ts` exist at root.
-6. **Typecheck Rule**: Always run `pnpm --filter web typecheck` after refactoring to ensure 0 TypeScript errors.
+Before declaring any feature work completed, Claude Code MUST execute this 5-point audit:
+
+1. **Root Hygiene**: Confirm feature root contains zero loose files except `index.ts` and `types.ts`.
+2. **Dumb UI**: Confirm components in `components/` perform zero direct API requests.
+3. **Zod Validation**: Confirm input payloads pass through Zod schemas in `schemas/`.
+4. **Zustand & Toasts**: Confirm interactive UI state uses Zustand stores and mutations show toast feedback.
+5. **Typecheck Verification**: Run `pnpm --filter web typecheck` and verify 0 errors.
