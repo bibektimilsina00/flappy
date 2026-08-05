@@ -1,2 +1,2 @@
-export { VideoEditorPage } from "./video-editor-page";
+export { VideoEditorPage } from "./pages/video-editor-page";
 export type { VideoEditorAsset, VideoEditorDoc, VideoEditorProject } from "./types";
