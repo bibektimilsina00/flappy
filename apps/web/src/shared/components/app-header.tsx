@@ -65,15 +65,13 @@ export function AppHeader() {
       {/* Left: Brand Logo & Navigation */}
       <div className="flex items-center gap-6">
         <Link href="/dashboard" className="group flex items-center gap-2.5">
-          <div className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-teal-400 via-cyan-400 to-blue-500 shadow-md shadow-cyan-500/20 text-black transition-transform group-hover:scale-105">
-            <svg
-              className="size-4 text-black fill-black ml-0.5"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-            >
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </div>
+          <svg viewBox="0 0 32 32" className="size-8 transition-transform group-hover:scale-105" aria-hidden="true" focusable="false">
+            <rect width="32" height="32" rx="9" fill="#14b8a6" />
+            <g fill="#ffffff" stroke="#ffffff" strokeWidth="1.6" strokeLinejoin="round">
+              <path d="M11.5 9.8 V22.2 L16.9 19.3 V12.7 Z" />
+              <path d="M19.3 14.2 V20.2 L24.6 17.2 Z" />
+            </g>
+          </svg>
           <span className="text-lg font-bold tracking-tight text-white">
             Riocut<span className="text-teal-400">.com</span>
           </span>
