@@ -2,7 +2,7 @@
 
 import { Clock, Loader2, MessageSquareText, Send } from "lucide-react";
 import { use, useEffect, useRef, useState } from "react";
-import { addSharedComment, getSharedProject } from "@/features/video-editor/api";
+import { addSharedComment, getSharedProject } from "@/features/video-editor/services/video-editor-api";
 import { Logo } from "@/features/marketing/wordmark";
 
 type Shared = Awaited<ReturnType<typeof getSharedProject>>;

@@ -16,7 +16,7 @@ import {
   splitClip,
   trimClip,
   validate,
-} from "./timeline-engine.ts";
+} from "./lib/timeline-engine.ts";
 import type { Clip, Track, VideoEditorDoc } from "./types.ts";
 
 const FPS = 30;

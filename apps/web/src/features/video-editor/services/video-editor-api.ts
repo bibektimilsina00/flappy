@@ -1,6 +1,6 @@
 import { api } from "@/lib/api";
 import { useSession } from "@/stores/session";
-import type { VideoEditorDoc, VideoEditorProject } from "./types";
+import type { VideoEditorDoc, VideoEditorProject } from "../types";
 
 // Load (seeds on first open) the timeline editor project for a workflow.
 export function getEditorProject(

@@ -14,12 +14,12 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
-import { uploadToProject } from "../api";
+import { uploadToProject } from "../services/video-editor-api";
+import { ExportPanel } from "../components/export-panel";
 import { Inspector } from "../components/inspector";
 import { CATEGORIES, LeftPanel, RailBtn } from "../components/left-panel/left-panel";
 import { AspectMenu, Preview } from "../components/preview";
 import { Timeline } from "../components/timeline/timeline";
-import { ExportPanel } from "../export-panel";
 import { useEditor } from "../hooks/use-editor";
 import {
   addClip,

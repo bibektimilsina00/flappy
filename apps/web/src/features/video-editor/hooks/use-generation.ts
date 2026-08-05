@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
-import { generateInProject, getExecution } from "../api";
+import { generateInProject, getExecution } from "../services/video-editor-api";
 
 export type GenBody = {
   kind: "image" | "video";

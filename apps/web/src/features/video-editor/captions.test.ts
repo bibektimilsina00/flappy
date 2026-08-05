@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildCaptions } from "./captions.ts";
+import { buildCaptions } from "./lib/captions.ts";
 import type { VideoEditorDoc } from "./types.ts";
 
 const clip = (start: number, duration: number, content: string) => ({

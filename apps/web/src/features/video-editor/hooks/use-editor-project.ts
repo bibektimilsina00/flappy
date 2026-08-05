@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getEditorProject, saveEditorProject } from "../api";
+import { getEditorProject, saveEditorProject } from "../services/video-editor-api";
 import type { VideoEditorDoc, VideoEditorProject } from "../types";
 
 type SaveState = "idle" | "saving" | "saved";
