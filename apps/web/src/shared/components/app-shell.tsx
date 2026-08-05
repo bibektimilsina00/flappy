@@ -23,7 +23,6 @@ export function AppShell({ children, recentSlot }: { children: React.ReactNode; 
           {children}
         </main>
       </div>
-      <CreditsBadge />
     </div>
   );
 }
