@@ -16,6 +16,7 @@ import {
 	Loader2,
 	Lock,
 	Play,
+	Plus,
 	Scissors,
 	SlidersHorizontal,
 	Sparkles,
@@ -40,10 +41,15 @@ import {
 	estimateClipsCost,
 	jobByWorkflow,
 	listClipsJobs,
+	listSocialAccounts,
 	probeClipsSource,
+	socialConnectUrl,
+	socialProviders,
+	type SocialAccount,
 	uploadClipsSource,
 } from "./api";
 import { CaptionStylePicker } from "./caption-templates";
+import { PLATFORMS as SOCIAL_PLATFORMS } from "./publish-panel";
 import { defaultSchedule, ScheduleModal } from "./schedule-modal";
 
 const DEFAULTS: ClipsParams = {
@@ -292,6 +298,10 @@ export function ClipsPage() {
 				total: file.size,
 				startedAt: Date.now(),
 			});
+
+			// Extract local video frame thumbnail, duration, and resolution
+			const localMeta = await extractVideoMetadata(file);
+
 			try {
 				const { source_key } = await uploadClipsSource(file, (loaded, total) =>
 					setUpload((u) => (u ? { ...u, loaded, total } : u)),
@@ -299,9 +309,9 @@ export function ClipsPage() {
 				setSource({ source_key });
 				setMeta({
 					title: file.name.replace(/\.[^.]+$/, ""),
-					duration: null,
-					thumbnail: null,
-					height: null,
+					duration: localMeta.duration || null,
+					thumbnail: localMeta.thumbnail,
+					height: localMeta.height || null,
 				});
 				setTitle(file.name.replace(/\.[^.]+$/, ""));
 				setStep("config");
@@ -471,58 +481,6 @@ export function ClipsPage() {
 									) : null}
 								</div>
 
-								{/* upload progress — bytes, %, speed, ETA */}
-								{upload
-									? (() => {
-											const pct = upload.total
-												? Math.min(100, (upload.loaded / upload.total) * 100)
-												: 0;
-											const mb = (b: number) =>
-												(b / 1e6).toFixed(b >= 1e8 ? 0 : 1);
-											const elapsed = (Date.now() - upload.startedAt) / 1000;
-											const speed = elapsed > 0.5 ? upload.loaded / elapsed : 0; // bytes/s
-											const remaining =
-												speed > 0
-													? (upload.total - upload.loaded) / speed
-													: null;
-											return (
-												<div className="mt-4 rounded-lg border border-teal-400/25 bg-teal-400/[0.04] p-4">
-													<div className="flex items-center gap-3">
-														<span className="grid size-10 shrink-0 place-items-center rounded-lg bg-teal-400/15">
-															<Upload className="size-5 text-teal-300" />
-														</span>
-														<div className="min-w-0 flex-1">
-															<p className="truncate text-sm font-semibold">
-																{upload.name}
-															</p>
-															<p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
-																{mb(upload.loaded)} MB of {mb(upload.total)} MB
-																{speed > 0 ? ` · ${mb(speed)} MB/s` : ""}
-																{remaining !== null && remaining > 1
-																	? ` · ${remaining > 90 ? `${Math.round(remaining / 60)} min` : `${Math.round(remaining)}s`} left`
-																	: ""}
-															</p>
-														</div>
-														<span className="shrink-0 text-sm font-semibold tabular-nums text-teal-300">
-															{pct.toFixed(0)}%
-														</span>
-													</div>
-													<div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/10">
-														<div
-															className="h-full rounded-full bg-teal-400 transition-[width] duration-300"
-															style={{ width: `${pct}%` }}
-														/>
-													</div>
-													{pct >= 100 ? (
-														<p className="mt-2 text-xs text-muted-foreground">
-															Processing on the server…
-														</p>
-													) : null}
-												</div>
-											);
-										})()
-									: null}
-
 								{/* blocked link — card steering to upload/upgrade */}
 								{blocked ? (
 									<div className="mt-4 flex items-start gap-4 rounded-lg border border-amber-400/25 bg-amber-400/[0.04] p-4">
@@ -597,36 +555,158 @@ export function ClipsPage() {
 									</div>
 								) : null}
 
-								{/* big browse / drop zone */}
-								<button
-									type="button"
-									onClick={() => fileRef.current?.click()}
-									className={cn(
-										"mt-4 grid w-full place-items-center rounded-lg border-2 border-dashed py-16 transition-colors",
-										dragging
-											? "border-teal-400 bg-teal-400/5"
-											: "border-white/10 hover:border-white/20 hover:bg-white/[0.02]",
-									)}
-								>
-									<span className="relative mb-4 grid size-16 place-items-center">
-										<span className="absolute inset-0 rounded-lg bg-teal-400/10" />
-										<FolderOpen
-											className="relative size-8 text-teal-300"
-											strokeWidth={1.5}
-										/>
-									</span>
-									<span className="text-[15px]">
-										<span className="font-semibold text-teal-300">
-											Click to browse
-										</span>{" "}
-										<span className="text-foreground/90">
-											or drag &amp; drop
+								{/* big browse / drop zone box — transforms to circular progress card during upload */}
+								{upload ? (
+									(() => {
+										const pct = upload.total
+											? Math.min(100, (upload.loaded / upload.total) * 100)
+											: 0;
+										const mb = (b: number) =>
+											(b / 1e6).toFixed(b >= 1e8 ? 0 : 1);
+										const elapsed = (Date.now() - upload.startedAt) / 1000;
+										const speed = elapsed > 0.5 ? upload.loaded / elapsed : 0; // bytes/s
+										const remaining =
+											speed > 0
+												? (upload.total - upload.loaded) / speed
+												: null;
+
+										const radius = 38;
+										const circumference = 2 * Math.PI * radius;
+										const strokeDashoffset =
+											circumference - (pct / 100) * circumference;
+
+										return (
+											<div className="relative mt-4 overflow-hidden rounded-xl border border-teal-500/30 bg-gradient-to-b from-[#181818] via-[#141414] to-[#101010] p-8 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.7),0_0_30px_-10px_rgba(45,212,191,0.15)] transition-all">
+												{/* Background ambient glow */}
+												<div className="pointer-events-none absolute left-1/2 top-1/2 size-56 -translate-x-1/2 -translate-y-1/2 rounded-full bg-teal-500/10 blur-3xl" />
+
+												<div className="relative flex flex-col items-center justify-center gap-6 text-center sm:flex-row sm:text-left">
+													{/* Circular Progress Bar Indicator */}
+													<div className="relative grid size-28 shrink-0 place-items-center">
+														<svg
+															className="size-full -rotate-90 transform"
+															viewBox="0 0 100 100"
+														>
+															<circle
+																cx="50"
+																cy="50"
+																r={radius}
+																className="stroke-white/10"
+																strokeWidth="6"
+																fill="transparent"
+															/>
+															<circle
+																cx="50"
+																cy="50"
+																r={radius}
+																className="stroke-teal-400 transition-[stroke-dashoffset] duration-300 ease-out"
+																strokeWidth="6"
+																strokeDasharray={circumference}
+																strokeDashoffset={strokeDashoffset}
+																strokeLinecap="round"
+																fill="transparent"
+															/>
+														</svg>
+														{/* Center status percentage */}
+														<div className="absolute inset-0 flex flex-col items-center justify-center">
+															{pct >= 100 ? (
+																<Loader2 className="size-7 animate-spin text-teal-300" />
+															) : (
+																<span className="text-xl font-bold tabular-nums tracking-tight text-teal-300">
+																	{pct.toFixed(0)}
+																	<span className="text-xs font-semibold text-teal-400/80">
+																		%
+																	</span>
+																</span>
+															)}
+														</div>
+													</div>
+
+													{/* Upload details */}
+													<div className="min-w-0 flex-1 space-y-2">
+														<div className="flex items-center justify-center gap-2 sm:justify-start">
+															<span className="inline-flex items-center gap-1.5 rounded-md border border-teal-400/20 bg-teal-400/10 px-2.5 py-1 text-xs font-medium text-teal-300">
+																<Upload className="size-3.5" />
+																Uploading File
+															</span>
+															{pct >= 100 ? (
+																<span className="inline-flex items-center gap-1.5 rounded-md border border-amber-400/20 bg-amber-400/10 px-2.5 py-1 text-xs font-medium text-amber-300 animate-pulse">
+																	<Loader2 className="size-3 animate-spin" />
+																	Processing on server
+																</span>
+															) : null}
+														</div>
+
+														<h4
+															className="max-w-md truncate text-base font-semibold text-foreground/95"
+															title={upload.name}
+														>
+															{upload.name}
+														</h4>
+
+														<div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs tabular-nums text-muted-foreground sm:justify-start">
+															<span>
+																<strong className="font-medium text-foreground">
+																	{mb(upload.loaded)}
+																</strong>{" "}
+																of {mb(upload.total)} MB
+															</span>
+															{speed > 0 ? (
+																<>
+																	<span className="text-white/20">•</span>
+																	<span>{mb(speed)} MB/s</span>
+																</>
+															) : null}
+															{remaining !== null &&
+															remaining > 1 &&
+															pct < 100 ? (
+																<>
+																	<span className="text-white/20">•</span>
+																	<span className="font-medium text-teal-300/90">
+																		{remaining > 90
+																			? `${Math.round(remaining / 60)} min`
+																			: `${Math.round(remaining)}s`}{" "}
+																		left
+																	</span>
+																</>
+															) : null}
+														</div>
+													</div>
+												</div>
+											</div>
+										);
+									})()
+								) : (
+									<button
+										type="button"
+										onClick={() => fileRef.current?.click()}
+										className={cn(
+											"mt-4 grid w-full place-items-center rounded-lg border-2 border-dashed py-16 transition-colors",
+											dragging
+												? "border-teal-400 bg-teal-400/5"
+												: "border-white/10 hover:border-white/20 hover:bg-white/[0.02]",
+										)}
+									>
+										<span className="relative mb-4 grid size-16 place-items-center">
+											<span className="absolute inset-0 rounded-lg bg-teal-400/10" />
+											<FolderOpen
+												className="relative size-8 text-teal-300"
+												strokeWidth={1.5}
+											/>
 										</span>
-									</span>
-									<span className="mt-1 text-xs text-muted-foreground">
-										Supported file type: video · up to 2 GB
-									</span>
-								</button>
+										<span className="text-[15px]">
+											<span className="font-semibold text-teal-300">
+												Click to browse
+											</span>{" "}
+											<span className="text-foreground/90">
+												or drag &amp; drop
+											</span>
+										</span>
+										<span className="mt-1 text-xs text-muted-foreground">
+											Supported file type: video · up to 2 GB
+										</span>
+									</button>
+								)}
 
 								<input
 									ref={fileRef}
@@ -889,6 +969,67 @@ function ConfigPanel({
 	const [cost, setCost] = useState<number | null>(null);
 	const { data: balance } = useBalance();
 
+	const [accounts, setAccounts] = useState<SocialAccount[] | null>(null);
+	const [providers, setProviders] = useState<Record<string, boolean> | null>(
+		null,
+	);
+	const [showConnect, setShowConnect] = useState(false);
+	const connectRef = useRef<HTMLDivElement>(null);
+
+	const loadAccounts = useCallback(() => {
+		listSocialAccounts().then(setAccounts).catch(() => setAccounts([]));
+	}, []);
+
+	useEffect(() => {
+		loadAccounts();
+		socialProviders().then(setProviders).catch(() => setProviders({}));
+	}, [loadAccounts]);
+
+	useEffect(() => {
+		const onMsg = (e: MessageEvent) => {
+			if (e.data === "riocut:social-connected") {
+				loadAccounts();
+				setShowConnect(false);
+			}
+		};
+		window.addEventListener("message", onMsg);
+		return () => window.removeEventListener("message", onMsg);
+	}, [loadAccounts]);
+
+	useEffect(() => {
+		if (!showConnect) return;
+		const onDown = (e: MouseEvent) => {
+			if (!connectRef.current?.contains(e.target as Node))
+				setShowConnect(false);
+		};
+		document.addEventListener("mousedown", onDown);
+		return () => document.removeEventListener("mousedown", onDown);
+	}, [showConnect]);
+
+	const connect = (provider: string) =>
+		socialConnectUrl(provider)
+			.then(({ url }) =>
+				window.open(url, "riocut-connect", "width=640,height=760"),
+			)
+			.catch(() => {});
+
+	const toggleAccount = (id: string) => {
+		setParams((p) => {
+			const current = p.schedule?.account_ids ?? [];
+			const next = current.includes(id)
+				? current.filter((a) => a !== id)
+				: [...current, id];
+			return {
+				...p,
+				schedule: {
+					...(p.schedule ?? defaultSchedule()),
+					enabled: true,
+					account_ids: next,
+				},
+			};
+		});
+	};
+
 	useEffect(() => {
 		estimateClipsCost(params.count, meta?.duration)
 			.then(({ credits }) => setCost(credits))
@@ -902,13 +1043,23 @@ function ConfigPanel({
 			{/* source chip */}
 			<div className="flex items-center gap-4 rounded-lg border border-white/10 bg-[#161616] p-4">
 				{meta?.thumbnail ? (
-					// biome-ignore lint/a11y/useAltText: source thumbnail
-					<img
-						src={meta.thumbnail}
-						className="h-16 w-28 shrink-0 rounded-lg object-cover"
-					/>
+					meta.thumbnail.startsWith("blob:") ? (
+						<video
+							src={meta.thumbnail}
+							preload="metadata"
+							muted
+							playsInline
+							className="h-16 w-28 shrink-0 rounded-lg border border-white/10 bg-black/60 object-cover"
+						/>
+					) : (
+						// biome-ignore lint/a11y/useAltText: source thumbnail
+						<img
+							src={meta.thumbnail}
+							className="h-16 w-28 shrink-0 rounded-lg border border-white/10 object-cover"
+						/>
+					)
 				) : (
-					<span className="grid h-16 w-28 shrink-0 place-items-center rounded-lg bg-white/5">
+					<span className="grid h-16 w-28 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/5">
 						<Film className="size-6 text-muted-foreground/60" />
 					</span>
 				)}
@@ -1122,7 +1273,7 @@ function ConfigPanel({
 			</details>
 
 			{/* group 3: auto-schedule */}
-			<div className="rounded-lg border border-white/[0.05] bg-white/[0.02] p-6">
+			<div className="space-y-4 rounded-lg border border-white/[0.05] bg-white/[0.02] p-6">
 				<div className="flex items-center justify-between">
 					<span>
 						<span className="block text-[15px] font-semibold">
@@ -1144,37 +1295,182 @@ function ConfigPanel({
 						}
 					/>
 				</div>
+
 				{params.schedule?.enabled ? (
-					<div className="mt-4 flex items-stretch gap-3">
-						<p className="flex flex-1 items-center rounded-lg border border-white/10 px-4 py-3 text-[15px]">
-							<span>
-								All clips will be scheduled from{" "}
-								<span className="font-semibold">
-									{new Date(
-										`${params.schedule.start_date}T00:00`,
-									).toLocaleDateString()}
+					<div className="space-y-4 border-t border-white/[0.06] pt-4">
+						{/* Schedule summary info & Settings button */}
+						<div className="flex items-stretch gap-3">
+							<p className="flex flex-1 items-center rounded-lg border border-white/10 px-4 py-3 text-xs text-foreground/90">
+								<span>
+									Posting from{" "}
+									<strong className="font-semibold text-teal-300">
+										{new Date(
+											`${params.schedule.start_date}T00:00`,
+										).toLocaleDateString()}
+									</strong>
+									, at{" "}
+									<strong className="font-semibold text-teal-300">
+										{params.schedule.per_day} clips/day
+									</strong>
+									{params.schedule.min_score ? (
+										<span className="text-muted-foreground">
+											{" "}
+											· score ≥ {params.schedule.min_score}
+										</span>
+									) : null}
+									.
 								</span>
-								, at{" "}
-								<span className="font-semibold">
-									{params.schedule.per_day} clips/day
-								</span>
-								{params.schedule.min_score ? (
-									<span className="text-muted-foreground">
-										{" "}
-										· score ≥ {params.schedule.min_score}
-									</span>
-								) : null}
-								.
-							</span>
-						</p>
-						<button
-							type="button"
-							onClick={() => setScheduleOpen(true)}
-							className="flex shrink-0 items-center gap-2 rounded-lg border border-white/10 px-4 text-sm transition-colors hover:bg-white/5"
-						>
-							<SlidersHorizontal className="size-4" />
-							Settings
-						</button>
+							</p>
+							<button
+								type="button"
+								onClick={() => setScheduleOpen(true)}
+								className="flex shrink-0 items-center gap-2 rounded-lg border border-white/10 px-4 text-xs font-semibold transition-colors hover:bg-white/5"
+							>
+								<SlidersHorizontal className="size-3.5" />
+								Settings
+							</button>
+						</div>
+
+						{/* Connected Social Accounts & Connect Platform Button in one row below */}
+						<div>
+							<p className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">
+								Publishing Targets
+							</p>
+							<div className="flex flex-wrap items-center gap-2.5">
+								{(accounts ?? []).map((a) => {
+									const selected = (
+										params.schedule?.account_ids ?? []
+									).includes(a.id);
+									const plat = SOCIAL_PLATFORMS.find(
+										(p) => p.provider === a.platform || p.key === a.platform,
+									);
+									return (
+										<button
+											key={a.id}
+											type="button"
+											onClick={() => toggleAccount(a.id)}
+											className={cn(
+												"group relative flex items-center gap-2.5 rounded-xl border bg-[#1a1a1a] px-3.5 py-2 text-xs font-medium transition-all duration-150",
+												selected
+													? "border-teal-400/80 bg-teal-500/10 text-teal-100 shadow-[0_0_15px_-4px_rgba(45,212,191,0.3)] ring-1 ring-teal-400/50"
+													: "border-white/12 text-muted-foreground hover:border-white/25 hover:bg-[#222222] hover:text-foreground",
+											)}
+										>
+											{/* Platform Brand Logo + Account Avatar Overlay on Bottom-Left */}
+											<div className="relative shrink-0">
+												{plat ? (
+													<span
+														className={cn(
+															"grid size-7 place-items-center rounded-lg shadow-sm text-white",
+															plat.bg,
+														)}
+														title={plat.name}
+													>
+														<plat.icon className="size-4" />
+													</span>
+												) : (
+													<span className="grid size-7 place-items-center rounded-lg bg-[#282828] text-xs font-bold uppercase text-white">
+														{a.platform.slice(0, 1)}
+													</span>
+												)}
+
+												{a.avatar_url ? (
+													// eslint-disable-next-line @next/next/no-img-element
+													<img
+														src={a.avatar_url}
+														alt=""
+														className="absolute -bottom-1 -right-1 size-4 rounded-full object-cover bg-[#222222] ring-2 ring-[#1a1a1a]"
+													/>
+												) : (
+													<span className="absolute -bottom-1 -right-1 grid size-4 place-items-center rounded-full bg-[#2a2a2a] text-[8px] font-bold uppercase text-white ring-2 ring-[#1a1a1a]">
+														{(a.username ?? a.platform).slice(0, 1)}
+													</span>
+												)}
+											</div>
+
+											{/* Handle & Platform Info */}
+											<div className="flex flex-col text-left leading-tight">
+												<span className="max-w-[130px] truncate font-semibold text-foreground">
+													{a.username
+														? a.username.startsWith("@")
+															? a.username
+															: `@${a.username}`
+														: a.platform}
+												</span>
+												<span className="text-[10px] capitalize text-muted-foreground">
+													{plat?.name ?? a.platform}
+												</span>
+											</div>
+
+											{/* Checkmark Status Indicator */}
+											{selected ? (
+												<span className="ml-1 grid size-4 shrink-0 place-items-center rounded-full bg-teal-400 text-black">
+													<Check className="size-2.5 stroke-[3]" />
+												</span>
+											) : (
+												<span className="ml-1 size-4 shrink-0 rounded-full border border-white/20 group-hover:border-white/40" />
+											)}
+										</button>
+									);
+								})}
+
+								{/* Connect new platform dropdown button */}
+								<div ref={connectRef} className="relative">
+									<button
+										type="button"
+										onClick={() => setShowConnect((v) => !v)}
+										className="flex h-11 items-center gap-2 rounded-xl border border-dashed border-white/25 bg-white/[0.02] px-3.5 text-xs font-medium text-muted-foreground transition-all hover:border-teal-400/50 hover:bg-teal-400/5 hover:text-foreground"
+									>
+										<Plus className="size-4 text-teal-300" />
+										{(accounts ?? []).length
+											? "Connect another"
+											: "Connect platform"}
+									</button>
+
+									{showConnect ? (
+										<div className="absolute left-0 top-full z-30 mt-2 w-56 rounded-xl border border-white/10 bg-[#1e1e1e] p-1.5 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-100">
+											<p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+												Select platform
+											</p>
+											{SOCIAL_PLATFORMS.map((p) => {
+												const configured = providers?.[p.provider] === true;
+												const pending = providers != null && !configured;
+												return (
+													<button
+														key={p.key}
+														type="button"
+														disabled={pending}
+														onClick={() => connect(p.provider)}
+														className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40"
+													>
+														<span
+															className={cn(
+																"grid size-5 shrink-0 place-items-center rounded-md",
+																p.bg,
+															)}
+														>
+															<p.icon className="size-3" />
+														</span>
+														<span className="flex-1 font-medium">{p.name}</span>
+														{pending ? (
+															<span className="text-[10px] text-muted-foreground">
+																Soon
+															</span>
+														) : null}
+													</button>
+												);
+											})}
+										</div>
+									) : null}
+								</div>
+							</div>
+							{(accounts ?? []).length === 0 ? (
+								<p className="mt-2.5 text-xs text-muted-foreground/70">
+									No connected social accounts yet. Connect YouTube, TikTok, or
+									Instagram to auto-post.
+								</p>
+							) : null}
+						</div>
 					</div>
 				) : null}
 			</div>

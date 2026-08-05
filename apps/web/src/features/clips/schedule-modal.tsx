@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, Globe, Minus, Plus, X } from "lucide-react";
+import { Calendar, Check, Globe, Minus, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -274,28 +274,69 @@ export function ScheduleModal({
             <div className="flex flex-wrap gap-2">
               {(accounts ?? []).map((a) => {
                 const on = (cfg.account_ids ?? []).includes(a.id);
+                const plat = PLATFORMS.find((p) => p.provider === a.platform || p.key === a.platform);
                 return (
                   <button
                     key={a.id}
                     type="button"
                     onClick={() => toggleAccount(a.id)}
                     className={cn(
-                      "flex items-center gap-2 rounded-full border py-1.5 pl-1.5 pr-3.5 text-sm font-medium transition-colors",
+                      "group relative flex items-center gap-2.5 rounded-xl border bg-[#1a1a1a] px-3.5 py-2 text-xs font-medium transition-all duration-150",
                       on
-                        ? "border-teal-400/60 bg-teal-400/10 text-teal-200"
-                        : "border-white/10 text-muted-foreground hover:border-white/25 hover:text-foreground",
+                        ? "border-teal-400/80 bg-teal-500/10 text-teal-100 shadow-[0_0_15px_-4px_rgba(45,212,191,0.3)] ring-1 ring-teal-400/50"
+                        : "border-white/12 text-muted-foreground hover:border-white/25 hover:bg-[#222222] hover:text-foreground",
                     )}
                   >
-                    {a.avatar_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={a.avatar_url} alt="" className="size-6 rounded-full object-cover" />
-                    ) : (
-                      <span className="grid size-6 place-items-center rounded-full bg-white/10 text-[10px] capitalize">
-                        {(a.username ?? a.platform).slice(0, 1)}
+                    {/* Platform Brand Logo + Account Avatar Overlay on Bottom-Left */}
+                    <div className="relative shrink-0">
+                      {plat ? (
+                        <span
+                          className={cn(
+                            "grid size-7 place-items-center rounded-lg shadow-sm text-white",
+                            plat.bg,
+                          )}
+                          title={plat.name}
+                        >
+                          <plat.icon className="size-4" />
+                        </span>
+                      ) : (
+                        <span className="grid size-7 place-items-center rounded-lg bg-[#282828] text-xs font-bold uppercase text-white">
+                          {a.platform.slice(0, 1)}
+                        </span>
+                      )}
+
+                      {a.avatar_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={a.avatar_url}
+                          alt=""
+                          className="absolute -bottom-1 -right-1 size-4 rounded-full object-cover bg-[#222222] ring-2 ring-[#191919]"
+                        />
+                      ) : (
+                        <span className="absolute -bottom-1 -right-1 grid size-4 place-items-center rounded-full bg-[#2a2a2a] text-[8px] font-bold uppercase text-white ring-2 ring-[#191919]">
+                          {(a.username ?? a.platform).slice(0, 1)}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Handle & Platform Info */}
+                    <div className="flex flex-col text-left leading-tight">
+                      <span className="max-w-[130px] truncate font-semibold text-foreground">
+                        {a.username ? (a.username.startsWith("@") ? a.username : `@${a.username}`) : a.platform}
                       </span>
+                      <span className="text-[10px] capitalize text-muted-foreground">
+                        {plat?.name ?? a.platform}
+                      </span>
+                    </div>
+
+                    {/* Status checkmark */}
+                    {on ? (
+                      <span className="ml-1 grid size-4 shrink-0 place-items-center rounded-full bg-teal-400 text-black">
+                        <Check className="size-2.5 stroke-[3]" />
+                      </span>
+                    ) : (
+                      <span className="ml-1 size-4 shrink-0 rounded-full border border-white/20 group-hover:border-white/40" />
                     )}
-                    {a.username ?? a.platform}
-                    <span className="text-[11px] capitalize text-muted-foreground">{a.platform}</span>
                   </button>
                 );
               })}

@@ -52,26 +52,29 @@ interface FeaturedTemplate {
 	bg: string;
 	img: string;
 	video: string;
+	tag?: string;
 }
 
 const FEATURED_TEMPLATES: FeaturedTemplate[] = [
 	{
 		key: "clean",
-		name: "Clean",
+		name: "Clean Box",
 		style: "clean",
 		layout: "fill",
 		bg: "from-slate-700 to-slate-900",
 		img: IMG("1544005313-94ddf0286df2"),
 		video: `${TV}/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4`,
+		tag: "📦 Box",
 	},
 	{
 		key: "beast",
-		name: "Beast",
+		name: "MrBeast",
 		style: "beast",
 		layout: "fill",
 		bg: "from-amber-800 to-stone-900",
 		img: IMG("1500648767791-00dcc994a43e"),
 		video: `${TV}/jellyfish/mp4/h264/360/Jellyfish_360_10s_1MB.mp4`,
+		tag: "🔥 Viral",
 	},
 	{
 		key: "highlight",
@@ -81,51 +84,57 @@ const FEATURED_TEMPLATES: FeaturedTemplate[] = [
 		bg: "from-teal-900 to-slate-900",
 		img: IMG("1494790108377-be9c29b29330"),
 		video: `${TV}/sintel/mp4/h264/360/Sintel_360_10s_1MB.mp4`,
+		tag: "🎯 Active",
 	},
 	{
 		key: "bold",
-		name: "Bold",
+		name: "Bold Impact",
 		style: "bold",
 		layout: "fill",
 		bg: "from-indigo-800 to-slate-900",
 		img: IMG("1519085360753-af0119f7cbe7"),
 		video: `${SL}/sample-10s.mp4`,
+		tag: "⚡ Impact",
 	},
 	{
 		key: "neon",
-		name: "Neon",
+		name: "Neon Glow",
 		style: "neon",
 		layout: "fill",
 		bg: "from-cyan-950 to-slate-900",
 		img: IMG("1507003211169-0a1dd7228f2d"),
 		video: `${SL}/sample-15s.mp4`,
+		tag: "✨ Cyber",
 	},
 	{
 		key: "blur",
-		name: "Blur",
+		name: "Cinematic Blur",
 		style: "clean",
 		layout: "blur",
 		bg: "from-slate-800 to-slate-950",
 		img: IMG("1573497019940-1c28c88b4f3e"),
 		video: `${SL}/sample-20s.mp4`,
+		tag: "🎬 Blur",
 	},
 	{
 		key: "fit",
-		name: "Fit video",
+		name: "Fit Video",
 		style: "mono",
 		layout: "fit",
 		bg: "from-neutral-800 to-neutral-900",
 		img: IMG("1478737270239-2f02b77fc618"),
 		video: `${SL}/sample-30s.mp4`,
+		tag: "📐 Fit",
 	},
 	{
 		key: "minimal",
-		name: "Minimal",
+		name: "Minimal White",
 		style: "mono",
 		layout: "fill",
 		bg: "from-neutral-800 to-neutral-900",
 		img: IMG("1580489944761-15a19d654956"),
 		video: `${SL}/sample-5s.mp4`,
+		tag: "🌙 Minimal",
 	},
 ];
 
@@ -425,12 +434,14 @@ export function CaptionStylePicker({
 			img?: string;
 			video?: string;
 			cardLayout?: string;
+			tag?: string;
 			extra?: React.ReactNode;
 		},
 	) => {
 		const img = opts?.img ?? PREVIEW_IMG;
 		const video = opts?.video;
 		const extra = opts?.extra;
+		const tag = opts?.tag;
 		const cardLayout = opts?.cardLayout ?? layout;
 		const fitMode = cardLayout !== "fill" && videoFrac < 0.96;
 		const blurMode = cardLayout === "blur";
@@ -445,6 +456,7 @@ export function CaptionStylePicker({
 				<video
 					src={`${video}#t=0.1`}
 					loop
+					muted
 					playsInline
 					preload="metadata"
 					className={className}
@@ -463,13 +475,8 @@ export function CaptionStylePicker({
 				onMouseEnter={(e) => {
 					const v = e.currentTarget.querySelector("video");
 					if (!v) return;
-					v.muted = false;
-					// Unmuted play needs a click gesture; if the browser blocks it on
-					// hover, fall back to muted so the video still plays.
-					v.play().catch(() => {
-						v.muted = true;
-						v.play().catch(() => {});
-					});
+					v.muted = true;
+					v.play().catch(() => {});
 				}}
 				onMouseLeave={(e) => {
 					const v = e.currentTarget.querySelector("video");
@@ -480,9 +487,9 @@ export function CaptionStylePicker({
 				}}
 				style={{ width: cw, height: ch }}
 				className={cn(
-					"group relative shrink-0 snap-start overflow-hidden rounded-lg border-2 text-left transition-all",
+					"group relative shrink-0 snap-start overflow-hidden rounded-xl border-2 text-left transition-all duration-150",
 					active
-						? "border-teal-400 shadow-[0_0_20px_-6px_rgba(45,212,191,0.5)]"
+						? "border-teal-400 shadow-[0_0_24px_-4px_rgba(45,212,191,0.5)] ring-2 ring-teal-400/40"
 						: "border-white/10 hover:border-white/30",
 				)}
 			>
@@ -502,8 +509,8 @@ export function CaptionStylePicker({
 						})
 					: media("absolute inset-0 size-full object-cover")}
 				{active ? (
-					<span className="absolute left-2 top-2 z-10 grid size-6 place-items-center rounded-full bg-teal-400 text-black">
-						<Check className="size-3.5" />
+					<span className="absolute left-2 top-2 z-10 grid size-6 place-items-center rounded-full bg-teal-400 text-black shadow-md">
+						<Check className="size-3.5 stroke-[3]" />
 					</span>
 				) : null}
 				{watermark ? (
@@ -637,7 +644,7 @@ export function CaptionStylePicker({
 											layout: t.layout,
 										}),
 									captionCss(t.style, null, 0.9),
-									{ img: t.img, video: t.video, cardLayout: t.layout },
+									{ img: t.img, video: t.video, cardLayout: t.layout, tag: t.tag },
 								),
 							)}
 							{card(
@@ -699,6 +706,137 @@ export function CaptionStylePicker({
 					)}
 				</div>
 			</div>
+
+			{/* Quick Style Tweaks Bar */}
+			{captions ? (
+				<div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-[#161616] p-2.5 text-xs">
+					<span className="font-semibold text-muted-foreground text-[11px]">Quick Tweaks:</span>
+
+					{/* Font Selector */}
+					<div className="flex items-center gap-1.5">
+						<span className="text-[11px] text-muted-foreground">Font:</span>
+						<div className="flex gap-1">
+							{[
+								{ id: "poppins", label: "Poppins" },
+								{ id: "anton", label: "Anton" },
+								{ id: "bangers", label: "Bangers" },
+							].map((f) => {
+								const activeFont = (custom?.font ?? "poppins") === f.id;
+								return (
+									<button
+										key={f.id}
+										type="button"
+										onClick={() => {
+											const updated: CustomCaptionStyle = {
+												name: custom?.name ?? "Custom Style",
+												color: custom?.color ?? "#FFFFFF",
+												highlight: custom?.highlight ?? "#2DD4BF",
+												size: custom?.size ?? "m",
+												bold: custom?.bold ?? true,
+												uppercase: custom?.uppercase ?? (style === "beast" || style === "bold"),
+												box: custom?.box ?? (style === "clean"),
+												position: custom?.position ?? "bottom",
+												font: f.id as any,
+											};
+											onChange({
+												captions: true,
+												caption_style: "custom",
+												caption_custom: updated,
+											});
+										}}
+										className={cn(
+											"rounded-md px-2 py-0.5 text-[11px] font-medium transition-all",
+											activeFont
+												? "bg-teal-400/20 text-teal-300 ring-1 ring-teal-400/50"
+												: "bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground",
+										)}
+									>
+										{f.label}
+									</button>
+								);
+							})}
+						</div>
+					</div>
+
+					{/* Highlight Color Swatches */}
+					<div className="flex items-center gap-1.5">
+						<span className="text-[11px] text-muted-foreground">Highlight:</span>
+						<div className="flex items-center gap-1">
+							{[
+								{ color: "#2DD4BF", name: "Teal" },
+								{ color: "#FFD700", name: "Gold" },
+								{ color: "#EC4899", name: "Pink" },
+								{ color: "#3B82F6", name: "Blue" },
+								{ color: "#22C55E", name: "Green" },
+								{ color: "#FFFFFF", name: "White" },
+							].map((c) => {
+								const activeColor = custom?.highlight?.toUpperCase() === c.color.toUpperCase();
+								return (
+									<button
+										key={c.color}
+										type="button"
+										title={c.name}
+										onClick={() => {
+											const updated: CustomCaptionStyle = {
+												name: custom?.name ?? "Custom Style",
+												color: custom?.color ?? "#FFFFFF",
+												highlight: c.color,
+												size: custom?.size ?? "m",
+												bold: custom?.bold ?? true,
+												uppercase: custom?.uppercase ?? (style === "beast" || style === "bold"),
+												box: custom?.box ?? (style === "clean"),
+												position: custom?.position ?? "bottom",
+												font: custom?.font ?? "poppins",
+											};
+											onChange({
+												captions: true,
+												caption_style: "custom",
+												caption_custom: updated,
+											});
+										}}
+										style={{ backgroundColor: c.color }}
+										className={cn(
+											"size-4 rounded-full transition-transform hover:scale-125",
+											activeColor
+												? "ring-2 ring-teal-400 ring-offset-2 ring-offset-[#161616] scale-110"
+												: "opacity-80 hover:opacity-100",
+										)}
+									/>
+								);
+							})}
+						</div>
+					</div>
+
+					{/* Position Toggle */}
+					<div className="ml-auto flex items-center gap-1.5">
+						<button
+							type="button"
+							onClick={() => {
+								const nextPos = (custom?.position ?? "bottom") === "bottom" ? "middle" : "bottom";
+								const updated: CustomCaptionStyle = {
+									name: custom?.name ?? "Custom Style",
+									color: custom?.color ?? "#FFFFFF",
+									highlight: custom?.highlight ?? "#2DD4BF",
+									size: custom?.size ?? "m",
+									bold: custom?.bold ?? true,
+									uppercase: custom?.uppercase ?? (style === "beast" || style === "bold"),
+									box: custom?.box ?? (style === "clean"),
+									position: nextPos,
+									font: custom?.font ?? "poppins",
+								};
+								onChange({
+									captions: true,
+									caption_style: "custom",
+									caption_custom: updated,
+								});
+							}}
+							className="rounded-md bg-white/5 px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+						>
+							{(custom?.position ?? "bottom") === "middle" ? "📍 Middle" : "📌 Bottom"}
+						</button>
+					</div>
+				</div>
+			) : null}
 
 			{editing ? (
 				<TemplateEditor
