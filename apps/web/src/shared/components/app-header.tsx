@@ -2,47 +2,27 @@
 
 import {
   Bell,
-  ChevronDown,
-  CircleHelp,
-  Compass,
-  Images,
   LogOut,
   Search,
-  Settings,
   Share2,
   SlidersHorizontal,
   User,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "@/stores/session";
-import { cn } from "@/lib/cn";
-
-const NAV_TABS = [
-  { label: "Home", href: "/dashboard" },
-  { label: "Clips", href: "/clips" },
-  { label: "Design", href: "/templates" },
-  { label: "Projects", href: "/projects" },
-  { label: "Canvas", href: "/canvas" },
-];
 
 export function AppHeader() {
-  const pathname = usePathname();
   const router = useRouter();
   const user = useSession((s) => s.user);
   const clearSession = useSession((s) => s.clear);
-  const [moreOpen, setMoreOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const moreRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
-      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
-        setMoreOpen(false);
-      }
       if (userRef.current && !userRef.current.contains(e.target as Node)) {
         setUserOpen(false);
       }
@@ -73,77 +53,9 @@ export function AppHeader() {
             </g>
           </svg>
           <span className="text-lg font-bold tracking-tight text-white">
-            Riocut<span className="text-teal-400">.com</span>
+            Riocut
           </span>
         </Link>
-
-        {/* Navigation Tabs */}
-        <nav className="hidden items-center gap-1 md:flex">
-          {NAV_TABS.map((tab) => {
-            const active = pathname === tab.href || (tab.href !== "/dashboard" && pathname.startsWith(`${tab.href}/`));
-            return (
-              <Link
-                key={tab.href}
-                href={tab.href}
-                className={cn(
-                  "relative px-3 py-4 text-sm font-medium transition-colors hover:text-white",
-                  active
-                    ? "font-semibold text-white"
-                    : "text-muted-foreground hover:text-white"
-                )}
-              >
-                {tab.label}
-                {active ? (
-                  <span className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 shadow-[0_0_12px_rgba(168,85,247,0.8)]" />
-                ) : null}
-              </Link>
-            );
-          })}
-
-          {/* More Dropdown */}
-          <div ref={moreRef} className="relative">
-            <button
-              type="button"
-              onClick={() => setMoreOpen((v) => !v)}
-              className="flex items-center gap-1 px-3 py-4 text-sm font-medium text-muted-foreground transition-colors hover:text-white"
-            >
-              More <ChevronDown className={cn("size-3.5 transition-transform", moreOpen && "rotate-180")} />
-            </button>
-
-            {moreOpen ? (
-              <div className="absolute left-0 top-full z-50 mt-1 w-48 rounded-xl border border-white/10 bg-[#161824] p-1.5 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-100">
-                <Link
-                  href="/assets"
-                  onClick={() => setMoreOpen(false)}
-                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-white/5 hover:text-white"
-                >
-                  <Images className="size-4" /> Assets Library
-                </Link>
-                <Link
-                  href="/explore"
-                  onClick={() => setMoreOpen(false)}
-                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-white/5 hover:text-white"
-                >
-                  <Compass className="size-4" /> Explore & Discover
-                </Link>
-                <Link
-                  href="/settings"
-                  onClick={() => setMoreOpen(false)}
-                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-white/5 hover:text-white"
-                >
-                  <Settings className="size-4" /> Settings
-                </Link>
-                <Link
-                  href="/help"
-                  onClick={() => setMoreOpen(false)}
-                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-white/5 hover:text-white"
-                >
-                  <CircleHelp className="size-4" /> Help & Support
-                </Link>
-              </div>
-            ) : null}
-          </div>
-        </nav>
       </div>
 
       {/* Right Controls */}
