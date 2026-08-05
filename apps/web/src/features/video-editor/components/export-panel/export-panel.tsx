@@ -277,7 +277,7 @@ export function ExportPanel(props: ExportPanelProps) {
 								) : (
 									<div className="grid grid-cols-2 gap-2">
 										{socialAccs.map((acc) => {
-											const plat = PLATFORM[acc.provider];
+											const plat = PLATFORM[acc.platform];
 											const Icon = plat?.icon ?? GlobeIcon;
 											const active = selectedAccs.has(acc.id);
 											return (
@@ -302,10 +302,10 @@ export function ExportPanel(props: ExportPanelProps) {
 													</span>
 													<div className="min-w-0 flex-1">
 														<span className="block truncate text-xs font-semibold">
-															{acc.username || acc.name}
+															{acc.username}
 														</span>
 														<span className="block truncate text-[10px] text-muted-foreground capitalize">
-															{plat?.name ?? acc.provider}
+															{plat?.name ?? acc.platform}
 														</span>
 													</div>
 													<Checkbox checked={active} className="pointer-events-none" />
@@ -343,7 +343,7 @@ export function ExportPanel(props: ExportPanelProps) {
 										<label className="text-xs font-medium">TikTok Audience</label>
 										<Select
 											value={tiktokPrivacy}
-											onChange={(e) => setTiktokPrivacy(e.target.value)}
+											onChange={(val: string) => setTiktokPrivacy(val)}
 											options={Object.entries(PRIVACY_LABEL).map(([val, label]) => ({
 												label,
 												value: val,
@@ -370,7 +370,7 @@ export function ExportPanel(props: ExportPanelProps) {
 												key={r.id}
 												className="flex items-center justify-between rounded-lg border border-border p-2.5 text-xs"
 											>
-												<span className="font-medium capitalize">{r.provider}</span>
+												<span className="font-medium capitalize">{r.platform}</span>
 												<span
 													className={cn(
 														"font-semibold capitalize",
@@ -514,7 +514,7 @@ export function ExportPanel(props: ExportPanelProps) {
 	);
 }
 
-function GlobeIcon(p: IconProps) => (
+const GlobeIcon = (p: IconProps) => (
 	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden {...p}>
 		<circle cx="12" cy="12" r="10" />
 		<line x1="2" y1="12" x2="22" y2="12" />

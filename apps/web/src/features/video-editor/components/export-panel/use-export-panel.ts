@@ -73,7 +73,7 @@ export function useExportPanel({
 		queryFn: listSocialAccounts,
 	});
 
-	const tiktokAcc = socialAccs.find((a) => a.provider === "tiktok");
+	const tiktokAcc = socialAccs.find((a) => a.platform === "tiktok");
 	useQuery({
 		queryKey: ["tiktok-creator-info", tiktokAcc?.id],
 		queryFn: () => tiktokCreatorInfo(tiktokAcc!.id),

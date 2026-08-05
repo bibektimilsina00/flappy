@@ -60,7 +60,7 @@ export function Timeline({
   tickCount: number;
   total: number;
   viewportW: number;
-  drag: { kind: string; clipId?: string } | null;
+  drag: import("../../stores/use-editor-store").DragState;
   ghost: { trackId: string; start: number; duration: number } | null;
   guide: number | null;
   clipMenu: { x: number; y: number; id: string } | null;
@@ -76,12 +76,12 @@ export function Timeline({
   onSplitSelected: () => void;
   onTogglePlay: () => void;
   setPlayhead: (t: number) => void;
-  setPxPerSec: React.Dispatch<React.SetStateAction<number>>;
+  setPxPerSec: (px: number | ((prev: number) => number)) => void;
   dropAsset: (assetId: string, clientX: number, trackId: string | null) => void;
   setSelection: (s: Set<string>) => void;
-  setDrag: (d: { kind: string; clipId?: string } | null) => void;
+  setDrag: (d: import("../../stores/use-editor-store").DragState) => void;
   commit: (d: VideoEditorDoc) => void;
-  duplicateClip: (doc: VideoEditorDoc, id: string) => { doc: VideoEditorDoc; newId: string };
+  duplicateClip: (doc: VideoEditorDoc, id: string) => VideoEditorDoc;
   splitClip: (doc: VideoEditorDoc, id: string, atSec: number) => VideoEditorDoc;
   removeClips: (doc: VideoEditorDoc, ids: Set<string>) => VideoEditorDoc;
   importInputRef: React.RefObject<HTMLInputElement | null>;
@@ -203,9 +203,7 @@ export function Timeline({
           y={clipMenu.y}
           onClose={() => setClipMenu(null)}
           onDuplicate={() => {
-            const r = duplicateClip(doc, clipMenu.id);
-            commit(r.doc);
-            setSelection(new Set([r.newId]));
+            commit(duplicateClip(doc, clipMenu.id));
           }}
           onSplit={() => {
             const next = splitClip(doc, clipMenu.id, playhead);

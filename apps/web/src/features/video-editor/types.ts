@@ -61,3 +61,16 @@ export interface VideoEditorProject {
   assets: VideoEditorAsset[];
   share?: { review: string | null; presentation: string | null };
 }
+
+export type CategoryId =
+  | "ai-tools"
+  | "ai-gen"
+  | "assistant"
+  | "media"
+  | "text"
+  | "subtitles"
+  | "audio"
+  | "effects"
+  | "transitions"
+  | "video"
+  | "image";

@@ -395,3 +395,23 @@ export function splitClip(doc: VideoEditorDoc, clipId: string, atSec: number): V
   const newClips = [...track.clips.slice(0, idx), leftClip, rightClip, ...track.clips.slice(idx + 1)];
   return commitDoc(doc, putClips(doc, track.id, sortByStart(newClips)));
 }
+
+/** Change a clip's duration via right-edge trim. */
+export function changeDuration(doc: VideoEditorDoc, clipId: string, newDurationSec: number): VideoEditorDoc {
+  const loc = locate(doc, clipId);
+  if (!loc) return doc;
+  const deltaSec = newDurationSec - loc.clip.duration;
+  return trimClip(doc, clipId, "end", deltaSec);
+}
+
+/** Duplicate a clip adjacent to the original. */
+export function duplicateClip(doc: VideoEditorDoc, clipId: string): VideoEditorDoc {
+  const loc = locate(doc, clipId);
+  if (!loc) return doc;
+  const newClip: Clip = {
+    ...loc.clip,
+    id: uid(),
+    start: loc.clip.start + loc.clip.duration,
+  };
+  return insertClip(doc, loc.track.id, newClip, newClip.start);
+}
