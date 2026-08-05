@@ -26,19 +26,19 @@
 }
 
 .dark {
-  --background: #0e0f17; /* obsidian navy background */
+  --background: #151821; /* main dark canvas background */
   --foreground: #f1f3f9;
-  --card: #141624; /* floating dark panel */
+  --card: #242832; /* sidebar & floating dark panel background #242832 */
   --card-foreground: #f1f3f9;
-  --popover: #161826;
+  --popover: #242832;
   --popover-foreground: #f1f3f9;
   --primary: #f1f3f9;
-  --primary-foreground: #0e0f17;
-  --secondary: #1d2030;
+  --primary-foreground: #151821;
+  --secondary: #2c313f;
   --secondary-foreground: #f1f3f9;
-  --muted: #1d2030;
-  --muted-foreground: #9499b1;
-  --accent: #232638; /* nav hover / active pill */
+  --muted: #2c313f;
+  --muted-foreground: #9a9ea8;
+  --accent: #2e3342; /* nav hover / active pill */
   --accent-foreground: #f1f3f9;
   --destructive: oklch(0.704 0.191 22.216);
   --border: rgba(255, 255, 255, 0.08);

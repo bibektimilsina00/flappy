@@ -61,7 +61,7 @@ export function AppHeader() {
   const initial = user?.name ? user.name[0]?.toUpperCase() : "U";
 
   return (
-    <header className="relative z-40 flex h-14 w-full shrink-0 items-center justify-between border-b border-white/[0.08] bg-[#0e0f17]/95 px-5 backdrop-blur-lg select-none">
+    <header className="relative z-40 flex h-14 w-full shrink-0 items-center justify-between border-b border-white/[0.08] bg-[#242832] px-5 backdrop-blur-lg select-none">
       {/* Left: Brand Logo & Navigation */}
       <div className="flex items-center gap-6">
         <Link href="/dashboard" className="group flex items-center gap-2.5">

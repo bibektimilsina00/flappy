@@ -48,11 +48,11 @@ export function AppSidebar({
   // Settings takes over the whole sidebar: switcher + back + grouped tabs.
   if (pathname.startsWith("/settings")) {
     return (
-      <aside className="flex h-full w-52 flex-col">
+      <aside className="flex h-full w-52 flex-col bg-[#242832]">
         <WorkspaceSwitcher name={wsName} initial={wsName[0]?.toUpperCase() ?? "W"} />
         <Link
           href="/dashboard"
-          className="mx-2 flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="mx-2 flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
         >
           <ArrowLeft className="size-4" /> Back
         </Link>
@@ -73,7 +73,7 @@ export function AppSidebar({
   }
 
   return (
-    <aside className={cn("flex h-full flex-col transition-[width] duration-200", collapsed ? "w-16" : "w-52")}>
+    <aside className={cn("flex h-full flex-col bg-[#242832] transition-[width] duration-200", collapsed ? "w-16" : "w-52")}>
       <WorkspaceSwitcher name={wsName} initial={wsName[0]?.toUpperCase() ?? "W"} collapsed={collapsed} onToggle={onToggleCollapse} />
 
       <nav className="flex-1 overflow-y-auto px-2 [scrollbar-width:thin]">
