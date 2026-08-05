@@ -1,7 +1,7 @@
 import type { NodeProps } from "@xyflow/react";
 import { Eye, Pencil, X } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
-import { useCanvasActions } from "../canvas-actions";
+import { useCanvasActions } from "./canvas-actions";
 import { useNodeActions } from "../hooks/use-node-actions";
 import { applyMarkdown, type FormatOp } from "../lib/format-markdown";
 import { TextFormatContext } from "../lib/text-format-context";

@@ -4,7 +4,7 @@ import { ChevronDown } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useBalance } from "@/features/billing";
-import { popupRegistry } from "@/features/canvas/popup-registry";
+import { popupRegistry } from "@/features/canvas";
 import type { Model } from "../types";
 import { ProviderIcon } from "./provider-icon";
 

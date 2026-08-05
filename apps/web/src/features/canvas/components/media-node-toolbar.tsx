@@ -1,6 +1,6 @@
 import { ArrowLeftRight, Circle, Copy, Lock, LockOpen, type LucideIcon, Play, Trash2 } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { useCanvasActions } from "../canvas-actions";
+import { useCanvasActions } from "./canvas-actions";
 
 interface MediaNodeToolbarProps {
   id: string;

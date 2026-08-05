@@ -24,10 +24,10 @@ import {
 import { createPortal } from "react-dom";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { uploadAsset } from "@/features/projects";
-import { useCanvasActions } from "../canvas-actions";
-import { useSetNodeOutput } from "../execution-status";
-import { popupRegistry } from "../popup-registry";
-import type { NodeKind } from "../constants";
+import { useCanvasActions } from "./canvas-actions";
+import { useSetNodeOutput } from "./execution-status";
+import { popupRegistry } from "../lib/popup-registry";
+import type { NodeKind } from "../lib/constants";
 import type { FormatOp } from "../lib/format-markdown";
 import { useTextFormat } from "../lib/text-format-context";
 import { AudioPlayer } from "./audio-player";

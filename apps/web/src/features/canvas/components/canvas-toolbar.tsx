@@ -3,7 +3,7 @@
 import { Folder, History, type LucideIcon, Shapes, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { cn } from "@/lib/cn";
-import { CREATE_NODE_KINDS, NODE_CONFIG, type NodeKind } from "../constants";
+import { CREATE_NODE_KINDS, NODE_CONFIG, type NodeKind } from "../lib/constants";
 import { GenerationsPanel } from "./generations-panel";
 import { LibraryPanel } from "./library-panel";
 import { StickersPopup } from "./stickers-popup";

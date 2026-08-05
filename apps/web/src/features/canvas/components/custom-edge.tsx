@@ -3,8 +3,8 @@
 import { BaseEdge, EdgeLabelRenderer, type EdgeProps, getSmoothStepPath } from "@xyflow/react";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import type { NodeKind } from "../constants";
-import { useCanvasActions } from "../canvas-actions";
+import type { NodeKind } from "../lib/constants";
+import { useCanvasActions } from "./canvas-actions";
 import { NodeKindMenu } from "./node-kind-menu";
 
 export function CustomEdge({

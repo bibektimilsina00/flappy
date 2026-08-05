@@ -9,8 +9,8 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
-import { NODE_CONFIG, type NodeConfig, type NodeKind } from "../constants";
-import { useNodeStatus } from "../execution-status";
+import { NODE_CONFIG, type NodeConfig, type NodeKind } from "../lib/constants";
+import { useNodeStatus } from "./execution-status";
 import { NodeHandles } from "./node-handles";
 import { NodeToolbar } from "./node-toolbar";
 import { PromptBar } from "./prompt-bar";

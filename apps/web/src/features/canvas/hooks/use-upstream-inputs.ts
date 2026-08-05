@@ -1,6 +1,6 @@
 import { useStore } from "@xyflow/react";
-import { NODE_CONFIG, type NodeKind } from "../constants";
-import { useOutputs } from "../execution-status";
+import { NODE_CONFIG, type NodeKind } from "../lib/constants";
+import { useOutputs } from "../components/execution-status";
 
 export interface UpstreamInput {
   edgeId: string;

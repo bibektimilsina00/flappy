@@ -19,23 +19,17 @@ import {
 	useWorkflow,
 } from "@/features/projects";
 import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
-import { CanvasActionsProvider } from "../canvas-actions";
+import { CanvasActionsProvider } from "../components/canvas-actions";
 import { AssistantButton } from "../components/assistant-button";
 import { AssistantPanel } from "../components/assistant-panel";
 import { CanvasContextMenu } from "../components/canvas-context-menu";
 import { CanvasControls, type CanvasTool } from "../components/canvas-controls";
 import { CanvasEmptyState } from "../components/canvas-empty-state";
 import { CanvasToolbar } from "../components/canvas-toolbar";
+import { ExecutionStatusProvider } from "../components/execution-status";
 import { FlowCanvas } from "../components/flow-canvas";
 import { NodeContextMenu } from "../components/node-context-menu";
 import { NodeKindMenu } from "../components/node-kind-menu";
-import {
-	NODE_CONFIG,
-	type NodeKind,
-	type Port,
-	resolveTargetHandle,
-} from "../constants";
-import { ExecutionStatusProvider } from "../execution-status";
 import { useAssistant } from "../hooks/use-assistant";
 import {
 	type AssistantOp,
@@ -43,7 +37,13 @@ import {
 } from "../hooks/use-assistant-chat";
 import { useAutoDetachEmptyText } from "../hooks/use-auto-detach";
 import { useCanvas } from "../hooks/use-canvas";
-import { popupRegistry } from "../popup-registry";
+import {
+	NODE_CONFIG,
+	type NodeKind,
+	type Port,
+	resolveTargetHandle,
+} from "../lib/constants";
+import { popupRegistry } from "../lib/popup-registry";
 
 interface DropPicker {
 	x: number;
@@ -539,9 +539,9 @@ function CanvasWorkspace({
 						seedOutputs: execution.seedOutputs,
 					}}
 				>
-					<div className="flex h-full w-full flex-col">
+					<div className="flex h-full w-full flex-col gap-2 p-2">
 						<div
-							className="relative min-h-0 flex-1"
+							className="relative min-h-0 flex-1 overflow-hidden rounded-lg border border-border"
 							onClickCapture={(e) => {
 								// If a node popup is open, a canvas click closes it first — and we
 								// stop React Flow (which deselects on click) from clearing the node.
@@ -654,7 +654,8 @@ function CanvasWorkspace({
 							) : null}
 						</div>
 
-						<EditorModeTabs projectId={projectId ?? null} mode="canvas" />
+						{/* mode tabs: floating bar below the canvas card */}
+						<EditorModeTabs projectId={projectId ?? null} mode="canvas" className="shrink-0 overflow-hidden rounded-lg border border-border" />
 					</div>
 				</ExecutionStatusProvider>
 			</CanvasActionsProvider>

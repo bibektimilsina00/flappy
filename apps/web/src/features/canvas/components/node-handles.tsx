@@ -1,7 +1,7 @@
 import { Handle, type InternalNode, type Node, Position, useNodeId, useStore } from "@xyflow/react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
-import type { Port } from "../constants";
+import type { Port } from "../lib/constants";
 
 // Ported from runmycrew: bar on the border, expands to a half-pill on hover.
 const BASE = "nodrag nopan !z-50 !cursor-crosshair !border-none !transition-all !duration-150";

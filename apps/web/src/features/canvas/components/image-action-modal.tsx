@@ -4,7 +4,7 @@ import { ArrowUp, Loader2, X } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { createPortal } from "react-dom";
 import { adjustAsset, editAsset, gridExtract } from "@/features/projects";
-import { useCanvasActions } from "../canvas-actions";
+import { useCanvasActions } from "./canvas-actions";
 
 export type ImageAction =
   | "Extract from grid"

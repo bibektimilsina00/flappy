@@ -1,5 +1,5 @@
-import type { NodeAction } from "../constants";
-import { useCanvasActions } from "../canvas-actions";
+import type { NodeAction } from "../lib/constants";
+import { useCanvasActions } from "../components/canvas-actions";
 
 // Dispatch for the common recommended-actions. Per-type components can wrap
 // or extend this as their behaviours diverge.

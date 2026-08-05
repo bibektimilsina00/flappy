@@ -4,7 +4,7 @@ import { type NodeProps, NodeResizer } from "@xyflow/react";
 import { Upload } from "lucide-react";
 import { useRef } from "react";
 import { uploadAsset } from "@/features/projects";
-import { useCanvasActions } from "../canvas-actions";
+import { useCanvasActions } from "./canvas-actions";
 
 export type StickerVariant = "note" | "rectangle" | "line" | "emoji" | "image";
 

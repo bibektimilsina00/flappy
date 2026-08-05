@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useBalance } from "@/features/billing";
-import type { NodeKind } from "@/features/canvas/constants";
+import type { NodeKind } from "@/features/canvas";
 import { createWorkflow, RecentProjects } from "@/features/projects";
 import { useSession } from "@/stores/session";
 import { Composer } from "../components/composer";

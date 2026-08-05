@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { extractFrame, reframeVideo, trimVideo, upscaleVideo } from "@/features/projects";
-import { useCanvasActions } from "../canvas-actions";
+import { useCanvasActions } from "./canvas-actions";
 import { Frame, Seg, Submit } from "./image-action-modal";
 
 export type VideoAction = "Extract frame" | "Reframe video" | "Trim video" | "Super resolution";

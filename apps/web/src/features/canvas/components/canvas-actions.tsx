@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import type { NodeKind } from "./constants";
+import type { NodeKind } from "../lib/constants";
 
 // All canvas mutations flow through here so they hit the single useCanvas
 // state source — avoids the controlled-mode desync of useReactFlow().setNodes.

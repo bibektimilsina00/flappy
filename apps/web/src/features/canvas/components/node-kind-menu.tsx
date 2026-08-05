@@ -1,4 +1,4 @@
-import { CREATE_NODE_KINDS, NODE_CONFIG, type NodeKind } from "../constants";
+import { CREATE_NODE_KINDS, NODE_CONFIG, type NodeKind } from "../lib/constants";
 
 export function NodeKindMenu({ onSelect }: { onSelect: (kind: NodeKind) => void }) {
   return (

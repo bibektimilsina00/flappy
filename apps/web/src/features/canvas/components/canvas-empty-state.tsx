@@ -1,4 +1,4 @@
-import { CREATE_NODE_KINDS, NODE_CONFIG, type NodeKind } from "../constants";
+import { CREATE_NODE_KINDS, NODE_CONFIG, type NodeKind } from "../lib/constants";
 import { QuickStartButton } from "./quick-start-button";
 
 export function CanvasEmptyState({ onAddNode }: { onAddNode: (kind: NodeKind) => void }) {

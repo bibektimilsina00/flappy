@@ -1,5 +1,5 @@
 import { cn } from "@/lib/cn";
-import { NODE_CONFIG, type NodeAction, type NodeKind } from "../constants";
+import { NODE_CONFIG, type NodeAction, type NodeKind } from "../lib/constants";
 
 interface RecommendedActionsProps {
   kind: NodeKind;

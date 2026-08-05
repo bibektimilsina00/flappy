@@ -7,7 +7,7 @@ import {
   useNodesState,
 } from "@xyflow/react";
 import { useCallback, useRef } from "react";
-import { type NodeKind, resolveTargetHandle } from "../constants";
+import { type NodeKind, resolveTargetHandle } from "../lib/constants";
 
 let seq = 0;
 

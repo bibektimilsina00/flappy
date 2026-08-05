@@ -3,7 +3,7 @@ import {
 	CREATE_NODE_KINDS,
 	NODE_CONFIG,
 	type NodeKind,
-} from "@/features/canvas/constants";
+} from "@/features/canvas";
 
 // Kinds that need a paid plan. Free users see a premium badge and get routed
 // to pricing instead of selecting the tab.

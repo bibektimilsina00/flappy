@@ -1,8 +1,8 @@
 import type { NodeProps } from "@xyflow/react";
 import { useModels } from "@/features/models";
-import type { NodeAction } from "../constants";
-import { useCanvasActions } from "../canvas-actions";
-import { useNodeOutput } from "../execution-status";
+import type { NodeAction } from "../lib/constants";
+import { useCanvasActions } from "./canvas-actions";
+import { useNodeOutput } from "./execution-status";
 import { AssetPreview } from "./asset-preview";
 import { NodeShell } from "./node-shell";
 import { RecommendedActions } from "./recommended-actions";

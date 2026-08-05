@@ -12,7 +12,7 @@ import {
   Upload,
 } from "lucide-react";
 import { useState } from "react";
-import { CREATE_NODE_KINDS, NODE_CONFIG, type NodeKind } from "../constants";
+import { CREATE_NODE_KINDS, NODE_CONFIG, type NodeKind } from "../lib/constants";
 
 interface CanvasContextMenuProps {
   x: number;

@@ -1,5 +1,5 @@
 import type { NodeProps } from "@xyflow/react";
-import { useNodeOutput } from "../execution-status";
+import { useNodeOutput } from "./execution-status";
 import { useNodeActions } from "../hooks/use-node-actions";
 import { AssetPreview } from "./asset-preview";
 import { NodeShell } from "./node-shell";

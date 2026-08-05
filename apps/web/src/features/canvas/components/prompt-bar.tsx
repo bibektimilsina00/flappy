@@ -3,9 +3,9 @@
 import { ArrowUp, Paperclip, Plus, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ModelSelector, ParamPanel, paramSummary, useModels } from "@/features/models";
-import { useCanvasActions } from "../canvas-actions";
+import { useCanvasActions } from "./canvas-actions";
 import { useUpstreamImages, useUpstreamInputs } from "../hooks/use-upstream-inputs";
-import { popupRegistry } from "../popup-registry";
+import { popupRegistry } from "../lib/popup-registry";
 
 interface PromptBarProps {
   nodeId: string;
