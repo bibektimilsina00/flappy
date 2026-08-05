@@ -16,9 +16,9 @@ export function NavItem({ label, href, icon: Icon, active, collapsed }: NavItemP
       href={href}
       title={collapsed ? label : undefined}
       className={cn(
-        "flex items-center gap-3 rounded-md py-2 text-sm text-muted-foreground transition-colors",
-        "hover:bg-accent hover:text-foreground",
-        active && "bg-accent text-foreground",
+        "flex items-center gap-3 rounded-md py-2 text-sm text-muted-foreground transition-all duration-150",
+        "hover:bg-white/5 hover:text-white",
+        active && "bg-purple-600/15 text-white font-semibold shadow-sm border-l-2 border-purple-500",
         collapsed ? "justify-center px-0" : "px-3",
       )}
     >
