@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "@/stores/session";
+import { cn } from "@/lib/cn";
 
 export function AppHeader() {
   const router = useRouter();
