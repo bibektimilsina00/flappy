@@ -8,7 +8,6 @@ import { createWorkflow, RecentProjects } from "@/features/projects";
 import { useSession } from "@/stores/session";
 import { Composer } from "../components/composer";
 import { Greeting } from "../components/greeting";
-import { TokenBadge } from "../components/token-badge";
 import { useComposer } from "../hooks/use-composer";
 
 const PLACEHOLDER: Record<NodeKind, string> = {
@@ -73,10 +72,6 @@ export function DashboardPage() {
 
 	return (
 		<div className="relative h-full overflow-y-auto">
-			<div className="absolute right-6 top-4 z-10">
-				<TokenBadge value={Math.round(balance?.balance ?? 0)} />
-			</div>
-
 			{/* One column, uniform gap between every block. Anchored from the top
           (pt), so blocks below never shift the greeting/composer up. */}
 			<div className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 pb-20 pt-[24vh]">
