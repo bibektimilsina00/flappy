@@ -158,6 +158,17 @@ export function deleteTemplate(templateId: string): Promise<{ ok: boolean }> {
 	return api(`/video-editor/templates/${templateId}`, { method: "DELETE" });
 }
 
+export type BrollItem = { asset_id: string; kind: string; url: string; start: number; duration: number; query: string };
+
+// Transcribe the clip → topic windows → a stock photo per topic. The client
+// inserts the returned image clips at their timeline ranges. Needs PEXELS_API_KEY.
+export function magicBroll(projectId: string, clipId?: string): Promise<{ items: BrollItem[] }> {
+	return api(`/video-editor/projects/${projectId}/broll`, {
+		method: "POST",
+		body: JSON.stringify({ clip_id: clipId ?? null }),
+	});
+}
+
 export type StockResult = { id: string; thumb?: string; url: string; kind: "image" | "video"; duration?: number };
 
 // Search Pixels/stock. Throws (with the server detail) on 503 when unconfigured.

@@ -325,6 +325,43 @@ class ImportUrlRequest(BaseModel):
     kind: str  # image | video | audio
 
 
+def _import_pool_asset(session: Session, workflow, workspace_id: uuid.UUID, url: str, kind: str, storage) -> str:
+    """Download an external asset, store it, and add it to the workflow pool as an
+    upload node. Returns the storage key. Shared by /import-url and /broll."""
+    import httpx
+
+    try:
+        with httpx.Client(timeout=30, follow_redirects=True) as client:
+            res = client.get(url)
+            res.raise_for_status()
+            data = res.content
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail="Could not fetch the asset") from exc
+    if len(data) > 100 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Asset too large")
+
+    ctype = res.headers.get("content-type", "").split(";")[0].strip()
+    ext = _EXT_BY_MIME.get(ctype) or (url.rsplit(".", 1)[-1].split("?")[0].lower() if "." in url else "bin")
+    key = f"{workspace_id}/uploads/{uuid.uuid4()}.{ext}"
+    rkind = assets_repo.kind_from_key(key) or kind
+    storage.put(key, data, ctype or "application/octet-stream")
+
+    graph = dict(workflow.graph or {})
+    nodes = list(graph.get("nodes") or [])
+    nodes.append(
+        {
+            "id": f"node-{uuid.uuid4()}",
+            "type": rkind,
+            "position": {"x": 240 + (len(nodes) % 4) * 300, "y": 140 + len(nodes) * 40},
+            "data": {"kind": rkind, "upload_key": key, "label": "stock"},
+        }
+    )
+    graph["nodes"] = nodes
+    workflow.graph = graph
+    workflows_repo.save(session, workflow)
+    return key
+
+
 @router.post("/projects/{workflow_id}/import-url")
 def import_url(
     workflow_id: uuid.UUID,
@@ -335,8 +372,6 @@ def import_url(
 ) -> dict:
     """Import a stock asset from an allow-listed CDN (Pexels/Giphy/VEED) into the
     project pool — the frontend's stock tiles use these hosts."""
-    import httpx
-
     workflow = workflows_repo.get(session, workspace_id, workflow_id)
     if workflow is None:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -347,36 +382,9 @@ def import_url(
     if not any(host == h.lstrip(".") or host.endswith(h) for h in _STOCK_HOSTS):
         raise HTTPException(status_code=422, detail="URL host is not allowed")
 
-    try:
-        with httpx.Client(timeout=30, follow_redirects=True) as client:
-            res = client.get(body.url)
-            res.raise_for_status()
-            data = res.content
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=502, detail="Could not fetch the asset") from exc
-    if len(data) > 100 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="Asset too large")
-
-    ctype = res.headers.get("content-type", "").split(";")[0].strip()
-    ext = _EXT_BY_MIME.get(ctype) or (body.url.rsplit(".", 1)[-1].split("?")[0].lower() if "." in body.url else "bin")
-    key = f"{workspace_id}/uploads/{uuid.uuid4()}.{ext}"
-    kind = assets_repo.kind_from_key(key) or body.kind
     storage = get_storage()
-    storage.put(key, data, ctype or "application/octet-stream")
-
-    graph = dict(workflow.graph or {})
-    nodes = list(graph.get("nodes") or [])
-    nodes.append(
-        {
-            "id": f"node-{uuid.uuid4()}",
-            "type": kind,
-            "position": {"x": 240 + (len(nodes) % 4) * 300, "y": 140 + len(nodes) * 40},
-            "data": {"kind": kind, "upload_key": key, "label": "stock"},
-        }
-    )
-    graph["nodes"] = nodes
-    workflow.graph = graph
-    workflows_repo.save(session, workflow)
+    key = _import_pool_asset(session, workflow, workspace_id, body.url, body.kind, storage)
+    kind = assets_repo.kind_from_key(key) or body.kind
     return {"id": key, "kind": kind, "url": storage.url(key)}
 
 
@@ -503,6 +511,157 @@ def generate_subtitles(
             }
         )
     return {"segments": out}
+
+
+# ── Magic B-Roll (transcribe → topic windows → a stock photo per topic) ──────
+
+_BROLL_STOPWORDS = frozenset(
+    "the a an and or but if of to in on for with as at by from is are was were be been it its this that these those "
+    "i you he she we they my your our their me him her us them so just like really gonna wanna about into out up down "
+    "not no yes do does did have has had will would can could should what which who when where why how there here then "
+    "than too very also get got one all some more most well know think going right okay yeah".split()
+)
+_BROLL_MAX = 6  # cap inserts per run
+_BROLL_WINDOW = 6.0  # seconds of speech grouped into one b-roll topic
+_BROLL_CLIP_DUR = 3.0  # how long each b-roll image shows
+
+
+def _broll_query(text: str) -> str:
+    """A stock-search query from a transcript chunk — the top content words."""
+    import re
+    from collections import Counter
+
+    words = [w for w in re.findall(r"[a-z']{4,}", text.lower()) if w not in _BROLL_STOPWORDS]
+    if not words:
+        return ""
+    return " ".join(w for w, _ in Counter(words).most_common(3))
+
+
+def _pexels_photo_url(query: str) -> str | None:
+    """First Pexels photo URL for a query, or None (no key / no result / error)."""
+    from apps.api.app.core.config import settings
+
+    if not settings.pexels_api_key or not query:
+        return None
+    import httpx
+
+    try:
+        with httpx.Client(timeout=15) as client:
+            res = client.get(
+                "https://api.pexels.com/v1/search",
+                params={"query": query, "per_page": 1, "orientation": "landscape"},
+                headers={"Authorization": settings.pexels_api_key},
+            )
+            res.raise_for_status()
+            photos = res.json().get("photos") or []
+    except Exception:  # noqa: BLE001
+        return None
+    if not photos:
+        return None
+    src = photos[0].get("src") or {}
+    return src.get("large") or src.get("original") or src.get("medium")
+
+
+class BrollRequest(BaseModel):
+    clip_id: str | None = None  # source clip; defaults to the first video/audio clip
+
+
+@router.post("/projects/{project_id}/broll")
+def magic_broll(
+    project_id: uuid.UUID,
+    body: BrollRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Transcribe the source clip, group speech into topic windows, and fetch a
+    stock photo for each — returns b-roll image assets + the timeline range to
+    place them. The client inserts the clips (keeps the doc client-authoritative).
+    Gated on PEXELS_API_KEY. ponytail: sync (transcribe + a few fetches), like
+    magic-cut; capped at 6 inserts."""
+    from apps.api.app.core.config import settings
+    from apps.api.app.features.clips.pipeline import _transcribe
+
+    if not settings.pexels_api_key:
+        raise HTTPException(status_code=501, detail="Magic B-Roll needs stock search configured")
+
+    project = repository.get_by_workflow(session, workspace_id, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+    clips = [c for t in (project.doc or {}).get("tracks") or [] for c in (t.get("clips") or []) if c.get("assetId")]
+    clip = None
+    if body.clip_id:
+        clip = next((c for c in clips if c.get("id") == body.clip_id), None)
+    if clip is None:
+        clip = next((c for c in clips if c.get("kind") in ("video", "audio")), None)
+    if clip is None:
+        raise HTTPException(status_code=422, detail="No video or audio clip to analyze")
+
+    workflow = workflows_repo.get(session, workspace_id, project.workflow_id)
+    refmap = {item["id"]: item for item in (_workflow_media(session, workflow) if workflow else [])}
+    item = refmap.get(clip["assetId"])
+    if item is None or workflow is None:
+        raise HTTPException(status_code=404, detail="Source media not found")
+
+    storage = get_storage()
+    c_start = float(clip.get("start") or 0)
+    c_in = float(clip.get("in") or 0)
+    c_out = float(clip.get("out") or (c_in + float(clip.get("duration") or 0)))
+    speed = float(clip.get("speed") or 1) or 1
+
+    with tempfile.TemporaryDirectory() as d:
+        ext = os.path.splitext(item["key"])[1] or ".bin"
+        path = os.path.join(d, f"src{ext}")
+        with open(path, "wb") as f:
+            f.write(storage.get(item["key"]))
+        try:
+            raw, _dur = _transcribe(path)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    # group segments into ~_BROLL_WINDOW-second topic windows (timeline coords)
+    windows: list[dict] = []
+    cur: dict | None = None
+    for seg in raw:
+        s, e = float(seg.get("start") or 0), float(seg.get("end") or 0)
+        if e <= c_in or s >= c_out:
+            continue
+        s, e = max(s, c_in), min(e, c_out)
+        txt = (seg.get("text") or "").strip()
+        if not txt:
+            continue
+        ts = round(c_start + (s - c_in) / speed, 3)
+        te = round(c_start + (e - c_in) / speed, 3)
+        if cur is None:
+            cur = {"start": ts, "end": te, "text": txt}
+        else:
+            cur["end"], cur["text"] = te, f"{cur['text']} {txt}"
+        if cur["end"] - cur["start"] >= _BROLL_WINDOW:
+            windows.append(cur)
+            cur = None
+            if len(windows) >= _BROLL_MAX:
+                break
+    if cur and len(windows) < _BROLL_MAX:
+        windows.append(cur)
+
+    items: list[dict] = []
+    for win in windows:
+        query = _broll_query(win["text"])
+        url = _pexels_photo_url(query)
+        if not url:
+            continue
+        key = _import_pool_asset(session, workflow, workspace_id, url, "image", storage)
+        items.append(
+            {
+                "asset_id": key,
+                "kind": "image",
+                "url": storage.url(key),
+                "start": win["start"],
+                "duration": round(min(_BROLL_CLIP_DUR, win["end"] - win["start"]), 3),
+                "query": query,
+            }
+        )
+    return {"items": items}
 
 
 _ENHANCE_FILTERS = {

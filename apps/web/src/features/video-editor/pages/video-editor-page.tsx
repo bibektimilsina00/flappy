@@ -17,7 +17,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { cn } from "@/lib/cn";
-import { addToBrandKit, chromaKeyClip, detachClipAudio, duplicateProject, enhanceClipAudio, getExecution, importUrl, listExecutionAssets, magicCutClip, removeClipBackground, saveTemplate, startClipOp } from "../services/video-editor-api";
+import { addToBrandKit, chromaKeyClip, detachClipAudio, duplicateProject, enhanceClipAudio, getExecution, importUrl, listExecutionAssets, magicBroll, magicCutClip, removeClipBackground, saveTemplate, startClipOp } from "../services/video-editor-api";
 import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
 import { ExportPanel } from "../components/export-panel/export-panel";
 import { Inspector } from "../components/inspector/inspector";
@@ -144,6 +144,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
     addShapeClip,
     addSubtitleClips,
     addImportedClip,
+    addBrollClips,
     detachAudioClip,
     doImport,
     dropAsset,
@@ -192,9 +193,21 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
       toast.error(e instanceof Error ? e.message : "Couldn't save template");
     }
   };
-  const enhanceSelected = async (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter" | "background_expand") => {
+  const enhanceSelected = async (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter" | "background_expand" | "magic_broll") => {
     if (!selectedClip || !doc) return;
     try {
+      // Magic B-Roll transcribes → fetches stock photos → inserts NEW overlay clips.
+      if (op === "magic_broll") {
+        const { items } = await magicBroll(projectId, selectedClip.id);
+        await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
+        if (!items.length) {
+          toast.error("Couldn't find b-roll for this clip");
+          return;
+        }
+        addBrollClips(items.map((i) => ({ assetId: i.asset_id, start: i.start, duration: i.duration })));
+        toast.success(`Added ${items.length} b-roll clip${items.length > 1 ? "s" : ""}`);
+        return;
+      }
       // Slow ML video ops run async on the worker → dispatch, poll, then swap.
       const asyncOp =
         op === "eye_contact" ? "eye_contact" : op === "face_filter" ? "face_filter" : op === "background_expand" ? "background_expand" : op === "remove_bg" && selectedClip.kind === "video" ? "remove_bg_video" : null;

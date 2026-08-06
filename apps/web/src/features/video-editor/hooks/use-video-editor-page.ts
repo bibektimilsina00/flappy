@@ -82,6 +82,38 @@ export function useVideoEditorPage(projectId: string) {
     setSelection(new Set([newId]));
   };
 
+  // Drop Magic B-Roll images onto a dedicated overlay track at their topic times.
+  const addBrollClips = (items: { assetId: string; start: number; duration: number }[]) => {
+    if (!doc || !items.length) return;
+    let nextDoc = doc;
+    let track = nextDoc.tracks.find((t) => t.kind === "video" && t.name === "B-Roll");
+    if (!track) {
+      nextDoc = addTrack(nextDoc, "video");
+      track = nextDoc.tracks[0];
+      nextDoc = { ...nextDoc, tracks: nextDoc.tracks.map((t) => (t.id === track!.id ? { ...t, name: "B-Roll" } : t)) };
+      track = nextDoc.tracks.find((t) => t.id === track!.id)!;
+    }
+    for (const it of items) {
+      const dur = Math.max(0.3, it.duration);
+      const clip: Clip = {
+        id: `c-${crypto.randomUUID().slice(0, 8)}`,
+        assetId: it.assetId,
+        kind: "image",
+        start: Math.max(0, it.start),
+        duration: dur,
+        in: 0,
+        out: dur,
+        speed: 1,
+        volume: 1,
+        transform: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
+        keyframes: [],
+        effects: [],
+      };
+      nextDoc = addClip(nextDoc, track.id, clip);
+    }
+    commit(nextDoc);
+  };
+
   const addSubtitleClips = (segments: { start: number; end: number; text: string }[]) => {
     if (!doc || !segments.length) return;
     // dedicated subtitle track (reuse if present), styled bottom-center captions
@@ -272,6 +304,7 @@ export function useVideoEditorPage(projectId: string) {
     addTextClip,
     addShapeClip,
     addSubtitleClips,
+    addBrollClips,
     addImportedClip,
     detachAudioClip,
     doImport,
