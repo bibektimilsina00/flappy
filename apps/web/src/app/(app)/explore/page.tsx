@@ -1,6 +1,5 @@
-import { Compass } from "lucide-react";
-import { PagePlaceholder } from "@/shared/components/page-placeholder";
+import { CommunityPage } from "@/features/community";
 
 export default function Page() {
-  return <PagePlaceholder title="Explore" description="Discover community projects and templates." icon={Compass} />;
+  return <CommunityPage />;
 }
