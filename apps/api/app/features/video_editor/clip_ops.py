@@ -19,6 +19,8 @@ _OPS = {
     "remove_bg_video": {"model": "arielreplicate/robust_video_matting", "field": "input_video", "ext": "mp4", "mime": "video/mp4", "kind": "video"},
     # No canonical Replicate gaze-correction model — operator supplies one via settings.
     "eye_contact": {"model_setting": "eye_contact_model", "field": "input_video", "ext": "mp4", "mime": "video/mp4", "kind": "video"},
+    # Face touch-up — likewise operator-supplied (model must accept an `input_video` field).
+    "face_filter": {"model_setting": "face_filter_model", "field": "input_video", "ext": "mp4", "mime": "video/mp4", "kind": "video"},
 }
 SUPPORTED_OPS = frozenset(_OPS)
 _TERMINAL = {"succeeded", "failed", "canceled"}
