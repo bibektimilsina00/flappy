@@ -108,6 +108,11 @@ export function useInspector({
   const toggleFlipH = () => commitTransform({ flipH: !clip.transform.flipH });
   const toggleFlipV = () => commitTransform({ flipV: !clip.transform.flipV });
   const toggleRoundCorners = () => commitTransform({ radius: clip.transform.radius ? 0 : 24 });
+  const toggleFadeAudio = () => {
+    startGesture();
+    preview(updateClip(doc, clip.id, { fadeAudio: !clip.fadeAudio }));
+    endGesture(true);
+  };
   const fitCanvas = () => commitTransform({ fit: "contain", scale: 1, x: 0, y: 0 });
   const fillCanvas = () => commitTransform({ fit: "cover", scale: 1, x: 0, y: 0 });
 
@@ -134,6 +139,7 @@ export function useInspector({
     updateVolume,
     updateRotation,
     updateEnd,
+    toggleFadeAudio,
     toggleFlipH,
     toggleFlipV,
     toggleRoundCorners,

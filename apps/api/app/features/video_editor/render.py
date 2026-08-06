@@ -15,6 +15,8 @@ def _f(x: float) -> str:
 
 # Transition fade length (seconds) at a clip boundary — capped to half the clip.
 _TRANSITION_D = 0.6
+# Audio fade-in/out length (seconds) when a clip has fadeAudio — capped to half.
+_FADE_D = 0.5
 
 
 def _lane(kind: str) -> str:
@@ -245,6 +247,11 @@ def build_render_args(
         chain = f"[{i}:a]atrim=start={_f(clip.get('in', 0))}:end={_f(clip.get('out', clip.get('duration', 0)))},asetpts=PTS-STARTPTS,"
         if abs(speed - 1) > 0.01 and 0.5 <= speed <= 2:
             chain += f"atempo={_f(speed)},"
+        if clip.get("fadeAudio"):
+            dur = float(clip.get("duration", 0))
+            d = min(_FADE_D, dur / 2)
+            if d > 0:
+                chain += f"afade=t=in:st=0:d={_f(d)},afade=t=out:st={_f(dur - d)}:d={_f(d)},"
         ms = int(start * 1000)
         chain += f"volume={_f(vol)},adelay={ms}|{ms}[a{n}]"
         fc.append(chain)

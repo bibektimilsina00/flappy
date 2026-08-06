@@ -194,7 +194,6 @@ type GestureProps = { onPointerDown: () => void; onFocus: () => void; onBlur: ()
 
 function VideoBody({ clip, insp, onDelete, replace, onDetachAudio, onEnhance }: { clip: Clip; insp: Insp; onDelete: () => void; replace?: React.ReactNode; onDetachAudio?: () => Promise<void>; onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter" | "background_expand" | "magic_broll" | "dub") => Promise<void> }) {
   const g = insp.gestureProps;
-  const [fadeAudio, setFadeAudio] = useState(false);
   const [detaching, setDetaching] = useState(false);
   const detach = async () => {
     if (!onDetachAudio || detaching) return;
@@ -243,7 +242,7 @@ function VideoBody({ clip, insp, onDelete, replace, onDetachAudio, onEnhance }: 
 
       <SliderRow icon={Volume2} value={clip.volume} onInput={insp.updateVolume} g={g} />
 
-      <ToggleRow icon={AudioLines} title="Fade Audio In/Out" checked={fadeAudio} onChange={setFadeAudio} />
+      <ToggleRow icon={AudioLines} title="Fade Audio In/Out" checked={!!clip.fadeAudio} onChange={insp.toggleFadeAudio} />
 
       <div>
         <div className="mb-2 flex items-center justify-between">
@@ -367,7 +366,6 @@ function EnhanceRow({ icon: Icon, title, desc, onRun }: { icon: typeof Eye; titl
 
 function AudioBody({ clip, insp, onDelete, onEnhance, replace }: { clip: Clip; insp: Insp; onDelete: () => void; onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter" | "background_expand" | "magic_broll" | "dub") => Promise<void>; replace?: React.ReactNode }) {
   const g = insp.gestureProps;
-  const [fade, setFade] = useState(false);
   const muted = clip.volume === 0;
 
   return (
@@ -402,7 +400,7 @@ function AudioBody({ clip, insp, onDelete, onEnhance, replace }: { clip: Clip; i
 
       <SliderRow icon={Volume2} value={clip.volume} onInput={insp.updateVolume} g={g} />
 
-      <ToggleRow icon={AudioLines} title="Fade In/Out" checked={fade} onChange={setFade} />
+      <ToggleRow icon={AudioLines} title="Fade In/Out" checked={!!clip.fadeAudio} onChange={insp.toggleFadeAudio} />
 
       <div>
         <div className="mb-2 flex items-center justify-between">

@@ -64,7 +64,7 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 ## Clip inspector (`inspector/inspector.tsx`)
 
 ### Video clip
-- [ ] Edit with Script, **Animations** / **Adjust** tiles, **Fade Audio**
+- [ ] Edit with Script, **Animations** / **Adjust** tiles
 - [x] **Remove Filler Words** / **Magic Cut** (video) — transcribe → drop um/uh segments → re-render trimmed mp4 (extends `.../magic-cut` to video; ffmpeg, no provider), swaps in the result
 - [x] **Face Filter** — async touch-up on the clip-op path (Replicate, model via `FACE_FILTER_MODEL`; 501 until set)
 - [x] **AI Background Expand** — async outpaint on the clip-op path (Replicate, model via `BACKGROUND_EXPAND_MODEL`; 501 until set)
@@ -75,7 +75,7 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 - [x] **Green Screen** (ffmpeg chromakey → transparent webm), **Speed**, **Volume**, **Opacity**, **Rotation**, **Flip H/V**, **Round Corners**, **Replace**, **Detach Audio**, **Start/End**, **Delete**
 
 ### Audio clip
-- [ ] **Fade In/Out**
+- [x] **Fade Audio In/Out** — `clip.fadeAudio` ramps the audio volume in/out; burns via ffmpeg `afade` in export and mirrors as a live volume ramp in the preview
 - [x] **Clean Audio** (ffmpeg denoise) & **Remove Silences** (ffmpeg silenceremove) via `.../enhance`, plus **Magic Cut** (transcribe → cut filler words) via `.../magic-cut` — swaps the clip to the processed asset; **Mute/Unmute**, **Speed**, **Volume**, **Replace**, **Start/End**, **Delete**
 
 ### Image clip

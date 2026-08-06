@@ -42,6 +42,7 @@ export interface Clip {
   linkedClipIds?: string[]; // captions / overlays / voiceover that follow this clip
   animations?: Record<string, string>; // animation tab (in/out/loop/zoom) -> preset id
   transition?: string; // transition preset id applied at the clip boundary
+  fadeAudio?: boolean; // ramp audio volume in/out at the clip's ends (render + export)
 }
 
 export interface Track {
