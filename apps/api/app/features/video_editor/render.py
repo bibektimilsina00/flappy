@@ -22,30 +22,84 @@ def _ass_time(t: float) -> str:
     return f"{cs // 360000}:{cs % 360000 // 6000:02d}:{cs % 6000 // 100:02d}.{cs % 100:02d}"
 
 
+def _ass_color(hex_str: str) -> str:
+    """#RRGGBB -> ASS &HBBGGRR& primary-colour override (white on bad input)."""
+    s = (hex_str or "").lstrip("#")
+    if len(s) != 6:
+        return "&HFFFFFF&"
+    return f"&H{s[4:6]}{s[2:4]}{s[0:2]}&".upper()
+
+
+def _ass_font(family: str) -> str:
+    """First family in a CSS stack; libass/fontconfig substitutes the closest match."""
+    return (family or "").split(",")[0].strip().strip("'\"")
+
+
 def build_text_ass(doc: dict) -> str | None:
-    """ASS document for the doc's text clips — bottom-centered boxed pills,
-    matching the editor preview. None when there are no text clips."""
+    """ASS document for the doc's text clips. Subtitle-track clips burn as the
+    bottom-centered caption pill; every other text clip renders at its own
+    position with its own font / size / colour / bold / italic / align / spacing /
+    opacity (matching the editor preview). None when there are no text clips.
+
+    ponytail: transform.x/y are treated as doc pixels, same convention as the
+    visual-clip renderer below. libass only faithfully renders the bundled fonts
+    (Poppins/Anton/Bangers); other families fall back via fontconfig. line-height
+    has no ASS equivalent and is skipped.
+    """
     from apps.api.app.features.clips.captions import FONT_NAME
 
     w = int(doc.get("width") or 1080)
     h = int(doc.get("height") or 1920)
-    events = []
+    cx, cy = w / 2, h / 2
+    cap_events: list[str] = []  # subtitle pills (Cap style)
+    txt_events: list[str] = []  # positioned per-clip text (Txt style)
     for track in doc.get("tracks", []):
         if track.get("hidden"):
             continue
+        is_sub = track.get("name") == "Subtitles"
         for clip in track.get("clips", []):
-            content = ((clip.get("text") or {}).get("content") or "").strip()
-            if clip.get("kind") != "text" or not content:
+            if clip.get("kind") != "text":
+                continue
+            ts = clip.get("text") or {}
+            content = (ts.get("content") or "").strip()
+            if not content:
                 continue
             start = float(clip.get("start", 0))
             end = start + float(clip.get("duration", 0))
             if end <= start:
                 continue
             text = content.replace("{", "").replace("}", "").replace("\n", "\\N")
-            events.append(
-                f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Cap,,0,0,0,,{{\\fad(120,60)}}{text}"
-            )
-    if not events:
+            if is_sub:
+                cap_events.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Cap,,0,0,0,,{{\\fad(120,60)}}{text}")
+                continue
+
+            tf = clip.get("transform") or {}
+            x = round(cx + float(tf.get("x") or 0))
+            y = round(cy + float(tf.get("y") or 0))
+            align = {"left": 4, "center": 5, "right": 6}.get(ts.get("align") or "center", 5)
+            size = max(4, round(float(ts.get("fontSize") or 48)))
+            op = max(0.0, min(1.0, float(tf.get("opacity", 1))))
+            tags = [
+                f"\\an{align}",
+                f"\\pos({x},{y})",
+                f"\\fs{size}",
+                f"\\c{_ass_color(ts.get('color') or '#ffffff')}",
+                f"\\b{1 if ts.get('bold') else 0}",
+                f"\\i{1 if ts.get('italic') else 0}",
+            ]
+            fam = _ass_font(ts.get("fontFamily") or "")
+            if fam:
+                tags.append(f"\\fn{fam}")
+            sp = float(ts.get("letterSpacing") or 0)
+            if abs(sp) > 0.01:
+                tags.append(f"\\fsp{_f(sp)}")
+            alpha = round((1 - op) * 255)
+            if alpha:
+                tags.append(f"\\alpha&H{alpha:02X}&")
+            tags.append("\\fad(120,60)")
+            txt_events.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Txt,,0,0,0,,{{{''.join(tags)}}}{text}")
+
+    if not cap_events and not txt_events:
         return None
 
     fontsize = round(h * 16 / 400)
@@ -58,9 +112,12 @@ def build_text_ass(doc: dict) -> str | None:
         "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
         "Alignment, MarginL, MarginR, MarginV, Encoding\n"
         f"Style: Cap,{FONT_NAME},{fontsize},&H00FFFFFF,&H00FFFFFF,&H00000000,&H50000000,"
-        f"0,0,0,0,100,100,0,0,4,1,0,2,40,40,{margin_v},1\n\n"
+        f"0,0,0,0,100,100,0,0,4,1,0,2,40,40,{margin_v},1\n"
+        # Txt: plain fill, no box/outline (per-clip look comes from inline overrides)
+        f"Style: Txt,{FONT_NAME},48,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,"
+        "0,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1\n\n"
         "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
-        + "\n".join(events)
+        + "\n".join(cap_events + txt_events)
         + "\n"
     )
 

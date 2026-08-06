@@ -55,7 +55,7 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 
 ### Brand Kit tab (`left-panel/brand-kit-tab.tsx`)
 - [x] **Save to Brand Kit** (from any clip's ⋯) persists the asset/colour/**font** in `workspace.preferences.brand_kit`; the tab lists items (images/videos/audio/colours/**fonts**) with remove + click-to-add-to-project. No migration (JSON field).
-- [x] **Fonts** — an "Add font" picker saves a family (web-safe list); a saved font tile previews in its family and, on click, applies `fontFamily` to the selected text clip (preview only — export uses one baked font, see notes #4).
+- [x] **Fonts** — an "Add font" picker saves a family (web-safe list); a saved font tile previews in its family and, on click, applies `fontFamily` to the selected text clip. Renders in the preview and (best-effort, via fontconfig fallback) in export — see notes #4.
 
 ---
 
@@ -123,8 +123,8 @@ Most stubs fall into a few buckets — implementing the bucket unlocks many rows
 1. **Generation back-end** (text->image/video, TTS, dubbing, AI transitions, characters) -> AI Playground, Add-TTS, most AI Tools tiles, Generate buttons.
 2. **Per-clip AI enhancement** — Clean Audio (denoise) + Remove Silences DONE (ffmpeg, `POST .../enhance`). Green Screen DONE (ffmpeg chromakey). Remaining need models/providers: remove-filler, background removal, eye contact, magic cut, face filter.
 3. **Animation/Transition render engine** — Animations DONE (`lib/animation-engine.ts`). Remaining: transition render (boundary crossfades between adjacent clips).
-4. **Richer text renderer** — DONE: font/size/color/bold/italic/align now render (`clip.text.*`). Remaining: line-height, letter-spacing, text styles/effects, text-behind-person.
+4. **Richer text renderer** — DONE in preview AND export: per-clip font-family/size/color/bold/italic/align/letter-spacing/opacity + position now burn into the MP4 via per-event ASS overrides (`render.py build_text_ass`; subtitle-track clips keep the bottom-center caption pill). Ceilings: libass only renders bundled fonts faithfully (Poppins/Anton/Bangers) — other families fall back via fontconfig; line-height and text effects/text-behind-person still unsupported in export.
 5. **Transform extras** — DONE: Flip (H/V), Round Corners, Fit/Fill, and Order/z-index (via `transform.flipH/flipV/radius/fit/z`). Remaining: filters/effects.
 6. **Stock/asset providers** (stock video/image/music/SFX, stickers, shapes, GIFs, characters) -> Elements tab + all "Stock" sections.
-7. **Brand Kit** — DONE (save/list/remove assets + colours + **fonts** in `workspace.preferences`; add-to-project; a saved font applies its family to the selected text clip, rendered in the preview). Remaining: subtitle styles, custom uploaded font files (export still uses one baked font — see #4).
+7. **Brand Kit** — DONE (save/list/remove assets + colours + **fonts** in `workspace.preferences`; add-to-project; a saved font applies its family to the selected text clip, rendered in preview + best-effort export). Remaining: subtitle styles, custom uploaded font files (export can only bundle a few faces — see #4).
 8. **Project actions** — Duplicate + Version History + Save as Template all DONE (templates stored in `workspace.preferences`, surfaced on the `/templates` page).
