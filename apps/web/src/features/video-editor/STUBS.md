@@ -61,8 +61,8 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 
 ### Video clip
 - [ ] Edit with Script, **Animations** / **Adjust** tiles, **Fade Audio**
-- [ ] **AI Tools** list (11 items: Clean Audio, Eye Contact, Remove Background, Remove Silences, Remove Filler Words, AI Background Expand, Magic B-Roll, AI Transitions, Face Filter, Magic Cut, Green Screen)
-- [x] **Speed**, **Volume**, **Opacity**, **Rotation**, **Flip H/V**, **Round Corners**, **Replace**, **Detach Audio** (ffmpeg extract → new audio clip, mutes the video), **Start/End**, **Delete**
+- [ ] **AI Tools** list (11 items: Clean Audio, Eye Contact, Remove Background, Remove Silences, Remove Filler Words, AI Background Expand, Magic B-Roll, AI Transitions, Face Filter, Magic Cut)
+- [x] **Green Screen** (ffmpeg chromakey → transparent webm), **Speed**, **Volume**, **Opacity**, **Rotation**, **Flip H/V**, **Round Corners**, **Replace**, **Detach Audio**, **Start/End**, **Delete**
 
 ### Audio clip
 - [ ] **Fade In/Out**, **Magic Cut** (needs AI)
@@ -118,7 +118,7 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 Most stubs fall into a few buckets — implementing the bucket unlocks many rows at once:
 
 1. **Generation back-end** (text->image/video, TTS, dubbing, AI transitions, characters) -> AI Playground, Add-TTS, most AI Tools tiles, Generate buttons.
-2. **Per-clip AI enhancement** — Clean Audio (denoise) + Remove Silences DONE (ffmpeg, `POST .../enhance`). Remaining need models/providers: remove-filler, background removal, eye contact, magic cut, green screen, face filter.
+2. **Per-clip AI enhancement** — Clean Audio (denoise) + Remove Silences DONE (ffmpeg, `POST .../enhance`). Green Screen DONE (ffmpeg chromakey). Remaining need models/providers: remove-filler, background removal, eye contact, magic cut, face filter.
 3. **Animation/Transition render engine** — Animations DONE (`lib/animation-engine.ts`). Remaining: transition render (boundary crossfades between adjacent clips).
 4. **Richer text renderer** — DONE: font/size/color/bold/italic/align now render (`clip.text.*`). Remaining: line-height, letter-spacing, text styles/effects, text-behind-person.
 5. **Transform extras** — DONE: Flip (H/V), Round Corners, Fit/Fill, and Order/z-index (via `transform.flipH/flipV/radius/fit/z`). Remaining: filters/effects.

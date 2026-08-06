@@ -85,7 +85,7 @@ export function Inspector({
   onClose: () => void;
   onDelete: () => void;
   onAddText?: () => void;
-  onEnhance?: (op: "denoise" | "remove_silences") => Promise<void>;
+  onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key") => Promise<void>;
   assets?: VideoEditorAsset[];
   onReplace?: (assetId: string) => void;
   onDetachAudio?: () => Promise<void>;
@@ -102,7 +102,7 @@ export function Inspector({
       </div>
 
       {clip.kind === "video" ? (
-        <VideoBody clip={clip} insp={insp} onDelete={onDelete} replace={<ReplaceControl kind="video" assets={assets} onReplace={onReplace} />} onDetachAudio={onDetachAudio} />
+        <VideoBody clip={clip} insp={insp} onDelete={onDelete} replace={<ReplaceControl kind="video" assets={assets} onReplace={onReplace} />} onDetachAudio={onDetachAudio} onEnhance={onEnhance} />
       ) : clip.kind === "audio" ? (
         <AudioBody clip={clip} insp={insp} onDelete={onDelete} onEnhance={onEnhance} replace={<ReplaceControl kind="audio" assets={assets} onReplace={onReplace} />} />
       ) : clip.kind === "image" ? (
@@ -191,7 +191,7 @@ function fileName(url: string) {
 type Insp = ReturnType<typeof useInspector>;
 type GestureProps = { onPointerDown: () => void; onFocus: () => void; onBlur: () => void; onPointerUp: () => void };
 
-function VideoBody({ clip, insp, onDelete, replace, onDetachAudio }: { clip: Clip; insp: Insp; onDelete: () => void; replace?: React.ReactNode; onDetachAudio?: () => Promise<void> }) {
+function VideoBody({ clip, insp, onDelete, replace, onDetachAudio, onEnhance }: { clip: Clip; insp: Insp; onDelete: () => void; replace?: React.ReactNode; onDetachAudio?: () => Promise<void>; onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key") => Promise<void> }) {
   const g = insp.gestureProps;
   const [fadeAudio, setFadeAudio] = useState(false);
   const [detaching, setDetaching] = useState(false);
@@ -252,9 +252,13 @@ function VideoBody({ clip, insp, onDelete, replace, onDetachAudio }: { clip: Cli
           </span>
         </div>
         <div className="space-y-1">
-          {AI_TOOLS.map((t) => (
-            <AiToolRow key={t.title} tool={t} />
-          ))}
+          {AI_TOOLS.map((t) =>
+            t.title === "Green Screen" && onEnhance ? (
+              <EnhanceRow key={t.title} icon={Palette} title="Green Screen" desc="Remove green from your video" onRun={() => onEnhance("chroma_key")} />
+            ) : (
+              <AiToolRow key={t.title} tool={t} />
+            ),
+          )}
         </div>
       </div>
 
@@ -347,7 +351,7 @@ function EnhanceRow({ icon: Icon, title, desc, onRun }: { icon: typeof Eye; titl
   );
 }
 
-function AudioBody({ clip, insp, onDelete, onEnhance, replace }: { clip: Clip; insp: Insp; onDelete: () => void; onEnhance?: (op: "denoise" | "remove_silences") => Promise<void>; replace?: React.ReactNode }) {
+function AudioBody({ clip, insp, onDelete, onEnhance, replace }: { clip: Clip; insp: Insp; onDelete: () => void; onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key") => Promise<void>; replace?: React.ReactNode }) {
   const g = insp.gestureProps;
   const [fade, setFade] = useState(false);
   const muted = clip.volume === 0;

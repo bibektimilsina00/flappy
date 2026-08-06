@@ -16,7 +16,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/cn";
-import { addToBrandKit, detachClipAudio, duplicateProject, enhanceClipAudio } from "../services/video-editor-api";
+import { addToBrandKit, chromaKeyClip, detachClipAudio, duplicateProject, enhanceClipAudio } from "../services/video-editor-api";
 import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
 import { ExportPanel } from "../components/export-panel/export-panel";
 import { Inspector } from "../components/inspector/inspector";
@@ -161,9 +161,9 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
     const { workflow_id } = await duplicateProject(projectId);
     router.push(`/video-editor?project=${workflow_id}`);
   };
-  const enhanceSelected = async (op: "denoise" | "remove_silences") => {
+  const enhanceSelected = async (op: "denoise" | "remove_silences" | "chroma_key") => {
     if (!selectedClip || !doc) return;
-    const r = await enhanceClipAudio(projectId, selectedClip.id, op);
+    const r = op === "chroma_key" ? await chromaKeyClip(projectId, selectedClip.id) : await enhanceClipAudio(projectId, selectedClip.id, op);
     await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
     const dur = r.duration || selectedClip.duration;
     commit(updateClip(doc, selectedClip.id, { assetId: r.asset_id, in: 0, out: dur, duration: dur }));

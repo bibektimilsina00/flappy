@@ -144,6 +144,18 @@ export function addBrandKitToProject(workflowId: string, itemId: string): Promis
 	return api(`/video-editor/projects/${workflowId}/brand-kit/${itemId}/add`, { method: "POST" });
 }
 
+// Chroma-key (green screen) a video clip; returns a new transparent-webm asset.
+export function chromaKeyClip(
+	projectId: string,
+	clipId: string,
+	color?: string,
+): Promise<{ asset_id: string; kind: string; url: string; duration: number }> {
+	return api(`/video-editor/projects/${projectId}/chroma-key`, {
+		method: "POST",
+		body: JSON.stringify({ clip_id: clipId, color: color ?? null }),
+	});
+}
+
 // Extract a video clip's audio into a new pool asset.
 export function detachClipAudio(
 	projectId: string,
