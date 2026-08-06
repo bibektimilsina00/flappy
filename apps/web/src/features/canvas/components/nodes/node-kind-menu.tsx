@@ -1,4 +1,4 @@
-import { CREATE_NODE_KINDS, NODE_CONFIG, type NodeKind } from "../lib/constants";
+import { CREATE_NODE_KINDS, NODE_CONFIG, type NodeKind } from "../../lib/constants";
 
 export function NodeKindMenu({ onSelect }: { onSelect: (kind: NodeKind) => void }) {
   return (
@@ -13,7 +13,7 @@ export function NodeKindMenu({ onSelect }: { onSelect: (kind: NodeKind) => void 
             className="flex items-center gap-2 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <Icon className="size-3.5" />
-            {NODE_CONFIG[kind].title}
+            <span className="capitalize">{kind}</span>
           </button>
         );
       })}

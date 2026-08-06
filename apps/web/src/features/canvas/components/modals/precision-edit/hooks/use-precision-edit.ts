@@ -13,9 +13,8 @@ export type Shape =
 export type Tool = "select" | "arrow" | "rect" | "ellipse" | "text" | "pen" | "eraser";
 
 export function usePrecisionEdit(
-  nodeId: string,
   src: string,
-  onCommit: (nodeId: string, url: string) => void,
+  onDone: (result: { key: string; url: string }) => void,
   onClose: () => void,
 ) {
   const [tool, setTool] = useState<Tool>("pen");
@@ -54,7 +53,7 @@ export function usePrecisionEdit(
     try {
       const dataUrl = canvasEl.toDataURL("image/png");
       const res = await compositeAsset(src, dataUrl);
-      onCommit(nodeId, res.url);
+      onDone(res);
       toast.success("Edits saved successfully");
       onClose();
     } catch (e) {

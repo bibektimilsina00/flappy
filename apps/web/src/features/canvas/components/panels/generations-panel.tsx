@@ -1,8 +1,8 @@
 "use client";
 
 import { Loader2, X } from "lucide-react";
-import { type AssetItem, useAssets } from "../hooks/use-assets";
-import { AssetThumb } from "./asset-thumb";
+import { type AssetItem, useAssets } from "../../hooks/use-assets";
+import { AssetThumb } from "../shared/asset-thumb";
 
 const pad = (n: number, w = 2) => String(n).padStart(w, "0");
 
@@ -55,7 +55,7 @@ export function GenerationsPanel({ onClose }: { onClose: () => void }) {
               <div className="columns-2 gap-3 pt-4 lg:columns-3">
                 {items.map((a) => (
                   <div key={a.id} className="mb-3 break-inside-avoid overflow-hidden rounded-lg">
-                    <AssetThumb asset={a} className="w-full rounded-lg" />
+                    <AssetThumb kind={a.kind} url={a.url} className="w-full rounded-lg" />
                   </div>
                 ))}
               </div>

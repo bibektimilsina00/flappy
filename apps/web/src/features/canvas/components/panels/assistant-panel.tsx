@@ -2,9 +2,9 @@
 
 import { History, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { ChatMsg, ThreadMeta } from "../hooks/use-assistant-chat";
+import type { ChatMsg, ThreadMeta } from "../../hooks/use-assistant-chat";
 import { AssistantInput } from "./assistant-input";
-import { Markdown } from "./markdown";
+import { Markdown } from "../shared/markdown";
 
 const SUGGESTIONS = [
   "Build a 30s product ad: script → keyframe → video",
@@ -145,7 +145,7 @@ export function AssistantPanel({
               ) : (
                 // biome-ignore lint/suspicious/noArrayIndexKey: append-only chat log
                 <div key={i} className="space-y-2 text-sm">
-                  <Markdown>{m.content}</Markdown>
+                  <Markdown content={m.content} />
                   {m.suggestions?.length && i === messages.length - 1 && !loading ? (
                     <div className="flex flex-wrap gap-2 pt-1">
                       {m.suggestions.map((s) => (

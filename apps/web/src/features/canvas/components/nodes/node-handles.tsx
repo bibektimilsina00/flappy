@@ -1,7 +1,7 @@
 import { Handle, type InternalNode, type Node, Position, useNodeId, useStore } from "@xyflow/react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { NODE_CONFIG, type NodeKind, type Port } from "../lib/constants";
+import { NODE_CONFIG, type NodeKind, type Port } from "../../lib/constants";
 
 // Ported from runmycrew: bar on the border, expands to a half-pill on hover.
 const BASE = "nodrag nopan !z-50 !cursor-crosshair !border-none !transition-all !duration-150";
@@ -18,12 +18,9 @@ function topFor(count: number, index: number): string {
   return count === 1 ? "28px" : `${((index + 1) * 100) / (count + 1)}%`;
 }
 
-// Does this node have data to send? Text nodes must have non-empty text;
-// media nodes carry their (eventual) output.
 function nodeFlows(node: InternalNode<Node> | undefined): boolean {
   if (!node) return false;
   if (node.type === "text") {
-    // Only real content flows downstream — not the node's own prompt.
     const data = node.data as Record<string, unknown>;
     return Boolean(String(data?.text ?? "").trim());
   }
@@ -88,31 +85,30 @@ export function NodeHandles({ kind }: NodeHandlesProps) {
 
   return (
     <>
-      {inputs.map((port, index) => {
-        const info = state.inputs[port.id];
+      {inputs.map((port, i) => {
+        const info = state.inputs[port.id] ?? { count: 0, flowing: false };
         return (
           <PortHandle
             key={port.id}
-            Icon={Icon}
-            port={port}
             isInput
-            top={topFor(inputs.length, index)}
-            count={info?.count ?? 0}
-            green={Boolean(info?.flowing)}
+            port={port}
+            top={topFor(inputs.length, i)}
+            count={info.count}
+            flowing={info.flowing}
           />
         );
       })}
-      {outputs.map((port, index) => {
+
+      {outputs.map((port, i) => {
         const count = state.outputs[port.id] ?? 0;
         return (
           <PortHandle
             key={port.id}
-            Icon={Icon}
-            port={port}
             isInput={false}
-            top={topFor(outputs.length, index)}
+            port={port}
+            top={topFor(outputs.length, i)}
             count={count}
-            green={count >= 1 && state.selfFlows}
+            flowing={state.selfFlows}
           />
         );
       })}
@@ -121,31 +117,37 @@ export function NodeHandles({ kind }: NodeHandlesProps) {
 }
 
 function PortHandle({
-  Icon,
-  port,
   isInput,
+  port,
   top,
   count,
-  green,
+  flowing,
 }: {
-  Icon: LucideIcon;
-  port: Port;
   isInput: boolean;
+  port: Port;
   top: string;
   count: number;
-  green: boolean;
+  flowing: boolean;
 }) {
+  const PortIcon = port.icon;
   const max = port.max ?? 1;
-  const PortIcon = port.icon ?? Icon;
+  const isFull = isInput && count >= max;
+
+  const bg = flowing
+    ? "!bg-[#14b8a6] !shadow-[0_0_8px_rgba(20,184,166,0.6)]"
+    : count > 0
+      ? "!bg-foreground/70"
+      : "!bg-muted-foreground/40 hover:!bg-foreground";
 
   return (
     <div className="group/port">
       <Handle
         type={isInput ? "target" : "source"}
-        id={port.id}
         position={isInput ? Position.Left : Position.Right}
-        className={cn(isInput ? H_IN : H_OUT, green ? "!bg-emerald-400" : "!bg-muted-foreground/50")}
-        style={{ top, transform: "translateY(-50%)" }}
+        id={port.id}
+        isConnectable={!isFull}
+        className={cn(isInput ? H_IN : H_OUT, bg)}
+        style={{ top }}
       />
       <div
         className={cn(
@@ -157,7 +159,7 @@ function PortHandle({
         )}
         style={{ top }}
       >
-        <PortIcon className="size-3.5" />
+        {PortIcon ? <PortIcon className="size-3.5" /> : null}
         <span>{port.label}</span>
         {isInput ? (
           <span className="text-muted-foreground/50">

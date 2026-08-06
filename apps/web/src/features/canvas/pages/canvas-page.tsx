@@ -20,16 +20,16 @@ import {
 } from "@/features/projects";
 import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
 import { CanvasActionsProvider } from "../components/canvas-actions";
-import { AssistantButton } from "../components/assistant-button";
-import { AssistantPanel } from "../components/assistant-panel";
-import { CanvasContextMenu } from "../components/canvas-context-menu";
-import { CanvasControls, type CanvasTool } from "../components/canvas-controls";
-import { CanvasEmptyState } from "../components/canvas-empty-state";
-import { CanvasToolbar } from "../components/canvas-toolbar";
+import { AssistantButton } from "../components/panels/assistant-button";
+import { AssistantPanel } from "../components/panels/assistant-panel";
+import { CanvasContextMenu } from "../components/toolbar/canvas-context-menu";
+import { CanvasControls, type CanvasTool } from "../components/toolbar/canvas-controls";
+import { CanvasEmptyState } from "../components/toolbar/canvas-empty-state";
+import { CanvasToolbar } from "../components/toolbar/canvas-toolbar";
 import { ExecutionStatusProvider } from "../components/execution-status";
 import { FlowCanvas } from "../components/flow-canvas";
-import { NodeContextMenu } from "../components/node-context-menu";
-import { NodeKindMenu } from "../components/node-kind-menu";
+import { NodeContextMenu } from "../components/nodes/node-context-menu";
+import { NodeKindMenu } from "../components/nodes/node-kind-menu";
 import { useAssistant } from "../hooks/use-assistant";
 import {
 	type AssistantOp,
@@ -573,9 +573,10 @@ function CanvasWorkspace({
 
 							<CanvasControls
 								tool={tool}
+								zoom={1}
 								onToolChange={setTool}
-								onUndo={() => {}}
-								onRedo={() => {}}
+								onZoomIn={() => rf.current?.zoomIn()}
+								onZoomOut={() => rf.current?.zoomOut()}
 								onFitView={() =>
 									rf.current?.fitView({ maxZoom: 0.85, duration: 300 })
 								}
@@ -583,7 +584,7 @@ function CanvasWorkspace({
 
 							<CanvasToolbar
 								onAddNode={addNode}
-								onUpload={handleUpload}
+								onUploadMedia={handleUpload}
 								onAddSticker={handleAddSticker}
 							/>
 
@@ -633,6 +634,7 @@ function CanvasWorkspace({
 									x={menu.x}
 									y={menu.y}
 									onAddNode={(kind) => addNodeAt(kind, menu.flow)}
+									onPaste={() => pasteNode()}
 									onClose={() => setMenu(null)}
 								/>
 							) : null}

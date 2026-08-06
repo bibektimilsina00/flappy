@@ -3,8 +3,8 @@
 import { Loader2, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/cn";
-import { useAssets } from "../hooks/use-assets";
-import { AssetThumb } from "./asset-thumb";
+import { useAssets } from "../../hooks/use-assets";
+import { AssetThumb } from "../shared/asset-thumb";
 
 const TABS = ["Mine", "Unsplash", "Movie Library"] as const;
 
@@ -74,7 +74,7 @@ export function LibraryPanel({ onClose }: { onClose: () => void }) {
               <div className="mt-3 grid grid-cols-4 gap-3 lg:grid-cols-5">
                 {assets.map((a) => (
                   <div key={a.id} className="overflow-hidden rounded-lg">
-                    <AssetThumb asset={a} className="aspect-square w-full rounded-lg object-cover" />
+                    <AssetThumb kind={a.kind} url={a.url} className="aspect-square w-full rounded-lg object-cover" />
                   </div>
                 ))}
               </div>

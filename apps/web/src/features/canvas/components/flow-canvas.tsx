@@ -18,13 +18,13 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { AudioNode } from "./nodes/audio-node";
-import { StickerNode } from "./sticker-node";
-import { CustomEdge } from "./custom-edge";
-import type { CanvasTool } from "./canvas-controls";
+import { StickerNode } from "./nodes/sticker-node";
+import { CustomEdge } from "./toolbar/custom-edge";
+import type { CanvasTool } from "./toolbar/canvas-controls";
 import { ImageNode } from "./nodes/image-node";
-import { TextNode } from "./text-node";
+import { TextNode } from "./nodes/text-node";
 import { VideoNode } from "./nodes/video-node";
-import { WorldNode } from "./world-node";
+import { WorldNode } from "./nodes/world-node";
 
 const nodeTypes: NodeTypes = {
   text: TextNode,

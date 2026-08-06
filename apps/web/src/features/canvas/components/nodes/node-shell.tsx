@@ -11,9 +11,9 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { NODE_CONFIG, type NodeConfig, type NodeKind } from "../../lib/constants";
 import { useNodeStatus } from "../execution-status";
-import { NodeHandles } from "../node-handles";
-import { NodeToolbar } from "../node-toolbar";
-import { PromptBar } from "../prompt-bar";
+import { NodeHandles } from "./node-handles";
+import { NodeToolbar } from "./node-toolbar";
+import { PromptBar } from "../toolbar/prompt-bar/prompt-bar";
 
 const BEAM =
   "pointer-events-none absolute -inset-24 animate-[spin_3.5s_linear_infinite] opacity-90 [background:conic-gradient(from_0deg,transparent_0deg,transparent_310deg,#14b8a6_335deg,transparent_360deg)]";

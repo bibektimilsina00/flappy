@@ -1,9 +1,9 @@
 import type { NodeProps } from "@xyflow/react";
-import { useNodeOutput } from "./execution-status";
-import { useNodeActions } from "../hooks/use-node-actions";
-import { AssetPreview } from "./shared/asset-preview";
-import { NodeShell } from "./nodes/node-shell";
-import { RecommendedActions } from "./nodes/recommended-actions";
+import { useNodeOutput } from "../execution-status";
+import { useNodeActions } from "../../hooks/use-node-actions";
+import { AssetPreview } from "../shared/asset-preview";
+import { NodeShell } from "./node-shell";
+import { RecommendedActions } from "./recommended-actions";
 
 export function WorldNode({ id, data, selected }: NodeProps) {
   const { locked } = data as { locked?: boolean };
