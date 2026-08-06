@@ -6,6 +6,7 @@ import {
   ImageIcon as LucideImageIcon,
   ImagePlus,
   Layers,
+  Loader2,
   Maximize2,
   Pencil,
   RectangleHorizontal,
@@ -18,6 +19,9 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
+import { useGeneration } from "../../hooks/use-generation";
+
+const IMAGE_MODES = new Set(["text-to-image", "image-editor", "upscale"]);
 
 const ACCENT = "#14b8a6";
 
@@ -56,15 +60,31 @@ const PROMPTS: Record<string, string> = {
   "character-swap": "Describe the character swap",
 };
 
-export function AiPlayground({ open, onClose, initialMode = "text-to-video" }: { open: boolean; onClose: () => void; initialMode?: string }) {
+export function AiPlayground({ open, onClose, initialMode = "text-to-video", projectId }: { open: boolean; onClose: () => void; initialMode?: string; projectId: string }) {
   const [active, setActive] = useState(initialMode);
   const [prompt, setPrompt] = useState("");
   const [enhance, setEnhance] = useState(true);
+  const gen = useGeneration(projectId);
+  const kind = IMAGE_MODES.has(active) ? "image" : "video";
 
   // sync the active category to the mode the modal was opened with
   useEffect(() => {
     if (open) setActive(initialMode);
   }, [open, initialMode]);
+
+  // close once the generated asset lands in the media pool
+  useEffect(() => {
+    if (gen.status === "done") {
+      gen.reset();
+      setPrompt("");
+      onClose();
+    }
+  }, [gen.status, gen.reset, onClose]);
+
+  const generate = () => {
+    if (!prompt.trim() || gen.running) return;
+    gen.run({ kind, prompt: prompt.trim() });
+  };
 
   if (!open) return null;
 
@@ -118,7 +138,16 @@ export function AiPlayground({ open, onClose, initialMode = "text-to-video" }: {
         {/* content */}
         <div className="flex min-w-0 flex-1 flex-col">
           <main className="grid flex-1 place-items-center p-6 text-center text-sm text-muted-foreground">
-            <p className="max-w-sm">Your generations will appear here. Describe what you want below and hit Generate.</p>
+            {gen.running ? (
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="size-6 animate-spin text-[#14b8a6]" />
+                <p>Generating your {kind}… this can take a moment.</p>
+              </div>
+            ) : gen.error ? (
+              <p className="max-w-sm text-red-400">{gen.error}</p>
+            ) : (
+              <p className="max-w-sm">Your generations appear in the Media pool. Describe what you want below and hit Generate.</p>
+            )}
           </main>
 
           {/* prompt bar */}
@@ -166,10 +195,13 @@ export function AiPlayground({ open, onClose, initialMode = "text-to-video" }: {
                     </div>
                     <button
                       type="button"
-                      className="flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                      onClick={generate}
+                      disabled={gen.running || !prompt.trim()}
+                      className="flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                       style={{ backgroundColor: ACCENT }}
                     >
-                      <Sparkles className="size-4" /> 40
+                      {gen.running ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                      {gen.running ? "Generating" : "Generate"}
                     </button>
                   </div>
                 </div>

@@ -115,6 +115,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
     setAspect,
     splitSelected,
     addTextClip,
+    addShapeClip,
     doImport,
     dropAsset,
     setupKeybindings,
@@ -335,6 +336,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
                 onImport={() => importInput.current?.click()}
                 importing={importing}
                 onAddText={(content) => addTextClip(content, playhead)}
+                onAddShape={(type, color) => addShapeClip({ type, color }, playhead)}
                 projectId={projectId}
                 selectedClip={selectedClip}
                 onOpenPlayground={openPlayground}
@@ -473,7 +475,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
       ) : null}
 
       {/* ── AI generation playground ── */}
-      <AiPlayground open={playgroundOpen} onClose={() => setPlaygroundOpen(false)} initialMode={playgroundMode} />
+      <AiPlayground open={playgroundOpen} onClose={() => setPlaygroundOpen(false)} initialMode={playgroundMode} projectId={projectId} />
 
       {/* dragged floating clip ghost */}
       {drag?.kind === "move" && drag.grab && dragPos

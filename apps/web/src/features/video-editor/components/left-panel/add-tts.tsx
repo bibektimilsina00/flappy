@@ -1,16 +1,39 @@
 "use client";
 
-import { ChevronLeft, ChevronsUpDown, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { ChevronLeft, ChevronsUpDown, Loader2, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
+import { useGeneration } from "../../hooks/use-generation";
 
 const ACCENT = "#14b8a6";
 
-// Text-to-Speech composer — visual for now (no TTS back-end). Opened from the
-// Audio tab's "AI voice" button.
-export function AddTts({ onBack }: { onBack: () => void }) {
+// Actor label -> a generic voice hint passed to the TTS model.
+const ACTORS = [
+  { label: "Bob - Deep and Insightful", sub: "male", voice: "onyx" },
+  { label: "Anna - Warm and Clear", sub: "female", voice: "nova" },
+  { label: "Leo - Bright and Friendly", sub: "male", voice: "echo" },
+  { label: "Mia - Calm and Gentle", sub: "female", voice: "shimmer" },
+];
+
+// Text-to-Speech composer. Runs through the shared generation pipeline (audio
+// kind); the resulting clip lands in the Media pool to drag onto the timeline.
+export function AddTts({ onBack, projectId }: { onBack: () => void; projectId: string }) {
   const [text, setText] = useState("");
   const [tab, setTab] = useState<"actors" | "clone">("actors");
+  const [actor, setActor] = useState(0);
+  const gen = useGeneration(projectId);
+
+  useEffect(() => {
+    if (gen.status === "done") {
+      gen.reset();
+      onBack();
+    }
+  }, [gen.status, gen.reset, onBack]);
+
+  const generate = () => {
+    if (!text.trim() || gen.running) return;
+    gen.run({ kind: "audio", prompt: text.trim(), params: { voice: ACTORS[actor].voice } });
+  };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col select-none">
@@ -53,24 +76,36 @@ export function AddTts({ onBack }: { onBack: () => void }) {
         </div>
 
         {tab === "actors" ? (
-          <button type="button" className="flex w-full items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2.5 text-sm transition-colors hover:bg-accent">
+          <label className="relative flex w-full items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2.5 text-sm transition-colors hover:bg-accent">
             <span className="truncate">
-              Bob - Deep and Insightful <span className="text-muted-foreground">(male)</span>
+              {ACTORS[actor].label} <span className="text-muted-foreground">({ACTORS[actor].sub})</span>
             </span>
             <ChevronsUpDown className="ml-auto size-4 shrink-0 text-muted-foreground" />
-          </button>
+            <select value={actor} onChange={(e) => setActor(Number(e.target.value))} className="absolute inset-0 cursor-pointer opacity-0" aria-label="Voice actor">
+              {ACTORS.map((a, i) => (
+                <option key={a.label} value={i}>
+                  {a.label} ({a.sub})
+                </option>
+              ))}
+            </select>
+          </label>
         ) : (
           <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">Clone your voice — coming soon.</p>
         )}
+
+        {gen.error ? <p className="text-sm text-red-400">{gen.error}</p> : null}
       </div>
 
       <div className="border-t border-border p-3">
         <button
           type="button"
-          className="flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+          onClick={generate}
+          disabled={gen.running || !text.trim()}
+          className="flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           style={{ backgroundColor: ACCENT }}
         >
-          <Sparkles className="size-4" /> Generate voice
+          {gen.running ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+          {gen.running ? "Generating…" : "Generate voice"}
         </button>
       </div>
     </div>

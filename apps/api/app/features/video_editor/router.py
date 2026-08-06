@@ -218,7 +218,7 @@ async def upload_to_project(
 
 
 class GenerateRequest(BaseModel):
-    kind: str  # "image" | "video"
+    kind: str  # "image" | "video" | "audio"
     prompt: str
     model: str | None = None
     params: dict = {}
@@ -238,8 +238,8 @@ def generate_in_project(
     that node through the normal execution engine. The result Asset joins the workflow via
     its execution, so it lands in the shared media pool the editor and canvas both read.
     """
-    if body.kind not in ("image", "video"):
-        raise HTTPException(status_code=422, detail="kind must be 'image' or 'video'")
+    if body.kind not in ("image", "video", "audio"):
+        raise HTTPException(status_code=422, detail="kind must be 'image', 'video' or 'audio'")
     if not (body.prompt or "").strip():
         raise HTTPException(status_code=422, detail="A prompt is required")
 

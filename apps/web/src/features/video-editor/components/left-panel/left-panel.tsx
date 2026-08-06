@@ -46,6 +46,7 @@ export function LeftPanel({
   onImport,
   importing,
   onAddText,
+  onAddShape,
   projectId,
   selectedClip,
   onOpenPlayground,
@@ -56,6 +57,7 @@ export function LeftPanel({
   onImport: () => void;
   importing: boolean;
   onAddText: (content: string) => void;
+  onAddShape: (type: "rect" | "rounded" | "ellipse" | "triangle" | "star", color: string) => void;
   projectId: string;
   selectedClip: Clip | null;
   onOpenPlayground: (mode: string) => void;
@@ -76,7 +78,7 @@ export function LeftPanel({
         ) : category === "video" ? (
           <VideoTab videos={byKind("video")} onImport={onImport} importing={importing} onGenerate={() => onOpenPlayground("text-to-video")} />
         ) : category === "audio" ? (
-          <AudioTab audios={byKind("audio")} onImport={onImport} importing={importing} />
+          <AudioTab audios={byKind("audio")} onImport={onImport} importing={importing} projectId={projectId} />
         ) : category === "image" ? (
           <ImageTab images={byKind("image")} onImport={onImport} importing={importing} onGenerate={() => onOpenPlayground("text-to-image")} />
         ) : category === "text" ? (
@@ -84,7 +86,7 @@ export function LeftPanel({
         ) : category === "subtitles" ? (
           <SubtitlesTab />
         ) : category === "elements" ? (
-          <ElementsTab />
+          <ElementsTab onAddText={onAddText} onAddShape={onAddShape} />
         ) : category === "brand" ? (
           <BrandKitTab onImport={onImport} />
         ) : (

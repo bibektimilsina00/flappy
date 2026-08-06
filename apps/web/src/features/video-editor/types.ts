@@ -4,6 +4,11 @@ export interface Transform {
   scale: number;
   rotation: number;
   opacity: number;
+  flipH?: boolean;
+  flipV?: boolean;
+  radius?: number; // corner radius in px
+  fit?: "contain" | "cover"; // how the media sits in the frame (default contain)
+  z?: number; // stacking override (defaults to the clip's track order)
 }
 
 export interface Clip {
@@ -19,7 +24,18 @@ export interface Clip {
   transform: Transform;
   keyframes: unknown[];
   effects: unknown[];
-  text?: { content: string } & Record<string, unknown>;
+  text?: {
+    content: string;
+    fontFamily?: string;
+    fontSize?: number; // in document px
+    color?: string;
+    bold?: boolean;
+    italic?: boolean;
+    align?: "left" | "center" | "right";
+    lineHeight?: number; // multiplier (default 1.2)
+    letterSpacing?: number; // in document px (default 0)
+  } & Record<string, unknown>;
+  shape?: { type: "rect" | "rounded" | "ellipse" | "triangle" | "star"; color: string };
   prompt?: string;
   model?: string;
   parentClipId?: string; // this clip is attached to (moves/deletes with) its parent

@@ -81,6 +81,35 @@ export function useVideoEditorPage(projectId: string) {
     setSelection(new Set([newId]));
   };
 
+  const addShapeClip = (shape: NonNullable<Clip["shape"]>, playhead: number) => {
+    if (!doc) return;
+    let track = doc.tracks.find((t) => t.kind === "video");
+    let nextDoc = doc;
+    if (!track) {
+      nextDoc = addTrack(doc, "video");
+      track = nextDoc.tracks.find((t) => t.kind === "video")!;
+    }
+    const dur = 3;
+    const start = freeStart(nextDoc, track.id, playhead, dur);
+    const newId = `c-${crypto.randomUUID().slice(0, 8)}`;
+    const clip: Clip = {
+      id: newId,
+      kind: "shape",
+      start,
+      duration: dur,
+      in: 0,
+      out: dur,
+      speed: 1,
+      volume: 1,
+      transform: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
+      keyframes: [],
+      effects: [],
+      shape,
+    };
+    commit(addClip(nextDoc, track.id, clip));
+    setSelection(new Set([newId]));
+  };
+
   const doImport = async (file?: File, playhead = 0) => {
     if (!file || !doc) return;
     setImporting(true);
@@ -163,6 +192,7 @@ export function useVideoEditorPage(projectId: string) {
     setAspect,
     splitSelected,
     addTextClip,
+    addShapeClip,
     doImport,
     dropAsset,
     setupKeybindings,

@@ -29,9 +29,9 @@ const SFX = [
 // A fixed faint waveform strip (deterministic — no per-render randomness).
 const WAVE = [6, 10, 14, 9, 16, 22, 18, 12, 20, 26, 17, 11, 21, 30, 24, 14, 19, 28, 16, 10, 23, 31, 20, 13, 18, 27, 15, 9, 22, 29, 19, 12, 17, 25, 14, 8, 20, 28, 18, 11];
 
-export function AudioTab({ audios, onImport, importing }: { audios: VideoEditorAsset[]; onImport: () => void; importing: boolean }) {
+export function AudioTab({ audios, onImport, importing, projectId }: { audios: VideoEditorAsset[]; onImport: () => void; importing: boolean; projectId: string }) {
   const [tts, setTts] = useState(false);
-  if (tts) return <AddTts onBack={() => setTts(false)} />;
+  if (tts) return <AddTts onBack={() => setTts(false)} projectId={projectId} />;
 
   return (
     <div className="space-y-8 px-3 pt-1">

@@ -113,7 +113,6 @@ type GestureProps = { onPointerDown: () => void; onFocus: () => void; onBlur: ()
 function VideoBody({ clip, insp, onDelete }: { clip: Clip; insp: Insp; onDelete: () => void }) {
   const g = insp.gestureProps;
   const [fadeAudio, setFadeAudio] = useState(false);
-  const [roundCorners, setRoundCorners] = useState(false);
 
   return (
     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3 [scrollbar-width:thin]">
@@ -172,7 +171,7 @@ function VideoBody({ clip, insp, onDelete }: { clip: Clip; insp: Insp; onDelete:
 
       <hr className="border-border" />
 
-      <ToggleRow icon={Frame} title="Round Corners" checked={roundCorners} onChange={setRoundCorners} />
+      <ToggleRow icon={Frame} title="Round Corners" checked={!!clip.transform.radius} onChange={insp.toggleRoundCorners} />
 
       <SliderRow icon={Droplet} label="Opacity" value={clip.transform.opacity} onInput={insp.updateOpacity} g={g} />
 
@@ -190,10 +189,10 @@ function VideoBody({ clip, insp, onDelete }: { clip: Clip; insp: Insp; onDelete:
           />
           <span className="text-xs text-muted-foreground">°</span>
         </label>
-        <IconBtn title="Flip horizontal">
+        <IconBtn title="Flip horizontal" onClick={insp.toggleFlipH} active={clip.transform.flipH}>
           <FlipHorizontal className="size-4" />
         </IconBtn>
-        <IconBtn title="Flip vertical">
+        <IconBtn title="Flip vertical" onClick={insp.toggleFlipV} active={clip.transform.flipV}>
           <FlipVertical className="size-4" />
         </IconBtn>
       </div>
@@ -310,12 +309,16 @@ const ALIGNS = [
   { id: "right", icon: AlignRight },
 ] as const;
 
+const FONTS = ["Inter", "Roboto", "Georgia", "Courier New", "Brush Script MT"];
+
 function TextBody({ clip, insp, onDelete, onAddText }: { clip: Clip; insp: Insp; onDelete: () => void; onAddText?: () => void }) {
   const g = insp.gestureProps;
-  const [bold, setBold] = useState(true);
-  const [italic, setItalic] = useState(false);
-  const [align, setAlign] = useState<string>("center");
   const [behind, setBehind] = useState(false);
+  const [spacing, setSpacing] = useState(false);
+  const ts = clip.text;
+  const bold = !!ts?.bold;
+  const italic = !!ts?.italic;
+  const align = ts?.align ?? "center";
 
   return (
     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3 [scrollbar-width:thin]">
@@ -330,37 +333,95 @@ function TextBody({ clip, insp, onDelete, onAddText }: { clip: Clip; insp: Insp;
 
       <p className="text-sm font-semibold">Style</p>
       <div className="flex gap-2">
-        <button type="button" className="flex flex-1 items-center justify-between rounded-lg bg-secondary/60 px-3 py-2.5 text-sm transition-colors hover:bg-accent">
-          Roboto <ChevronDown className="size-3.5 text-muted-foreground" />
-        </button>
-        <button type="button" className="flex items-center justify-between gap-2 rounded-lg bg-secondary/60 px-3 py-2.5 text-sm transition-colors hover:bg-accent">
-          48px <ChevronDown className="size-3.5 text-muted-foreground" />
-        </button>
-        <button type="button" className="grid size-10 shrink-0 place-items-center rounded-lg border border-border transition-colors hover:bg-accent" title="Text color">
-          <Palette className="size-4" />
-        </button>
+        <div className="relative flex flex-1 items-center rounded-lg bg-secondary/60 px-3 text-sm transition-colors hover:bg-accent">
+          <select
+            value={ts?.fontFamily ?? "Inter"}
+            onChange={(e) => insp.setFontFamily(e.target.value)}
+            className="w-full appearance-none bg-transparent py-2.5 outline-none"
+            style={{ fontFamily: ts?.fontFamily ?? "Inter" }}
+          >
+            {FONTS.map((f) => (
+              <option key={f} value={f} className="bg-card text-foreground">
+                {f}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none size-3.5 text-muted-foreground" />
+        </div>
+        <label className="flex w-20 items-center gap-1 rounded-lg bg-secondary/60 px-2.5 text-sm transition-colors focus-within:ring-1 focus-within:ring-[#14b8a6]">
+          <input
+            type="number"
+            min={4}
+            value={ts?.fontSize ?? 48}
+            onFocus={g.onFocus}
+            onBlur={g.onBlur}
+            onChange={(e) => insp.setFontSize(Number(e.target.value))}
+            className="w-full min-w-0 bg-transparent py-2.5 text-right tabular-nums outline-none"
+          />
+          <span className="text-muted-foreground">px</span>
+        </label>
+        <label className="relative grid size-10 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-lg border border-border" title="Text color">
+          <span className="block size-5 rounded" style={{ backgroundColor: ts?.color ?? "#ffffff" }} />
+          <input type="color" value={ts?.color ?? "#ffffff"} onChange={(e) => insp.setColor(e.target.value)} className="absolute inset-0 cursor-pointer opacity-0" aria-label="Text color" />
+        </label>
       </div>
 
       <div className="flex items-center gap-2">
         <div className="flex gap-0.5 rounded-lg bg-secondary/60 p-0.5">
-          <IconToggle active={bold} onClick={() => setBold((v) => !v)} title="Bold">
+          <IconToggle active={bold} onClick={insp.toggleBold} title="Bold">
             <Bold className="size-4" />
           </IconToggle>
-          <IconToggle active={italic} onClick={() => setItalic((v) => !v)} title="Italic">
+          <IconToggle active={italic} onClick={insp.toggleItalic} title="Italic">
             <Italic className="size-4" />
           </IconToggle>
         </div>
         <div className="flex gap-0.5 rounded-lg bg-secondary/60 p-0.5">
           {ALIGNS.map((a) => (
-            <IconToggle key={a.id} active={align === a.id} onClick={() => setAlign(a.id)} title={`Align ${a.id}`}>
+            <IconToggle key={a.id} active={align === a.id} onClick={() => insp.setAlign(a.id)} title={`Align ${a.id}`}>
               <a.icon className="size-4" />
             </IconToggle>
           ))}
         </div>
-        <button type="button" className="grid size-9 shrink-0 place-items-center rounded-lg bg-secondary/60 text-muted-foreground transition-colors hover:bg-accent" title="Spacing">
+        <button
+          type="button"
+          onClick={() => setSpacing((v) => !v)}
+          aria-pressed={spacing}
+          className={cn("grid size-9 shrink-0 place-items-center rounded-lg transition-colors", spacing ? "bg-[#14b8a6]/15 text-[#14b8a6]" : "bg-secondary/60 text-muted-foreground hover:bg-accent")}
+          title="Spacing"
+        >
           <Baseline className="size-4" />
         </button>
       </div>
+
+      {spacing ? (
+        <div className="grid grid-cols-2 gap-2">
+          <label className="flex items-center gap-2 rounded-lg bg-secondary/60 px-2.5 py-1.5 text-xs">
+            <span className="shrink-0 text-muted-foreground">Line</span>
+            <input
+              type="number"
+              step={0.1}
+              min={0.5}
+              value={ts?.lineHeight ?? 1.2}
+              onFocus={g.onFocus}
+              onBlur={g.onBlur}
+              onChange={(e) => insp.setLineHeight(Number(e.target.value))}
+              className="w-full min-w-0 bg-transparent text-right tabular-nums outline-none"
+            />
+          </label>
+          <label className="flex items-center gap-2 rounded-lg bg-secondary/60 px-2.5 py-1.5 text-xs">
+            <span className="shrink-0 text-muted-foreground">Letter</span>
+            <input
+              type="number"
+              step={0.5}
+              value={ts?.letterSpacing ?? 0}
+              onFocus={g.onFocus}
+              onBlur={g.onBlur}
+              onChange={(e) => insp.setLetterSpacing(Number(e.target.value))}
+              className="w-full min-w-0 bg-transparent text-right tabular-nums outline-none"
+            />
+          </label>
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-2 gap-2">
         <TileBtn icon={Sun} label="Styles" />
@@ -414,7 +475,6 @@ function IconToggle({ active, onClick, title, children }: { active?: boolean; on
 
 function ImageBody({ clip, insp, onDelete }: { clip: Clip; insp: Insp; onDelete: () => void }) {
   const g = insp.gestureProps;
-  const [round, setRound] = useState(false);
 
   return (
     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3 [scrollbar-width:thin]">
@@ -436,7 +496,7 @@ function ImageBody({ clip, insp, onDelete }: { clip: Clip; insp: Insp; onDelete:
         <TileBtn icon={SlidersHorizontal} label="Adjust" />
       </div>
 
-      <ToggleRow icon={Frame} title="Round Corners" checked={round} onChange={setRound} />
+      <ToggleRow icon={Frame} title="Round Corners" checked={!!clip.transform.radius} onChange={insp.toggleRoundCorners} />
 
       <SliderRow icon={Droplet} label="Opacity" value={clip.transform.opacity} onInput={insp.updateOpacity} g={g} />
 
@@ -454,10 +514,10 @@ function ImageBody({ clip, insp, onDelete }: { clip: Clip; insp: Insp; onDelete:
           />
           <span className="text-xs text-muted-foreground">°</span>
         </label>
-        <IconBtn title="Flip horizontal">
+        <IconBtn title="Flip horizontal" onClick={insp.toggleFlipH} active={clip.transform.flipH}>
           <FlipHorizontal className="size-4" />
         </IconBtn>
-        <IconBtn title="Flip vertical">
+        <IconBtn title="Flip vertical" onClick={insp.toggleFlipV} active={clip.transform.flipV}>
           <FlipVertical className="size-4" />
         </IconBtn>
       </div>
@@ -488,9 +548,18 @@ function TileBtn({ icon: Icon, label }: { icon: typeof Eye; label: string }) {
   );
 }
 
-function IconBtn({ children, title }: { children: React.ReactNode; title: string }) {
+function IconBtn({ children, title, onClick, active }: { children: React.ReactNode; title: string; onClick?: () => void; active?: boolean }) {
   return (
-    <button type="button" title={title} className="grid size-9 shrink-0 place-items-center rounded-lg bg-secondary/60 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "grid size-9 shrink-0 place-items-center rounded-lg transition-colors",
+        active ? "bg-[#14b8a6]/15 text-[#14b8a6]" : "bg-secondary/60 text-muted-foreground hover:bg-accent hover:text-foreground",
+      )}
+    >
       {children}
     </button>
   );

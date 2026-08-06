@@ -107,7 +107,7 @@ export function addSharedComment(
 export function generateInProject(
 	workflowId: string,
 	body: {
-		kind: "image" | "video";
+		kind: "image" | "video" | "audio";
 		prompt: string;
 		model?: string | null;
 		params?: Record<string, unknown>;

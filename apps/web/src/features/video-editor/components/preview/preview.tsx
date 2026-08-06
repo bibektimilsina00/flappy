@@ -4,6 +4,7 @@ import { ChevronDown, Monitor, Smartphone } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
+import { animate } from "../../lib/animation-engine";
 import type { Clip, VideoEditorDoc } from "../../types";
 import { ASPECT_PRESETS, RATIO_PRESETS, RatioIcon, resolveAspect } from "./aspect-presets";
 import { CanvasSelection } from "./canvas-selection";
@@ -52,33 +53,78 @@ export function Preview({
             .map(({ clip, z }) => {
               const url = urlOf(clip.assetId);
               const t = clip.transform;
+              const a = animate(clip, playhead);
+              if (clip.kind === "shape" && clip.shape) {
+                const size = (bw || 300) * 0.4;
+                return (
+                  <div
+                    key={clip.id}
+                    className="pointer-events-none absolute left-1/2 top-1/2"
+                    style={{
+                      zIndex: t.z ?? z,
+                      opacity: t.opacity * a.opacity,
+                      width: size,
+                      height: size,
+                      transform: `translate(-50%, -50%) translate(${t.x + a.dx * bw}px, ${t.y + a.dy * bh}px) scale(${t.scale * a.scale * (t.flipH ? -1 : 1)}, ${t.scale * a.scale * (t.flipV ? -1 : 1)}) rotate(${t.rotation + a.rotate}deg)`,
+                    }}
+                  >
+                    <ShapeSvg type={clip.shape.type} color={clip.shape.color} />
+                  </div>
+                );
+              }
+              const sx = t.scale * a.scale * (t.flipH ? -1 : 1);
+              const sy = t.scale * a.scale * (t.flipV ? -1 : 1);
               const style = {
-                zIndex: z,
-                opacity: t.opacity,
-                transform: `translate(${t.x}px, ${t.y}px) scale(${t.scale}) rotate(${t.rotation}deg)`,
+                zIndex: t.z ?? z,
+                opacity: t.opacity * a.opacity,
+                transform: `translate(${t.x + a.dx * bw}px, ${t.y + a.dy * bh}px) scale(${sx}, ${sy}) rotate(${t.rotation + a.rotate}deg)`,
+                borderRadius: t.radius ? `${t.radius}px` : undefined,
               } as const;
+              const fitCls = t.fit === "cover" ? "object-cover" : "object-contain";
               if (clip.kind === "video" && url) {
                 return (
                   // biome-ignore lint/a11y/useMediaCaption: editor preview
-                  <video key={clip.id} ref={setRef(clip.id)} src={url} muted={clip.volume === 0} playsInline preload="auto" className="absolute inset-0 size-full object-contain" style={style} />
+                  <video key={clip.id} ref={setRef(clip.id)} src={url} muted={clip.volume === 0} playsInline preload="auto" className={cn("absolute inset-0 size-full", fitCls)} style={style} />
                 );
               }
               return url ? (
                 // biome-ignore lint/a11y/useAltText: editor preview
-                <img key={clip.id} src={url} className="absolute inset-0 size-full object-contain" style={style} />
+                <img key={clip.id} src={url} className={cn("absolute inset-0 size-full", fitCls)} style={style} />
               ) : null;
             })
         )}
 
-        {/* text as caption pill (bottom-centered) */}
+        {/* text — positioned + styled per clip */}
         {textLayers.length ? (
-          <div className="pointer-events-none absolute inset-x-0 bottom-6 z-40 flex flex-col items-center gap-1.5 px-4">
-            {textLayers.map(({ clip }) => (
-              <span key={clip.id} className="rounded bg-black/70 px-3 py-1.5 text-center text-sm font-medium text-white" style={{ opacity: clip.transform.opacity }}>
-                {clip.text?.content}
-              </span>
-            ))}
-          </div>
+          <>
+            {textLayers.map(({ clip, z }) => {
+              const t = clip.transform;
+              const ts = clip.text;
+              const a = animate(clip, playhead);
+              const fontScale = bw && doc.width ? bw / doc.width : 1;
+              return (
+                <div
+                  key={clip.id}
+                  className="pointer-events-none absolute left-1/2 top-1/2 max-w-[92%] whitespace-pre-wrap break-words"
+                  style={{
+                    zIndex: (t.z ?? z) + 40,
+                    opacity: t.opacity * a.opacity,
+                    color: ts?.color ?? "#ffffff",
+                    fontFamily: ts?.fontFamily ?? "Inter, system-ui, sans-serif",
+                    fontSize: (ts?.fontSize ?? 48) * fontScale,
+                    fontWeight: ts?.bold ? 700 : 400,
+                    fontStyle: ts?.italic ? "italic" : "normal",
+                    textAlign: ts?.align ?? "center",
+                    lineHeight: ts?.lineHeight ?? 1.2,
+                    letterSpacing: `${(ts?.letterSpacing ?? 0) * fontScale}px`,
+                    transform: `translate(-50%, -50%) translate(${t.x + a.dx * bw}px, ${t.y + a.dy * bh}px) scale(${t.scale * a.scale}) rotate(${t.rotation + a.rotate}deg)`,
+                  }}
+                >
+                  {ts?.content}
+                </div>
+              );
+            })}
+          </>
         ) : null}
 
         {layers.audio.map(({ clip, track }) => {
@@ -106,6 +152,23 @@ export function Preview({
         ) : null}
       </div>
     </div>
+  );
+}
+
+function ShapeSvg({ type, color }: { type: NonNullable<Clip["shape"]>["type"]; color: string }) {
+  const common = { fill: color, vectorEffect: "non-scaling-stroke" as const };
+  return (
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="size-full" role="img" aria-label={`${type} shape`}>
+      {type === "ellipse" ? (
+        <ellipse cx="50" cy="50" rx="50" ry="50" {...common} />
+      ) : type === "triangle" ? (
+        <polygon points="50,0 100,100 0,100" {...common} />
+      ) : type === "star" ? (
+        <polygon points="50,0 61,35 98,35 68,57 79,91 50,70 21,91 32,57 2,35 39,35" {...common} />
+      ) : (
+        <rect x="0" y="0" width="100" height="100" rx={type === "rounded" ? 12 : 0} {...common} />
+      )}
+    </svg>
   );
 }
 

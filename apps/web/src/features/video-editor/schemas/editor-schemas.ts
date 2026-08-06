@@ -6,6 +6,11 @@ export const clipTransformSchema = z.object({
   scale: z.number().min(0.05).max(10).default(1),
   rotation: z.number().min(-360).max(360).default(0),
   opacity: z.number().min(0).max(1).default(1),
+  flipH: z.boolean().optional(),
+  flipV: z.boolean().optional(),
+  radius: z.number().min(0).max(400).optional(),
+  fit: z.enum(["contain", "cover"]).optional(),
+  z: z.number().optional(),
 });
 
 export const clipTimingSchema = z.object({

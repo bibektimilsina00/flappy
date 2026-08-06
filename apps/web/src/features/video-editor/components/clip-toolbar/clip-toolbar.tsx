@@ -37,6 +37,7 @@ import {
   Wand2,
   Zap,
 } from "lucide-react";
+import { useState } from "react";
 import { cn } from "@/lib/cn";
 import { useInspector } from "../inspector/hooks/use-inspector";
 import type { Clip, VideoEditorDoc } from "../../types";
@@ -76,20 +77,24 @@ export function ClipToolbar({
   const isImage = clip.kind === "image";
   const isText = clip.kind === "text";
   const variant = isImage ? "image" : isAudio ? "audio" : isText ? "text" : undefined;
+  const order = { front: insp.bringToFront, forward: insp.bringForward, backward: insp.sendBackward, back: insp.sendToBack };
 
   if (isText) {
     return (
       <div className="pointer-events-auto flex items-center rounded-xl border border-border bg-card p-1 shadow-lg">
         <Group>
-          <button type="button" className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground" title="Text color">
-            <span className="size-4 rounded border border-border bg-white" />
-          </button>
-          <button type="button" className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground">
-            Roboto <ChevronDown className="size-3.5" />
-          </button>
-          <button type="button" className="flex h-8 items-center gap-1 rounded-lg px-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground">
-            48 <ChevronDown className="size-3.5" />
-          </button>
+          <label className="relative grid size-8 cursor-pointer place-items-center rounded-lg transition-colors hover:bg-accent/60" title="Text color">
+            <span className="size-4 rounded border border-border" style={{ backgroundColor: clip.text?.color ?? "#ffffff" }} />
+            <input
+              type="color"
+              value={clip.text?.color ?? "#ffffff"}
+              onChange={(e) => insp.setColor(e.target.value)}
+              className="absolute inset-0 cursor-pointer opacity-0"
+              aria-label="Text color"
+            />
+          </label>
+          <span className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-muted-foreground">{clip.text?.fontFamily ?? "Inter"}</span>
+          <span className="flex h-8 items-center rounded-lg px-2 text-sm font-medium text-muted-foreground">{clip.text?.fontSize ?? 48}</span>
         </Group>
         <Group border>
           <Tool icon={Sun} onClick={onOpenTransitions} />
@@ -99,7 +104,21 @@ export function ClipToolbar({
           <Tool icon={UserSquare} />
         </Group>
         <div className="border-l border-border pl-1">
-          <MorePopover variant="text" opacity={clip.transform.opacity} onOpacity={insp.updateOpacity} g={insp.gestureProps} onCopy={onDuplicate} onDelete={onDelete} />
+          <MorePopover
+            variant="text"
+            opacity={clip.transform.opacity}
+            onOpacity={insp.updateOpacity}
+            g={insp.gestureProps}
+            onCopy={onDuplicate}
+            onDelete={onDelete}
+            bold={clip.text?.bold}
+            italic={clip.text?.italic}
+            align={clip.text?.align}
+            onBold={insp.toggleBold}
+            onItalic={insp.toggleItalic}
+            onAlign={insp.setAlign}
+            order={order}
+          />
         </div>
       </div>
     );
@@ -140,6 +159,15 @@ export function ClipToolbar({
           g={insp.gestureProps}
           onCopy={onDuplicate}
           onDelete={onDelete}
+          flipH={clip.transform.flipH}
+          flipV={clip.transform.flipV}
+          rounded={!!clip.transform.radius}
+          onFlipH={insp.toggleFlipH}
+          onFlipV={insp.toggleFlipV}
+          onRoundCorners={insp.toggleRoundCorners}
+          onFit={insp.fitCanvas}
+          onFill={insp.fillCanvas}
+          order={order}
         />
       </div>
     </div>
@@ -235,6 +263,21 @@ function MorePopover({
   g,
   onCopy,
   onDelete,
+  flipH,
+  flipV,
+  rounded,
+  onFlipH,
+  onFlipV,
+  onRoundCorners,
+  onFit,
+  onFill,
+  bold,
+  italic,
+  align,
+  onBold,
+  onItalic,
+  onAlign,
+  order,
 }: {
   variant?: "audio" | "image" | "text";
   opacity: number;
@@ -242,6 +285,21 @@ function MorePopover({
   g: Gesture;
   onCopy: () => void;
   onDelete: () => void;
+  flipH?: boolean;
+  flipV?: boolean;
+  rounded?: boolean;
+  onFlipH?: () => void;
+  onFlipV?: () => void;
+  onRoundCorners?: () => void;
+  onFit?: () => void;
+  onFill?: () => void;
+  bold?: boolean;
+  italic?: boolean;
+  align?: "left" | "center" | "right";
+  onBold?: () => void;
+  onItalic?: () => void;
+  onAlign?: (a: "left" | "center" | "right") => void;
+  order?: { front: () => void; forward: () => void; backward: () => void; back: () => void };
 }) {
   const { open, setOpen, ref } = usePopover();
   const close = () => setOpen(false);
@@ -274,19 +332,19 @@ function MorePopover({
         {open ? (
           <Panel className="w-60" align="right" up>
             <div className="flex items-center gap-1">
-              <IconItem icon={Bold} title="Bold" />
-              <IconItem icon={Italic} title="Italic" />
+              <IconItem icon={Bold} title="Bold" onClick={onBold} active={bold} />
+              <IconItem icon={Italic} title="Italic" onClick={onItalic} active={italic} />
               <span className="mx-1 h-6 w-px bg-border" />
-              <IconItem icon={AlignLeft} title="Align left" />
-              <IconItem icon={AlignCenter} title="Align center" />
-              <IconItem icon={AlignRight} title="Align right" />
+              <IconItem icon={AlignLeft} title="Align left" onClick={() => onAlign?.("left")} active={align === "left"} />
+              <IconItem icon={AlignCenter} title="Align center" onClick={() => onAlign?.("center")} active={align === "center"} />
+              <IconItem icon={AlignRight} title="Align right" onClick={() => onAlign?.("right")} active={align === "right"} />
             </div>
             <Divider />
             <Item icon={Baseline} label="Line Height" chevron />
             <Item icon={MoveHorizontal} label="Letter Spacing" chevron />
             <Divider />
             {copyItem}
-            <Item icon={Layers} label="Order" chevron />
+            <OrderItem order={order} />
             <Item icon={Palette} label="Save to Brand Kit" />
             <Divider />
             <Item icon={SlidersHorizontal} label="Properties" />
@@ -323,11 +381,11 @@ function MorePopover({
         {open ? (
           <Panel className="w-60" align="right" up>
             <div className="flex items-center gap-1">
-              <IconItem icon={FlipVertical} title="Flip vertical" />
-              <IconItem icon={FlipHorizontal} title="Flip horizontal" />
+              <IconItem icon={FlipVertical} title="Flip vertical" onClick={onFlipV} active={flipV} />
+              <IconItem icon={FlipHorizontal} title="Flip horizontal" onClick={onFlipH} active={flipH} />
               <span className="mx-1 h-6 w-px bg-border" />
-              <IconItem icon={Minimize} title="Fit to canvas" />
-              <IconItem icon={Maximize} title="Fill canvas" />
+              <IconItem icon={Minimize} title="Fit to canvas" onClick={onFit} />
+              <IconItem icon={Maximize} title="Fill canvas" onClick={onFill} />
             </div>
             <Divider />
             <div className="flex items-center gap-2.5 px-2.5 py-1.5">
@@ -345,10 +403,10 @@ function MorePopover({
                 className="h-1 w-20 accent-[#14b8a6]"
               />
             </div>
-            <Item icon={Squircle} label="Round Corners" chevron />
+            <Item icon={Squircle} label="Round Corners" active={rounded} onClick={onRoundCorners} />
             <Divider />
             {copyItem}
-            <Item icon={Layers} label="Order" chevron />
+            <OrderItem order={order} />
             <Divider />
             <Item icon={RotateCw} label="Adjust Timing" chevron />
             <Item icon={Replace} label="Replace Image" />
@@ -366,11 +424,11 @@ function MorePopover({
       {open ? (
         <Panel className="w-60" align="right" up>
           <div className="flex items-center gap-1">
-            <IconItem icon={FlipVertical} title="Flip vertical" />
-            <IconItem icon={FlipHorizontal} title="Flip horizontal" />
+            <IconItem icon={FlipVertical} title="Flip vertical" onClick={onFlipV} active={flipV} />
+            <IconItem icon={FlipHorizontal} title="Flip horizontal" onClick={onFlipH} active={flipH} />
             <span className="mx-1 h-6 w-px bg-border" />
-            <IconItem icon={Minimize} title="Fit to canvas" />
-            <IconItem icon={Maximize} title="Fill canvas" />
+            <IconItem icon={Minimize} title="Fit to canvas" onClick={onFit} />
+            <IconItem icon={Maximize} title="Fill canvas" onClick={onFill} />
           </div>
           <Divider />
           <div className="flex items-center gap-2.5 px-2.5 py-1.5">
@@ -388,7 +446,7 @@ function MorePopover({
               className="h-1 w-20 accent-[#14b8a6]"
             />
           </div>
-          <Item icon={Squircle} label="Round Corners" chevron />
+          <Item icon={Squircle} label="Round Corners" active={rounded} onClick={onRoundCorners} />
           <Divider />
           <Item icon={Circle} label="Filters" />
           <Item icon={Sparkles} label="Effects" />
@@ -445,15 +503,53 @@ function Divider() {
   return <div className="my-1.5 h-px bg-border" />;
 }
 
-function IconItem({ icon: Icon, title }: { icon: typeof Zap; title: string }) {
+function IconItem({ icon: Icon, title, onClick, active }: { icon: typeof Zap; title: string; onClick?: () => void; active?: boolean }) {
   return (
     <button
       type="button"
       title={title}
-      className="grid h-9 flex-1 place-items-center rounded-lg bg-secondary/50 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "grid h-9 flex-1 place-items-center rounded-lg transition-colors",
+        active ? "bg-[#14b8a6]/15 text-[#14b8a6]" : "bg-secondary/50 text-muted-foreground hover:bg-accent hover:text-foreground",
+      )}
     >
       <Icon className="size-[18px]" />
     </button>
+  );
+}
+
+// Order — expands to the four stacking actions.
+function OrderItem({ order }: { order?: { front: () => void; forward: () => void; backward: () => void; back: () => void } }) {
+  const [open, setOpen] = useState(false);
+  const actions: [string, (() => void) | undefined][] = [
+    ["Bring to Front", order?.front],
+    ["Bring Forward", order?.forward],
+    ["Send Backward", order?.backward],
+    ["Send to Back", order?.back],
+  ];
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-accent"
+      >
+        <Layers className="size-[18px] shrink-0 text-muted-foreground" />
+        <span className="flex-1 text-left">Order</span>
+        <ChevronDown className={cn("size-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
+      </button>
+      {open ? (
+        <div className="ml-2.5 flex flex-col border-l border-border pl-2">
+          {actions.map(([label, fn]) => (
+            <button key={label} type="button" onClick={fn} className="rounded-lg px-2.5 py-1.5 text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+              {label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </>
   );
 }
 
@@ -463,6 +559,7 @@ function Item({
   chevron,
   upgrade,
   danger,
+  active,
   onClick,
 }: {
   icon: typeof Zap;
@@ -470,18 +567,20 @@ function Item({
   chevron?: boolean;
   upgrade?: boolean;
   danger?: boolean;
+  active?: boolean;
   onClick?: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={cn(
         "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm transition-colors",
-        danger ? "text-muted-foreground hover:bg-red-500/15 hover:text-red-400" : "text-foreground hover:bg-accent",
+        danger ? "text-muted-foreground hover:bg-red-500/15 hover:text-red-400" : active ? "bg-[#14b8a6]/15 text-[#14b8a6]" : "text-foreground hover:bg-accent",
       )}
     >
-      <Icon className="size-[18px] shrink-0 text-muted-foreground" />
+      <Icon className={cn("size-[18px] shrink-0", active ? "text-[#14b8a6]" : "text-muted-foreground")} />
       <span className="flex-1 text-left">{label}</span>
       {upgrade ? (
         <span className="grid size-4 shrink-0 place-items-center rounded bg-gradient-to-br from-amber-300 to-amber-500 text-black">
