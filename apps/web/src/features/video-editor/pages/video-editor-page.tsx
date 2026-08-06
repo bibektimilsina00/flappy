@@ -423,7 +423,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
                       onToggleOverlay={() => setShowOverlay((v) => !v)}
                     />
                     <span className="mx-0.5 h-5 w-px bg-border" />
-                    <BackgroundMenu doc={doc} onChange={(color) => commit({ ...doc, background: color })} />
+                    <BackgroundMenu doc={doc} onChange={(color) => commit({ ...doc, background: color })} assets={assets} urlOf={urlOf} />
                     <button type="button" className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground">
                       <Settings className="size-4" />
                       Settings

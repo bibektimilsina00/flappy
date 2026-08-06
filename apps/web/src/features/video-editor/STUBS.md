@@ -104,8 +104,7 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 
 ### Preview control bar (nothing selected) (`preview/preview.tsx`)
 - [ ] **Settings** button
-- [ ] Background -> **Image** tab ("coming soon")
-- [x] **Aspect ratio** picker (+ platform overlays), **Background color** picker, on-canvas move/resize/snap
+- [x] **Aspect ratio** picker (+ platform overlays), **Background** — color picker + **Image** tab (pick a project image, stored as `asset:<id>`); color also renders in exports; on-canvas move/resize/snap
 
 ### Top header (`pages/video-editor-page.tsx`)
 - [x] **Duplicate Project** — clones the workflow + doc (`POST .../duplicate`, media flattened to shared upload refs) and opens the copy

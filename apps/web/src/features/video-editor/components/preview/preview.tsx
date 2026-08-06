@@ -5,7 +5,7 @@ import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { animate } from "../../lib/animation-engine";
-import type { Clip, VideoEditorDoc } from "../../types";
+import type { Clip, VideoEditorAsset, VideoEditorDoc } from "../../types";
 import { ASPECT_PRESETS, RATIO_PRESETS, RatioIcon, resolveAspect } from "./aspect-presets";
 import { CanvasSelection } from "./canvas-selection";
 import { usePreview } from "./hooks/use-preview";
@@ -46,7 +46,14 @@ export function Preview({
         style={bw ? { width: bw, height: bh } : { aspectRatio: `${doc.width} / ${doc.height}`, maxWidth: "100%", maxHeight: "100%" }}
       >
         {/* clipped content layer — handles below overflow it, so they must sit outside this */}
-        <div className="absolute inset-0 overflow-hidden rounded-lg" style={{ backgroundColor: doc.background || "#000000" }}>
+        <div
+          className="absolute inset-0 overflow-hidden rounded-lg bg-cover bg-center"
+          style={(() => {
+            const bg = doc.background || "#000000";
+            const bgUrl = bg.startsWith("asset:") ? urlOf(bg.slice(6)) : undefined;
+            return bgUrl ? { backgroundImage: `url(${bgUrl})` } : { backgroundColor: bg.startsWith("asset:") ? "#000000" : bg };
+          })()}
+        >
         {layers.visual.length === 0 ? null : (
           layers.visual
             .filter((l) => l.clip.kind !== "text")
@@ -289,11 +296,14 @@ const BG_PALETTE = [
 ];
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
-export function BackgroundMenu({ doc, onChange }: { doc: VideoEditorDoc; onChange: (color: string) => void }) {
+export function BackgroundMenu({ doc, onChange, assets, urlOf }: { doc: VideoEditorDoc; onChange: (color: string) => void; assets?: VideoEditorAsset[]; urlOf?: (id?: string) => string | undefined }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"color" | "image">("color");
   const ref = useRef<HTMLDivElement>(null);
-  const current = doc.background || "#000000";
+  const rawCurrent = doc.background || "#000000";
+  const currentBgUrl = rawCurrent.startsWith("asset:") ? urlOf?.(rawCurrent.slice(6)) : undefined;
+  const current = rawCurrent.startsWith("asset:") ? "#000000" : rawCurrent;
+  const images = (assets ?? []).filter((a) => a.kind === "image");
   const [hex, setHex] = useState(current);
   useEffect(() => setHex(current), [current]);
   useEffect(() => {
@@ -310,7 +320,10 @@ export function BackgroundMenu({ doc, onChange }: { doc: VideoEditorDoc; onChang
         onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors hover:bg-accent"
       >
-        <span className="size-4 rounded-full border border-border" style={{ backgroundColor: current }} />
+        <span
+          className="size-4 rounded-full border border-border bg-cover bg-center"
+          style={currentBgUrl ? { backgroundImage: `url(${currentBgUrl})` } : { backgroundColor: current }}
+        />
         Background
       </button>
       {open ? (
@@ -374,7 +387,27 @@ export function BackgroundMenu({ doc, onChange }: { doc: VideoEditorDoc; onChang
               </div>
             </div>
           ) : (
-            <p className="py-6 text-center text-xs text-muted-foreground">Image backgrounds — coming soon.</p>
+            images.length === 0 ? (
+              <p className="py-6 text-center text-xs text-muted-foreground">Upload or generate an image, then pick it here.</p>
+            ) : (
+              <div className="grid grid-cols-3 gap-1.5">
+                {images.map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => onChange(`asset:${a.id}`)}
+                    title="Use as background"
+                    className={cn(
+                      "aspect-square overflow-hidden rounded-md border transition-colors",
+                      rawCurrent === `asset:${a.id}` ? "border-[#14b8a6] ring-1 ring-[#14b8a6]" : "border-border hover:border-muted-foreground/40",
+                    )}
+                  >
+                    {/* biome-ignore lint/a11y/useAltText: thumbnail */}
+                    <img src={a.url} className="size-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )
           )}
         </div>
       ) : null}

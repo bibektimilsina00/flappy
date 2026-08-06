@@ -130,7 +130,10 @@ def build_render_args(
         idx += 1
 
     # ── filtergraph ──
-    fc: list[str] = [f"color=c=black:s={w}x{h}:r={fps}:d={_f(total)}[base]"]
+    # Honour a solid background colour; image backgrounds (asset:*) fall back to black.
+    bg = str(doc.get("background") or "#000000")
+    base_color = f"0x{bg[1:]}" if len(bg) == 7 and bg.startswith("#") else "black"
+    fc: list[str] = [f"color=c={base_color}:s={w}x{h}:r={fps}:d={_f(total)}[base]"]
     prev = "base"
     for n, item in enumerate(visual):
         clip, src, i = item["clip"], item["src"], item["idx"]
