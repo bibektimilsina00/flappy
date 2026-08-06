@@ -369,9 +369,6 @@ export function ClipsPage() {
 
 	return (
 		<div className="flex h-full w-full flex-col gap-2 p-2">
-			<header className="flex h-10 shrink-0 items-center justify-between px-2">
-				<EditorModeTabs projectId={projectId} mode="clips" />
-			</header>
 			<div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-border">
 				<div className="relative mx-auto w-full max-w-4xl px-6 py-12">
 					{/* ambient glow */}
@@ -779,8 +776,9 @@ export function ClipsPage() {
 					)}
 				</div>
 			</div>
-			{/* mode tabs: floating bar below the content card */}
-			<EditorModeTabs projectId={projectId} mode="clips" className="shrink-0 overflow-hidden rounded-lg border border-border" />
+			<div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center">
+				<EditorModeTabs projectId={projectId} mode="clips" className="pointer-events-auto shadow-2xl backdrop-blur-xl bg-[#18181b]/95 border-white/10" />
+			</div>
 		</div>
 	);
 }

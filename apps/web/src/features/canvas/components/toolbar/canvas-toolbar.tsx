@@ -3,6 +3,7 @@
 import { Folder, History, type LucideIcon, Shapes, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { cn } from "@/lib/cn";
+import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
 import { CREATE_NODE_KINDS, NODE_CONFIG, type NodeKind } from "../../lib/constants";
 import { GenerationsPanel } from "../panels/generations-panel";
 import { LibraryPanel } from "../panels/library-panel";
@@ -15,10 +16,12 @@ const CREATE_ITEMS = CREATE_NODE_KINDS.map((kind) => ({
 }));
 
 export function CanvasToolbar({
+  projectId,
   onAddNode,
   onUploadMedia,
   onAddSticker,
 }: {
+  projectId?: string | null;
   onAddNode: (kind: NodeKind) => void;
   onUploadMedia: (file: File) => void;
   onAddSticker: (variant: string) => void;
@@ -60,7 +63,9 @@ export function CanvasToolbar({
           })}
         </div>
 
-        <div className="flex items-center gap-1 pl-1.5">
+        <div className="flex items-center gap-1 pl-1.5 border-l border-white/10">
+          <EditorModeTabs projectId={projectId ?? null} mode="canvas" className="border-0 bg-transparent p-0" />
+          <span className="h-4 w-px bg-white/10 mx-0.5" />
           <ToolButton icon={Upload} label="Upload" onClick={() => fileInputRef.current?.click()} />
           <ToolButton icon={History} label="Generations" active={activeTab === "generations"} onClick={() => toggleTab("generations")} />
           <ToolButton icon={Folder} label="Library" active={activeTab === "library"} onClick={() => toggleTab("library")} />

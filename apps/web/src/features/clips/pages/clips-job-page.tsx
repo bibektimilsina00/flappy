@@ -142,9 +142,6 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
 
   return (
     <div className="flex h-full w-full flex-col p-2">
-      <header className="flex h-10 shrink-0 items-center justify-between px-2">
-        <EditorModeTabs projectId={job?.workflow_id ?? null} mode="clips" />
-      </header>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-7xl px-6 py-4">
       <button
@@ -331,7 +328,11 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
       </div>
       {job && job.status === "completed" && job.clips.length > 0 ? (
         <ClipsModeTabs job={job} onLinked={(wf) => setJob({ ...job, workflow_id: wf })} />
-      ) : null}
+      ) : (
+        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center">
+          <EditorModeTabs projectId={job?.workflow_id ?? null} mode="clips" className="pointer-events-auto shadow-2xl backdrop-blur-xl bg-[#18181b]/95 border-white/10" />
+        </div>
+      )}
     </div>
   );
 }
@@ -364,30 +365,34 @@ function ClipsModeTabs({ job, onLinked }: { job: ClipsJob; onLinked: (workflowId
   ] as const;
 
   return (
-    <div className="flex w-full shrink-0 items-stretch bg-card text-[13px]">
-      {tabs.map(({ id, label, Icon, onClick }) => {
-        const active = id === "clips";
-        return (
-          <button
-            key={id}
-            type="button"
-            onClick={onClick}
-            disabled={busy !== null}
-            aria-current={active ? "page" : undefined}
-            className={cn(
-              "relative flex items-center gap-2 border-r border-border px-4 py-1.5 font-medium transition-colors last:border-r-0",
-              active ? "bg-background text-foreground" : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
-            )}
-          >
-            {busy === id ? (
-              <Loader2 className="size-4 shrink-0 animate-spin" />
-            ) : (
-              <Icon className="size-4 shrink-0" style={active ? { color: "#14b8a6" } : undefined} />
-            )}
-            {label}
-          </button>
-        );
-      })}
+    <div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center">
+      <div className="pointer-events-auto inline-flex items-center gap-1 rounded-lg border border-white/10 bg-[#18181b]/95 p-1 text-xs font-medium shadow-2xl backdrop-blur-xl">
+        {tabs.map(({ id, label, Icon, onClick }) => {
+          const active = id === "clips";
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={onClick}
+              disabled={busy !== null}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-3 py-1 transition-all duration-150",
+                active
+                  ? "bg-background text-foreground font-semibold shadow-sm"
+                  : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+              )}
+            >
+              {busy === id ? (
+                <Loader2 className="size-3.5 shrink-0 animate-spin text-teal-400" />
+              ) : (
+                <Icon className="size-3.5 shrink-0" style={active ? { color: "#14b8a6" } : undefined} />
+              )}
+              {label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

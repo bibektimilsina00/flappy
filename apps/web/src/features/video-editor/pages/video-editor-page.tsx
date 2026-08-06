@@ -165,8 +165,6 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
           </span>
         </div>
 
-        <EditorModeTabs projectId={projectId} mode="video" />
-
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-0.5 rounded-lg border border-border bg-secondary/50 p-0.5">
             <button
@@ -383,6 +381,10 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
             );
           })()
         : null}
+
+      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center">
+        <EditorModeTabs projectId={projectId} mode="video" className="pointer-events-auto shadow-2xl backdrop-blur-xl bg-[#18181b]/95 border-white/10" />
+      </div>
     </div>
   );
 }
