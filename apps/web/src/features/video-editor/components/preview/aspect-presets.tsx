@@ -1,6 +1,7 @@
 // Platform-oriented aspect presets for the preview aspect picker: each maps a
 // social platform + orientation to concrete canvas dimensions, with its brand mark.
 import type React from "react";
+import type { OverlayKind } from "./platform-overlays";
 
 type IconProps = { className?: string };
 
@@ -126,27 +127,27 @@ export interface AspectPreset {
   ratio: string;
   w: number;
   h: number;
-  overlay?: boolean; // has a platform safe-zone overlay (short-form video UI)
+  overlay?: OverlayKind; // platform safe-zone overlay to render on the preview
   Icon: (props: IconProps) => React.ReactElement;
 }
 
-export const ASPECT_PRESETS: AspectPreset[] = [
+export const ASPECT_PRESETS: AspectPreset[] = ([
   { platform: "YouTube", ratio: "16:9", w: 1920, h: 1080, Icon: YouTubeIcon },
-  { platform: "YouTube Short", ratio: "9:16", w: 1080, h: 1920, overlay: true, Icon: YouTubeIcon },
-  { platform: "TikTok", ratio: "9:16", w: 1080, h: 1920, overlay: true, Icon: TikTokIcon },
-  { platform: "Instagram Reel", ratio: "9:16", w: 1080, h: 1920, overlay: true, Icon: InstagramIcon },
-  { platform: "Instagram Reel Ultra Wide", ratio: "32:9", w: 1920, h: 540, overlay: true, Icon: InstagramIcon },
-  { platform: "Instagram Story", ratio: "9:16", w: 1080, h: 1920, overlay: true, Icon: InstagramIcon },
+  { platform: "YouTube Short", ratio: "9:16", w: 1080, h: 1920, overlay: "youtube-shorts", Icon: YouTubeIcon },
+  { platform: "TikTok", ratio: "9:16", w: 1080, h: 1920, overlay: "tiktok", Icon: TikTokIcon },
+  { platform: "Instagram Reel", ratio: "9:16", w: 1080, h: 1920, overlay: "instagram-reel", Icon: InstagramIcon },
+  { platform: "Instagram Reel Ultra Wide", ratio: "32:9", w: 1920, h: 540, overlay: "instagram-reel", Icon: InstagramIcon },
+  { platform: "Instagram Story", ratio: "9:16", w: 1080, h: 1920, overlay: "instagram-story", Icon: InstagramIcon },
   { platform: "Instagram Post", ratio: "1:1", w: 1080, h: 1080, Icon: InstagramIcon },
-  { platform: "LinkedIn", ratio: "9:16", w: 1080, h: 1920, Icon: LinkedInIcon },
+  { platform: "LinkedIn", ratio: "9:16", w: 1080, h: 1920, overlay: "linkedin", Icon: LinkedInIcon },
   { platform: "LinkedIn", ratio: "1:1", w: 1080, h: 1080, Icon: LinkedInIcon },
   { platform: "X (Twitter)", ratio: "1:1", w: 1080, h: 1080, Icon: XIcon },
   { platform: "X (Twitter)", ratio: "3:4", w: 1080, h: 1440, Icon: XIcon },
-  { platform: "Facebook Video", ratio: "9:16", w: 1080, h: 1920, overlay: true, Icon: FacebookIcon },
-  { platform: "Facebook Story", ratio: "9:16", w: 1080, h: 1920, overlay: true, Icon: FacebookIcon },
+  { platform: "Facebook Video", ratio: "9:16", w: 1080, h: 1920, overlay: "facebook-video", Icon: FacebookIcon },
+  { platform: "Facebook Story", ratio: "9:16", w: 1080, h: 1920, overlay: "facebook-story", Icon: FacebookIcon },
   { platform: "Facebook Post", ratio: "1:1", w: 1080, h: 1080, Icon: FacebookIcon },
-  { platform: "Snapchat", ratio: "9:16", w: 1080, h: 1920, overlay: true, Icon: SnapchatIcon },
-].map((p) => ({ ...p, key: `${p.platform} ${p.ratio}` }));
+  { platform: "Snapchat", ratio: "9:16", w: 1080, h: 1920, Icon: SnapchatIcon },
+] as Omit<AspectPreset, "key">[]).map((p) => ({ ...p, key: `${p.platform} ${p.ratio}` }));
 
 export interface ResolvedAspect {
   key: string;
@@ -155,7 +156,7 @@ export interface ResolvedAspect {
   w: number;
   h: number;
   isPlatform: boolean;
-  overlay: boolean;
+  overlay: OverlayKind | null;
   Icon: (props: IconProps) => React.ReactElement;
 }
 
@@ -169,7 +170,7 @@ export function resolveAspect(pickedKey: string | null, ratio: number): Resolved
     w: c.w,
     h: c.h,
     isPlatform: false,
-    overlay: false,
+    overlay: null,
     Icon: (props: IconProps) => <RatioIcon w={c.w} h={c.h} {...props} />,
   });
   const asPlatform = (p: AspectPreset): ResolvedAspect => ({
@@ -179,7 +180,7 @@ export function resolveAspect(pickedKey: string | null, ratio: number): Resolved
     w: p.w,
     h: p.h,
     isPlatform: true,
-    overlay: !!p.overlay,
+    overlay: p.overlay ?? null,
     Icon: p.Icon,
   });
 

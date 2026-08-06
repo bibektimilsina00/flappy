@@ -78,6 +78,12 @@ export function useInspector({
     preview(updateClip(doc, clip.id, { volume: vol }));
   };
 
+  const updateRotation = (rotation: number) => {
+    preview(updateTransform(doc, clip.id, { rotation: ((rotation % 360) + 360) % 360 }));
+  };
+
+  const updateEnd = (end: number) => updateDuration(Math.max(0.1, end - clip.start));
+
   return {
     media,
     visual,
@@ -91,5 +97,7 @@ export function useInspector({
     updateScale,
     updateOpacity,
     updateVolume,
+    updateRotation,
+    updateEnd,
   };
 }

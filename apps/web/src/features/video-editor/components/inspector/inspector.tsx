@@ -1,9 +1,66 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
+  AudioLines,
+  Baseline,
+  Bold,
+  ChevronDown,
+  ChevronLeft,
+  Clock,
+  Droplet,
+  Eraser,
+  Eye,
+  Film,
+  FlipHorizontal,
+  FlipVertical,
+  Frame,
+  Image as ImageIcon,
+  Italic,
+  Maximize2,
+  Orbit,
+  Palette,
+  Plus,
+  RefreshCw,
+  RotateCw,
+  Scissors,
+  SlidersHorizontal,
+  Smile,
+  Sparkles,
+  Sun,
+  Trash2,
+  Unlink,
+  UserSquare,
+  Volume2,
+  VolumeX,
+  Wand2,
+  Gem,
+} from "lucide-react";
 import type React from "react";
+import { useState } from "react";
+import { cn } from "@/lib/cn";
 import type { Clip, VideoEditorDoc } from "../../types";
 import { useInspector } from "./hooks/use-inspector";
+
+const ACCENT = "#14b8a6";
+const SPEEDS = [0.5, 1, 1.5, 2] as const;
+
+// AI enhancements — visual for now (no back-end); shown with an upgrade/credits chip.
+const AI_TOOLS: { icon: typeof Eye; title: string; desc: string; chip?: "upgrade" | number }[] = [
+  { icon: Sparkles, title: "Clean Audio", desc: "Remove background noise", chip: "upgrade" },
+  { icon: Eye, title: "Eye Contact", desc: "Always look at the camera", chip: "upgrade" },
+  { icon: Eraser, title: "Remove Background", desc: "Auto-erase background video", chip: "upgrade" },
+  { icon: AudioLines, title: "Remove Silences", desc: "Cut out dead air & awkward pauses" },
+  { icon: Eraser, title: "Remove Filler Words", desc: "Like ums, ahs, and similar", chip: "upgrade" },
+  { icon: Maximize2, title: "AI Background Expand", desc: "Expand video background", chip: 100 },
+  { icon: ImageIcon, title: "Magic B-Roll", desc: "Supplemental images for spoken topics", chip: "upgrade" },
+  { icon: Film, title: "AI Transitions", desc: "Create smooth transitions with AI" },
+  { icon: Smile, title: "Face Filter", desc: "Touch-up face appearance", chip: "upgrade" },
+  { icon: Scissors, title: "Magic Cut", desc: "Remove ums, ahs and bad takes" },
+  { icon: Palette, title: "Green Screen", desc: "Remove a color from your video" },
+];
 
 export function Inspector({
   clip,
@@ -12,6 +69,8 @@ export function Inspector({
   preview,
   endGesture,
   onClose,
+  onDelete,
+  onAddText,
 }: {
   clip: Clip;
   doc: VideoEditorDoc;
@@ -19,95 +78,582 @@ export function Inspector({
   preview: (d: VideoEditorDoc) => void;
   endGesture: (changed?: boolean) => void;
   onClose: () => void;
+  onDelete: () => void;
+  onAddText?: () => void;
 }) {
-  const {
-    media,
-    visual,
-    gestureProps: g,
-    updateText,
-    updateStart,
-    updateDuration,
-    updateSpeed,
-    updateX,
-    updateY,
-    updateScale,
-    updateOpacity,
-    updateVolume,
-  } = useInspector({ clip, doc, startGesture, preview, endGesture });
+  const insp = useInspector({ clip, doc, startGesture, preview, endGesture });
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin] select-none">
-      <div className="flex items-center gap-1 border-b border-border px-2.5 py-2.5">
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-base font-semibold capitalize transition-colors hover:bg-accent"
-        >
-          <ChevronDown className="size-4 rotate-90" />
-          Edit {clip.kind}
+    <div className="flex min-h-0 flex-1 flex-col select-none">
+      <div className="flex items-center gap-2 border-b border-border px-3 py-3">
+        <button type="button" onClick={onClose} className="grid size-6 shrink-0 place-items-center rounded hover:bg-accent" title="Back">
+          <ChevronLeft className="size-4" />
         </button>
+        <h2 className="text-base font-semibold capitalize">Edit {clip.kind}</h2>
       </div>
-      <div className="space-y-3 p-4">
-        {clip.kind === "text" ? (
-          <textarea
-            value={clip.text?.content ?? ""}
-            {...g}
-            onChange={(e) => updateText(e.target.value)}
-            className="w-full resize-none rounded-md border border-border bg-transparent p-2 text-sm outline-none focus:border-[#14b8a6]"
-            rows={3}
-          />
-        ) : null}
 
-        <Section title="Timing">
-          <Row label="Start">
-            <Num value={clip.start} min={0} step={0.1} g={g} onInput={updateStart} suffix="s" />
-          </Row>
-          <Row label="Duration">
-            <Num value={clip.duration} min={0.1} step={0.1} g={g} onInput={updateDuration} suffix="s" />
-          </Row>
-          {media ? (
-            <Row label="Speed">
-              <Num value={clip.speed} min={0.25} step={0.05} g={g} onInput={updateSpeed} suffix="×" />
-            </Row>
-          ) : null}
-        </Section>
-
-        {visual ? (
-          <Section title="Transform">
-            <Row label="X">
-              <Num value={clip.transform.x} step={2} g={g} onInput={updateX} suffix="px" />
-            </Row>
-            <Row label="Y">
-              <Num value={clip.transform.y} step={2} g={g} onInput={updateY} suffix="px" />
-            </Row>
-            <Row label="Scale">
-              <Slide value={clip.transform.scale} min={0.1} max={3} step={0.01} g={g} onInput={updateScale} />
-            </Row>
-            <Row label="Opacity">
-              <Slide value={clip.transform.opacity} min={0} max={1} step={0.01} g={g} onInput={updateOpacity} />
-            </Row>
-          </Section>
-        ) : null}
-
-        {media ? (
-          <Section title="Audio">
-            <Row label="Volume">
-              <Slide value={clip.volume} min={0} max={1} step={0.01} g={g} onInput={updateVolume} />
-            </Row>
-          </Section>
-        ) : null}
-      </div>
+      {clip.kind === "video" ? (
+        <VideoBody clip={clip} insp={insp} onDelete={onDelete} />
+      ) : clip.kind === "audio" ? (
+        <AudioBody clip={clip} insp={insp} onDelete={onDelete} />
+      ) : clip.kind === "image" ? (
+        <ImageBody clip={clip} insp={insp} onDelete={onDelete} />
+      ) : clip.kind === "text" ? (
+        <TextBody clip={clip} insp={insp} onDelete={onDelete} onAddText={onAddText} />
+      ) : (
+        <GenericBody clip={clip} insp={insp} onDelete={onDelete} />
+      )}
     </div>
   );
 }
 
+type Insp = ReturnType<typeof useInspector>;
 type GestureProps = { onPointerDown: () => void; onFocus: () => void; onBlur: () => void; onPointerUp: () => void };
+
+function VideoBody({ clip, insp, onDelete }: { clip: Clip; insp: Insp; onDelete: () => void }) {
+  const g = insp.gestureProps;
+  const [fadeAudio, setFadeAudio] = useState(false);
+  const [roundCorners, setRoundCorners] = useState(false);
+
+  return (
+    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3 [scrollbar-width:thin]">
+      <div className="flex gap-2">
+        <button
+          type="button"
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+          style={{ backgroundColor: ACCENT }}
+        >
+          <Wand2 className="size-4" /> Edit with Script
+        </button>
+        <button type="button" className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-secondary py-2.5 text-sm font-medium transition-colors hover:bg-accent">
+          <RefreshCw className="size-4" /> Replace <ChevronDown className="size-3.5" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <TileBtn icon={Orbit} label="Animations" />
+        <TileBtn icon={SlidersHorizontal} label="Adjust" />
+      </div>
+
+      <div className="flex items-center gap-1 rounded-lg bg-secondary/60 p-1">
+        <span className="px-2 text-xs text-muted-foreground">Speed</span>
+        {SPEEDS.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => insp.updateSpeed(s)}
+            className={cn(
+              "flex-1 rounded-md py-1.5 text-xs font-medium transition-colors",
+              Math.abs(clip.speed - s) < 0.001 ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {s}x
+          </button>
+        ))}
+      </div>
+
+      <SliderRow icon={Volume2} value={clip.volume} onInput={insp.updateVolume} g={g} />
+
+      <ToggleRow icon={AudioLines} title="Fade Audio In/Out" checked={fadeAudio} onChange={setFadeAudio} />
+
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-sm font-semibold">AI Tools</span>
+          <span className="flex items-center gap-1 rounded-lg bg-secondary px-2 py-1 text-xs text-muted-foreground">
+            <Sparkles className="size-3.5 text-[#bbf451]" /> 0 Credits
+          </span>
+        </div>
+        <div className="space-y-1">
+          {AI_TOOLS.map((t) => (
+            <AiToolRow key={t.title} tool={t} />
+          ))}
+        </div>
+      </div>
+
+      <hr className="border-border" />
+
+      <ToggleRow icon={Frame} title="Round Corners" checked={roundCorners} onChange={setRoundCorners} />
+
+      <SliderRow icon={Droplet} label="Opacity" value={clip.transform.opacity} onInput={insp.updateOpacity} g={g} />
+
+      <div className="flex items-center gap-2">
+        <label className="flex flex-1 items-center gap-2 rounded-lg bg-secondary/60 px-2.5 py-1.5">
+          <RotateCw className="size-4 shrink-0 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Rotation</span>
+          <input
+            type="number"
+            value={Math.round(clip.transform.rotation)}
+            onFocus={g.onFocus}
+            onBlur={g.onBlur}
+            onChange={(e) => insp.updateRotation(Number(e.target.value))}
+            className="w-full min-w-0 bg-transparent text-right text-xs tabular-nums outline-none"
+          />
+          <span className="text-xs text-muted-foreground">°</span>
+        </label>
+        <IconBtn title="Flip horizontal">
+          <FlipHorizontal className="size-4" />
+        </IconBtn>
+        <IconBtn title="Flip vertical">
+          <FlipVertical className="size-4" />
+        </IconBtn>
+      </div>
+
+      <hr className="border-border" />
+
+      <div className="flex items-center gap-2">
+        <TimeField label="Start" value={clip.start} onInput={insp.updateStart} g={g} />
+        <TimeField label="End" value={clip.start + clip.duration} onInput={insp.updateEnd} g={g} iconRight />
+      </div>
+
+      <button type="button" className="flex w-full items-center justify-center gap-2 rounded-lg bg-secondary py-2.5 text-sm font-medium transition-colors hover:bg-accent">
+        <Unlink className="size-4" /> Detach Audio
+      </button>
+
+      <button
+        type="button"
+        onClick={onDelete}
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-secondary py-2.5 text-sm font-medium transition-colors hover:bg-red-500/15 hover:text-red-400"
+      >
+        <Trash2 className="size-4" /> Delete
+      </button>
+    </div>
+  );
+}
+
+// AI audio enhancements — visual for now (no back-end).
+const AUDIO_TOOLS: { icon: typeof Eye; title: string; desc: string; chip?: "upgrade" | number }[] = [
+  { icon: Sparkles, title: "Clean Audio", desc: "Remove background noise", chip: "upgrade" },
+  { icon: Scissors, title: "Magic Cut", desc: "Remove ums, ahs and bad takes" },
+  { icon: AudioLines, title: "Remove Silences", desc: "Cut out dead air & awkward pauses" },
+];
+
+function AudioBody({ clip, insp, onDelete }: { clip: Clip; insp: Insp; onDelete: () => void }) {
+  const g = insp.gestureProps;
+  const [fade, setFade] = useState(false);
+  const muted = clip.volume === 0;
+
+  return (
+    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3 [scrollbar-width:thin]">
+      <div className="flex gap-2">
+        <button
+          type="button"
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+          style={{ backgroundColor: ACCENT }}
+        >
+          <RefreshCw className="size-4" /> Replace
+        </button>
+        <button
+          type="button"
+          onClick={() => insp.updateVolume(muted ? 1 : 0)}
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-secondary py-2.5 text-sm font-medium transition-colors hover:bg-accent"
+        >
+          {muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />} {muted ? "Unmute" : "Mute"}
+        </button>
+      </div>
+
+      <div className="flex items-center gap-1 rounded-lg bg-secondary/60 p-1">
+        <span className="px-2 text-xs text-muted-foreground">Speed</span>
+        {SPEEDS.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => insp.updateSpeed(s)}
+            className={cn(
+              "flex-1 rounded-md py-1.5 text-xs font-medium transition-colors",
+              Math.abs(clip.speed - s) < 0.001 ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {s}x
+          </button>
+        ))}
+      </div>
+
+      <SliderRow icon={Volume2} value={clip.volume} onInput={insp.updateVolume} g={g} />
+
+      <ToggleRow icon={AudioLines} title="Fade In/Out" checked={fade} onChange={setFade} />
+
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-sm font-semibold">AI Tools</span>
+          <span className="flex items-center gap-1 rounded-lg bg-secondary px-2 py-1 text-xs text-muted-foreground">
+            <Sparkles className="size-3.5 text-[#bbf451]" /> 0 Credits
+          </span>
+        </div>
+        <div className="space-y-1">
+          {AUDIO_TOOLS.map((t) => (
+            <AiToolRow key={t.title} tool={t} />
+          ))}
+        </div>
+      </div>
+
+      <hr className="border-border" />
+
+      <div className="flex items-center gap-2">
+        <TimeField label="Start" value={clip.start} onInput={insp.updateStart} g={g} />
+        <TimeField label="End" value={clip.start + clip.duration} onInput={insp.updateEnd} g={g} iconRight />
+      </div>
+
+      <button
+        type="button"
+        onClick={onDelete}
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-secondary py-2.5 text-sm font-medium transition-colors hover:bg-red-500/15 hover:text-red-400"
+      >
+        <Trash2 className="size-4" /> Delete Audio
+      </button>
+    </div>
+  );
+}
+
+const ALIGNS = [
+  { id: "left", icon: AlignLeft },
+  { id: "center", icon: AlignCenter },
+  { id: "right", icon: AlignRight },
+] as const;
+
+function TextBody({ clip, insp, onDelete, onAddText }: { clip: Clip; insp: Insp; onDelete: () => void; onAddText?: () => void }) {
+  const g = insp.gestureProps;
+  const [bold, setBold] = useState(true);
+  const [italic, setItalic] = useState(false);
+  const [align, setAlign] = useState<string>("center");
+  const [behind, setBehind] = useState(false);
+
+  return (
+    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3 [scrollbar-width:thin]">
+      <textarea
+        value={clip.text?.content ?? ""}
+        {...g}
+        onChange={(e) => insp.updateText(e.target.value)}
+        rows={3}
+        placeholder="Your Text"
+        className="w-full resize-none rounded-lg bg-secondary/60 p-3 text-sm outline-none focus:ring-1 focus:ring-[#14b8a6]"
+      />
+
+      <p className="text-sm font-semibold">Style</p>
+      <div className="flex gap-2">
+        <button type="button" className="flex flex-1 items-center justify-between rounded-lg bg-secondary/60 px-3 py-2.5 text-sm transition-colors hover:bg-accent">
+          Roboto <ChevronDown className="size-3.5 text-muted-foreground" />
+        </button>
+        <button type="button" className="flex items-center justify-between gap-2 rounded-lg bg-secondary/60 px-3 py-2.5 text-sm transition-colors hover:bg-accent">
+          48px <ChevronDown className="size-3.5 text-muted-foreground" />
+        </button>
+        <button type="button" className="grid size-10 shrink-0 place-items-center rounded-lg border border-border transition-colors hover:bg-accent" title="Text color">
+          <Palette className="size-4" />
+        </button>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <div className="flex gap-0.5 rounded-lg bg-secondary/60 p-0.5">
+          <IconToggle active={bold} onClick={() => setBold((v) => !v)} title="Bold">
+            <Bold className="size-4" />
+          </IconToggle>
+          <IconToggle active={italic} onClick={() => setItalic((v) => !v)} title="Italic">
+            <Italic className="size-4" />
+          </IconToggle>
+        </div>
+        <div className="flex gap-0.5 rounded-lg bg-secondary/60 p-0.5">
+          {ALIGNS.map((a) => (
+            <IconToggle key={a.id} active={align === a.id} onClick={() => setAlign(a.id)} title={`Align ${a.id}`}>
+              <a.icon className="size-4" />
+            </IconToggle>
+          ))}
+        </div>
+        <button type="button" className="grid size-9 shrink-0 place-items-center rounded-lg bg-secondary/60 text-muted-foreground transition-colors hover:bg-accent" title="Spacing">
+          <Baseline className="size-4" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <TileBtn icon={Sun} label="Styles" />
+        <TileBtn icon={Orbit} label="Animations" />
+      </div>
+
+      <div className="flex items-center gap-2.5 rounded-lg bg-secondary/40 px-3 py-2.5">
+        <UserSquare className="size-4 shrink-0 text-muted-foreground" />
+        <span className="flex-1 text-sm">Text Behind Person</span>
+        <span className="grid size-4 shrink-0 place-items-center rounded bg-gradient-to-br from-amber-300 to-amber-500 text-black" title="Upgrade">
+          <Gem className="size-2.5 fill-current" />
+        </span>
+        <Switch checked={behind} onChange={setBehind} />
+      </div>
+
+      <div className="flex items-center gap-2">
+        <TimeField label="Start" value={clip.start} onInput={insp.updateStart} g={g} />
+        <TimeField label="End" value={clip.start + clip.duration} onInput={insp.updateEnd} g={g} iconRight />
+      </div>
+
+      <button
+        type="button"
+        onClick={onDelete}
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-secondary py-2.5 text-sm font-medium transition-colors hover:bg-red-500/15 hover:text-red-400"
+      >
+        <Trash2 className="size-4" /> Delete Text
+      </button>
+
+      {onAddText ? (
+        <button type="button" onClick={onAddText} className="flex w-full items-center justify-center gap-2 rounded-lg bg-secondary py-2.5 text-sm font-medium transition-colors hover:bg-accent">
+          <Plus className="size-4" /> Add Another Text Box
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function IconToggle({ active, onClick, title, children }: { active?: boolean; onClick: () => void; title: string; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      aria-pressed={active}
+      className={cn("grid size-8 place-items-center rounded-md transition-colors", active ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ImageBody({ clip, insp, onDelete }: { clip: Clip; insp: Insp; onDelete: () => void }) {
+  const g = insp.gestureProps;
+  const [round, setRound] = useState(false);
+
+  return (
+    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3 [scrollbar-width:thin]">
+      <div className="flex gap-2">
+        <button
+          type="button"
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+          style={{ backgroundColor: ACCENT }}
+        >
+          <Film className="size-4" /> Generate Video
+        </button>
+        <button type="button" className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-secondary py-2.5 text-sm font-medium transition-colors hover:bg-accent">
+          <RefreshCw className="size-4" /> Replace <ChevronDown className="size-3.5" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <TileBtn icon={Orbit} label="Animations" />
+        <TileBtn icon={SlidersHorizontal} label="Adjust" />
+      </div>
+
+      <ToggleRow icon={Frame} title="Round Corners" checked={round} onChange={setRound} />
+
+      <SliderRow icon={Droplet} label="Opacity" value={clip.transform.opacity} onInput={insp.updateOpacity} g={g} />
+
+      <div className="flex items-center gap-2">
+        <label className="flex flex-1 items-center gap-2 rounded-lg bg-secondary/60 px-2.5 py-1.5">
+          <RotateCw className="size-4 shrink-0 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Rotation</span>
+          <input
+            type="number"
+            value={Math.round(clip.transform.rotation)}
+            onFocus={g.onFocus}
+            onBlur={g.onBlur}
+            onChange={(e) => insp.updateRotation(Number(e.target.value))}
+            className="w-full min-w-0 bg-transparent text-right text-xs tabular-nums outline-none"
+          />
+          <span className="text-xs text-muted-foreground">°</span>
+        </label>
+        <IconBtn title="Flip horizontal">
+          <FlipHorizontal className="size-4" />
+        </IconBtn>
+        <IconBtn title="Flip vertical">
+          <FlipVertical className="size-4" />
+        </IconBtn>
+      </div>
+
+      <hr className="border-border" />
+
+      <div className="flex items-center gap-2">
+        <TimeField label="Start" value={clip.start} onInput={insp.updateStart} g={g} />
+        <TimeField label="End" value={clip.start + clip.duration} onInput={insp.updateEnd} g={g} iconRight />
+      </div>
+
+      <button
+        type="button"
+        onClick={onDelete}
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-secondary py-2.5 text-sm font-medium transition-colors hover:bg-red-500/15 hover:text-red-400"
+      >
+        <Trash2 className="size-4" /> Delete Image
+      </button>
+    </div>
+  );
+}
+
+function TileBtn({ icon: Icon, label }: { icon: typeof Eye; label: string }) {
+  return (
+    <button type="button" className="flex items-center justify-center gap-2 rounded-lg bg-secondary/60 py-2.5 text-sm font-medium transition-colors hover:bg-accent">
+      <Icon className="size-4 text-muted-foreground" /> {label}
+    </button>
+  );
+}
+
+function IconBtn({ children, title }: { children: React.ReactNode; title: string }) {
+  return (
+    <button type="button" title={title} className="grid size-9 shrink-0 place-items-center rounded-lg bg-secondary/60 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+      {children}
+    </button>
+  );
+}
+
+function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      aria-pressed={checked}
+      className={cn("flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors", checked ? "bg-[#14b8a6]" : "bg-border")}
+    >
+      <span className={cn("size-4 rounded-full bg-white shadow-sm transition-transform", checked ? "translate-x-4" : "translate-x-0")} />
+    </button>
+  );
+}
+
+function ToggleRow({ icon: Icon, title, checked, onChange }: { icon: typeof Eye; title: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-lg bg-secondary/40 px-3 py-2.5">
+      <Icon className="size-4 shrink-0 text-muted-foreground" />
+      <span className="flex-1 text-sm">{title}</span>
+      <Switch checked={checked} onChange={onChange} />
+    </div>
+  );
+}
+
+function AiToolRow({ tool }: { tool: (typeof AI_TOOLS)[number] }) {
+  const [on, setOn] = useState(false);
+  const Icon = tool.icon;
+  return (
+    <div className="flex items-center gap-2.5 rounded-lg bg-secondary/40 px-3 py-2.5">
+      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#14b8a6]/15 text-[#14b8a6]">
+        <Icon className="size-4" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{tool.title}</p>
+        <p className="truncate text-[11px] text-muted-foreground">{tool.desc}</p>
+      </div>
+      {tool.chip === "upgrade" ? (
+        <span className="grid size-4 shrink-0 place-items-center rounded bg-gradient-to-br from-amber-300 to-amber-500 text-black" title="Upgrade">
+          <Gem className="size-2.5 fill-current" />
+        </span>
+      ) : typeof tool.chip === "number" ? (
+        <span className="flex shrink-0 items-center gap-0.5 text-[11px] font-medium text-[#bbf451]">
+          <Sparkles className="size-3" /> {tool.chip}
+        </span>
+      ) : null}
+      <Switch checked={on} onChange={setOn} />
+    </div>
+  );
+}
+
+// Slider with a % readout, for 0–1 values (volume, opacity).
+function SliderRow({ icon: Icon, label, value, onInput, g }: { icon: typeof Eye; label?: string; value: number; onInput: (v: number) => void; g: GestureProps }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <Icon className="size-4 shrink-0 text-muted-foreground" />
+      {label ? <span className="shrink-0 text-xs text-muted-foreground">{label}</span> : null}
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.01}
+        value={value}
+        onPointerDown={g.onPointerDown}
+        onPointerUp={g.onPointerUp}
+        onChange={(e) => onInput(Number(e.target.value))}
+        className="h-1 min-w-0 flex-1 accent-[#14b8a6]"
+      />
+      <span className="w-11 shrink-0 rounded-md bg-secondary py-1 text-center text-xs tabular-nums text-muted-foreground">{Math.round(value * 100)}%</span>
+    </div>
+  );
+}
+
+function TimeField({ label, value, onInput, g, iconRight }: { label: string; value: number; onInput: (v: number) => void; g: GestureProps; iconRight?: boolean }) {
+  return (
+    <label className="flex flex-1 items-center gap-2 rounded-lg bg-secondary/60 px-2.5 py-1.5">
+      {!iconRight ? <Clock className="size-4 shrink-0 text-muted-foreground" /> : null}
+      <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
+      <input
+        type="number"
+        min={0}
+        step={0.1}
+        value={Number(value.toFixed(1))}
+        onFocus={g.onFocus}
+        onBlur={g.onBlur}
+        onChange={(e) => onInput(Number(e.target.value))}
+        className="w-full min-w-0 bg-transparent text-right text-xs tabular-nums outline-none"
+      />
+      {iconRight ? <Clock className="size-4 shrink-0 text-muted-foreground" /> : null}
+    </label>
+  );
+}
+
+// ── compact fallback for text / image / audio clips ─────────
+function GenericBody({ clip, insp, onDelete }: { clip: Clip; insp: Insp; onDelete: () => void }) {
+  const g = insp.gestureProps;
+  return (
+    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 [scrollbar-width:thin]">
+      {clip.kind === "text" ? (
+        <textarea
+          value={clip.text?.content ?? ""}
+          {...g}
+          onChange={(e) => insp.updateText(e.target.value)}
+          className="w-full resize-none rounded-md border border-border bg-transparent p-2 text-sm outline-none focus:border-[#14b8a6]"
+          rows={3}
+        />
+      ) : null}
+
+      <Section title="Timing">
+        <Row label="Start">
+          <Num value={clip.start} min={0} step={0.1} g={g} onInput={insp.updateStart} suffix="s" />
+        </Row>
+        <Row label="Duration">
+          <Num value={clip.duration} min={0.1} step={0.1} g={g} onInput={insp.updateDuration} suffix="s" />
+        </Row>
+        {insp.media ? (
+          <Row label="Speed">
+            <Num value={clip.speed} min={0.25} step={0.05} g={g} onInput={insp.updateSpeed} suffix="×" />
+          </Row>
+        ) : null}
+      </Section>
+
+      {insp.visual ? (
+        <Section title="Transform">
+          <Row label="X">
+            <Num value={clip.transform.x} step={2} g={g} onInput={insp.updateX} suffix="px" />
+          </Row>
+          <Row label="Y">
+            <Num value={clip.transform.y} step={2} g={g} onInput={insp.updateY} suffix="px" />
+          </Row>
+          <Row label="Opacity">
+            <SliderRow icon={Droplet} value={clip.transform.opacity} onInput={insp.updateOpacity} g={g} />
+          </Row>
+        </Section>
+      ) : null}
+
+      {insp.media ? (
+        <Section title="Audio">
+          <Row label="Volume">
+            <SliderRow icon={Volume2} value={clip.volume} onInput={insp.updateVolume} g={g} />
+          </Row>
+        </Section>
+      ) : null}
+
+      <button
+        type="button"
+        onClick={onDelete}
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-secondary py-2.5 text-sm font-medium transition-colors hover:bg-red-500/15 hover:text-red-400"
+      >
+        <Trash2 className="size-4" /> Delete
+      </button>
+    </div>
+  );
+}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
       <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
-      <div className="space-y-0.5">{children}</div>
+      <div className="space-y-2">{children}</div>
     </div>
   );
 }
@@ -135,25 +681,6 @@ function Num({ value, min, step, suffix, g, onInput }: { value: number; min?: nu
         className="w-full rounded border border-border bg-transparent px-1.5 py-1 text-xs tabular-nums outline-none focus:border-[#14b8a6]"
       />
       {suffix ? <span className="text-[11px] text-muted-foreground">{suffix}</span> : null}
-    </div>
-  );
-}
-
-function Slide({ value, min, max, step, g, onInput }: { value: number; min: number; max: number; step: number; g: GestureProps; onInput: (v: number) => void }) {
-  return (
-    <div className="flex items-center gap-2">
-      <input
-        type="range"
-        value={value}
-        min={min}
-        max={max}
-        step={step}
-        onPointerDown={g.onPointerDown}
-        onPointerUp={g.onPointerUp}
-        onChange={(e) => onInput(Number(e.target.value))}
-        className="h-1 w-full accent-[#14b8a6]"
-      />
-      <span className="w-8 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">{value.toFixed(2)}</span>
     </div>
   );
 }

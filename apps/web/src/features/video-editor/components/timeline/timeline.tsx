@@ -95,7 +95,7 @@ export function Timeline({
   };
 
   return (
-    <div className={cn(CARD, "flex shrink-0 flex-col transition-all duration-200", isTimelineEmpty ? "h-auto" : "h-64")}>
+    <div className={cn(CARD, "flex shrink-0 flex-col transition-all duration-200", isTimelineEmpty ? "h-auto" : "h-56")}>
       <TimelineToolbar
         hasSelection={selection.size > 0}
         playing={playing}

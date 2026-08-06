@@ -4,9 +4,11 @@ import { ChevronDown, Monitor, Smartphone } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
-import type { VideoEditorDoc } from "../../types";
+import type { Clip, VideoEditorDoc } from "../../types";
 import { ASPECT_PRESETS, RATIO_PRESETS, RatioIcon, resolveAspect } from "./aspect-presets";
+import { CanvasSelection } from "./canvas-selection";
 import { usePreview } from "./hooks/use-preview";
+import { type OverlayKind, PlatformOverlay } from "./platform-overlays";
 
 const ACCENT = "#14b8a6";
 
@@ -16,27 +18,35 @@ export function Preview({
   playhead,
   playing,
   overlay,
+  selectedClip,
+  startGesture,
+  preview,
+  endGesture,
 }: {
   doc: VideoEditorDoc;
   urlOf: (id?: string) => string | undefined;
   playhead: number;
   playing: boolean;
-  overlay?: boolean;
+  overlay?: OverlayKind;
+  selectedClip?: Clip | null;
+  startGesture?: () => void;
+  preview?: (d: VideoEditorDoc) => void;
+  endGesture?: (changed?: boolean) => void;
 }) {
   const { fitCb, bw, bh, layers, textLayers, setRef } = usePreview(doc, playhead, playing);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const editable = selectedClip && selectedClip.kind !== "audio" && startGesture && preview && endGesture;
 
   return (
     <div ref={fitCb} className="flex min-h-0 w-full flex-1 items-center justify-center">
       <div
-        className="relative overflow-hidden rounded-lg"
-        style={{
-          backgroundColor: doc.background || "#000000",
-          ...(bw ? { width: bw, height: bh } : { aspectRatio: `${doc.width} / ${doc.height}`, maxWidth: "100%", maxHeight: "100%" }),
-        }}
+        ref={boxRef}
+        className="relative"
+        style={bw ? { width: bw, height: bh } : { aspectRatio: `${doc.width} / ${doc.height}`, maxWidth: "100%", maxHeight: "100%" }}
       >
-        {layers.visual.length === 0 ? (
-          <div className="grid size-full place-items-center text-sm text-muted-foreground">Drop media on the timeline to preview</div>
-        ) : (
+        {/* clipped content layer — handles below overflow it, so they must sit outside this */}
+        <div className="absolute inset-0 overflow-hidden rounded-lg" style={{ backgroundColor: doc.background || "#000000" }}>
+        {layers.visual.length === 0 ? null : (
           layers.visual
             .filter((l) => l.clip.kind !== "text")
             .map(({ clip, z }) => {
@@ -79,28 +89,21 @@ export function Preview({
           ) : null;
         })}
 
-        {overlay ? <PlatformOverlay /> : null}
-      </div>
-    </div>
-  );
-}
+        {overlay ? <PlatformOverlay kind={overlay} /> : null}
+        </div>
 
-// Generic short-form safe-zone overlay (TikTok / Reels / Shorts style): the
-// right action rail + bottom caption zone that platform UI covers.
-function PlatformOverlay() {
-  return (
-    <div className="pointer-events-none absolute inset-0 z-30">
-      <div className="absolute inset-x-0 top-0 h-[10%] bg-gradient-to-b from-black/25 to-transparent" />
-      <div className="absolute bottom-[14%] right-[4%] flex flex-col items-center gap-[6%]">
-        {[0, 1, 2, 3, 4].map((i) => (
-          <span key={i} className="size-[9%] min-h-4 min-w-4 rounded-full border border-white/50 bg-white/15" style={{ aspectRatio: "1" }} />
-        ))}
-      </div>
-      <div className="absolute inset-x-0 bottom-0 h-[22%] bg-gradient-to-t from-black/40 to-transparent" />
-      <div className="absolute inset-x-[4%] bottom-[6%] right-[18%] space-y-1.5">
-        <span className="block h-2 w-1/3 rounded-full bg-white/50" />
-        <span className="block h-2 w-3/4 rounded-full bg-white/30" />
-        <span className="block h-2 w-1/2 rounded-full bg-white/30" />
+        {editable && bw ? (
+          <CanvasSelection
+            clip={selectedClip}
+            doc={doc}
+            bw={bw}
+            bh={bh}
+            boxRef={boxRef}
+            startGesture={startGesture}
+            preview={preview}
+            endGesture={endGesture}
+          />
+        ) : null}
       </div>
     </div>
   );
@@ -188,8 +191,8 @@ export function AspectMenu({
             >
               <Smartphone className="size-4 shrink-0 text-muted-foreground" />
               <span className="flex-1 truncate text-left">Show {sel.name} Overlay</span>
-              <span className={cn("relative h-4 w-7 shrink-0 rounded-full transition-colors", showOverlay ? "bg-[#14b8a6]" : "bg-border")}>
-                <span className={cn("absolute top-0.5 size-3 rounded-full bg-white transition-transform", showOverlay ? "translate-x-3.5" : "translate-x-0.5")} />
+              <span className={cn("flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors", showOverlay ? "bg-[#14b8a6]" : "bg-border")}>
+                <span className={cn("size-4 rounded-full bg-white shadow-sm transition-transform", showOverlay ? "translate-x-4" : "translate-x-0")} />
               </span>
             </button>
           ) : null}

@@ -24,6 +24,8 @@ export interface Clip {
   model?: string;
   parentClipId?: string; // this clip is attached to (moves/deletes with) its parent
   linkedClipIds?: string[]; // captions / overlays / voiceover that follow this clip
+  animations?: Record<string, string>; // animation tab (in/out/loop/zoom) -> preset id
+  transition?: string; // transition preset id applied at the clip boundary
 }
 
 export interface Track {
@@ -73,4 +75,6 @@ export type CategoryId =
   | "effects"
   | "transitions"
   | "video"
-  | "image";
+  | "image"
+  | "elements"
+  | "brand";

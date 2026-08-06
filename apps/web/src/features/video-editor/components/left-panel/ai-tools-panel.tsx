@@ -28,12 +28,14 @@ import { AssistantPanel } from "./assistant-panel";
 
 type AiView = "Assistant" | "Image" | "Video";
 
-const GEN_TILES: { label: string; icon: typeof Type; view?: AiView }[] = [
-  { label: "AI Video", icon: Video, view: "Video" },
-  { label: "AI Image", icon: ImageIcon, view: "Image" },
-  { label: "B-roll images", icon: ImageIcon, view: "Image" },
+// Tiles with a `mode` open the AI Playground modal on that generator; the rest
+// are not wired yet.
+const GEN_TILES: { label: string; icon: typeof Type; mode?: string }[] = [
+  { label: "AI Video", icon: Video, mode: "text-to-video" },
+  { label: "AI Image", icon: ImageIcon, mode: "text-to-image" },
+  { label: "B-roll images", icon: ImageIcon, mode: "text-to-image" },
   { label: "AI Transitions", icon: Film },
-  { label: "Characters", icon: Users },
+  { label: "Characters", icon: Users, mode: "talking-video" },
   { label: "AI Voice", icon: Mic },
   { label: "AI Dubbing", icon: Languages },
 ];
@@ -43,11 +45,13 @@ export function AiToolsPanel({
   assets,
   selectedClip,
   setCategory,
+  onOpenPlayground,
 }: {
   projectId: string;
   assets: VideoEditorAsset[];
   selectedClip: Clip | null;
   setCategory: (c: CategoryId) => void;
+  onOpenPlayground: (mode: string) => void;
 }) {
   const [view, setView] = useState<AiView | null>(null);
 
@@ -81,21 +85,20 @@ export function AiToolsPanel({
         <button
           type="button"
           onClick={() => setView("Assistant")}
-          className="group relative flex w-full items-center gap-3 overflow-hidden rounded-xl border border-[#14b8a6]/30 p-3 text-left transition-colors hover:border-[#14b8a6]/60"
+          className="flex w-full items-center gap-3 rounded-lg border border-border p-3 text-left transition-colors hover:border-[#14b8a6] hover:bg-accent"
         >
-          <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(20,184,166,0.18),transparent_65%)]" />
-          <span className="relative grid size-9 shrink-0 place-items-center rounded-lg bg-[#14b8a6] text-[#04110f]">
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[#14b8a6] text-white">
             <Sparkles className="size-5" />
           </span>
-          <span className="relative min-w-0">
+          <span className="min-w-0">
             <span className="block text-sm font-semibold">Generate with AI</span>
             <span className="block truncate text-[11px] text-muted-foreground">Describe it — we'll create it</span>
           </span>
-          <ChevronDown className="relative ml-auto size-4 shrink-0 -rotate-90 text-[#14b8a6]" />
+          <ChevronDown className="ml-auto size-4 shrink-0 -rotate-90 text-muted-foreground" />
         </button>
         <div className="grid grid-cols-2 gap-2">
           {GEN_TILES.map((t) => (
-            <GenTile key={t.label} icon={t.icon} label={t.label} soon={!t.view} onClick={t.view ? () => setView(t.view ?? null) : undefined} />
+            <GenTile key={t.label} icon={t.icon} label={t.label} soon={!t.mode} onClick={t.mode ? () => onOpenPlayground(t.mode ?? "text-to-video") : undefined} />
           ))}
         </div>
       </section>
@@ -176,7 +179,7 @@ function GenTile({ icon: Icon, label, soon, onClick }: { icon: typeof Type; labe
       type="button"
       onClick={onClick}
       disabled={soon}
-      className="group relative flex flex-col items-start gap-2 rounded-xl border border-border p-3 text-left transition-colors hover:border-[#14b8a6] hover:bg-accent disabled:opacity-50"
+      className="group relative flex flex-col items-start gap-2 rounded-lg border border-border p-3 text-left transition-colors hover:border-[#14b8a6] hover:bg-accent disabled:opacity-50"
     >
       <Icon className="size-4 text-muted-foreground transition-colors group-hover:text-[#14b8a6]" />
       <span className="text-xs font-medium">{label}</span>
@@ -200,7 +203,7 @@ function ToolToggle({ icon: Icon, label, ai }: { icon: typeof Type; label: strin
     <button
       type="button"
       onClick={() => setOn((v) => !v)}
-      className="flex w-full items-center justify-between rounded-xl border border-border px-3 py-2 text-left transition-colors hover:bg-accent"
+      className="flex w-full items-center justify-between rounded-lg border border-border px-3 py-2 text-left transition-colors hover:bg-accent"
     >
       <span className="flex items-center gap-2 text-xs font-medium">
         <Icon className="size-4 text-muted-foreground" />
@@ -216,7 +219,7 @@ function ToolToggle({ icon: Icon, label, ai }: { icon: typeof Type; label: strin
 
 function ToolRow({ icon: Icon, label }: { icon: typeof Type; label: string }) {
   return (
-    <button type="button" className="flex w-full items-center gap-2 rounded-xl border border-border px-3 py-2 text-left text-xs font-medium transition-colors hover:bg-accent">
+    <button type="button" className="flex w-full items-center gap-2 rounded-lg border border-border px-3 py-2 text-left text-xs font-medium transition-colors hover:bg-accent">
       <Icon className="size-4 text-muted-foreground" />
       {label}
     </button>
