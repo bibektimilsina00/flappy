@@ -1,10 +1,10 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Loader2, Music, Search, Upload, X } from "lucide-react";
+import { ChevronDown, Loader2, Music, Plus, Search, Upload, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/cn";
-import { addBrandKitToProject, type BrandKitItem, listBrandKit, removeFromBrandKit } from "../../services/video-editor-api";
+import { addBrandKitToProject, addToBrandKit, type BrandKitItem, listBrandKit, removeFromBrandKit } from "../../services/video-editor-api";
 
 const SECTIONS: { kind: string; title: string; empty: string }[] = [
   { kind: "image", title: "Images", empty: "No images saved yet" },
@@ -13,7 +13,21 @@ const SECTIONS: { kind: string; title: string; empty: string }[] = [
   { kind: "color", title: "Colors", empty: "No colors saved yet" },
 ];
 
-export function BrandKitTab({ onImport, projectId }: { onImport: () => void; projectId: string }) {
+// Web-safe families the preview can render without loading a font file.
+const FONT_CHOICES = [
+  "Inter, system-ui, sans-serif",
+  "Georgia, serif",
+  "Times New Roman, serif",
+  "Arial, sans-serif",
+  "Verdana, sans-serif",
+  "Trebuchet MS, sans-serif",
+  "Courier New, monospace",
+  "Impact, sans-serif",
+  "Comic Sans MS, cursive",
+  "Palatino, serif",
+];
+
+export function BrandKitTab({ onImport, projectId, onApplyFont }: { onImport: () => void; projectId: string; onApplyFont: (family: string) => void }) {
   const qc = useQueryClient();
   const [q, setQ] = useState("");
   const { data, isLoading } = useQuery({ queryKey: ["brand-kit"], queryFn: listBrandKit });
@@ -25,6 +39,10 @@ export function BrandKitTab({ onImport, projectId }: { onImport: () => void; pro
   const addToProject = useMutation({
     mutationFn: (itemId: string) => addBrandKitToProject(projectId, itemId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["editor-project", projectId] }),
+  });
+  const addFont = useMutation({
+    mutationFn: (font: string) => addToBrandKit({ kind: "font", font }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["brand-kit"] }),
   });
 
   const items = (data?.items ?? []).filter((i) => !q || i.name.toLowerCase().includes(q.toLowerCase()));
@@ -75,6 +93,37 @@ export function BrandKitTab({ onImport, projectId }: { onImport: () => void; pro
               </div>
             );
           })}
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[15px] font-semibold">Fonts</h3>
+              <FontPicker disabled={addFont.isPending} onPick={(f) => addFont.mutate(f)} />
+            </div>
+            {(() => {
+              const fonts = items.filter((i) => i.kind === "font");
+              return fonts.length === 0 ? (
+                <div className="rounded-lg border border-border p-5 text-center text-sm text-muted-foreground">No fonts saved yet</div>
+              ) : (
+                <div className="space-y-1.5">
+                  {fonts.map((i) => (
+                    <div key={i.id} className="group relative">
+                      <button
+                        type="button"
+                        onClick={() => onApplyFont(i.font ?? i.name)}
+                        title="Apply to selected text"
+                        className="flex w-full items-center rounded-lg border border-border bg-secondary px-3 py-2.5 text-left text-base transition-colors hover:border-[#14b8a6]"
+                        style={{ fontFamily: i.font ?? i.name }}
+                      >
+                        <span className="truncate">{i.name}</span>
+                      </button>
+                      <RemoveBtn onRemove={() => remove.mutate(i.id)} />
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+
           <p className="pt-2 text-center text-[11px] text-muted-foreground">Use "Save to Brand Kit" on a clip to add items here.</p>
         </div>
       )}
@@ -113,6 +162,43 @@ function BrandMedia({ item, onAdd, onRemove }: { item: BrandKitItem; onAdd: () =
         )}
       </button>
       <RemoveBtn onRemove={onRemove} />
+    </div>
+  );
+}
+
+function FontPicker({ onPick, disabled }: { onPick: (family: string) => void; disabled: boolean }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        disabled={disabled}
+        className="flex items-center gap-1 rounded-lg bg-secondary px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+      >
+        <Plus className="size-3.5" /> Add font
+      </button>
+      {open ? (
+        <>
+          <button type="button" aria-label="Close" className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full z-20 mt-1 max-h-64 w-52 overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-2xl">
+            {FONT_CHOICES.map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => {
+                  onPick(f);
+                  setOpen(false);
+                }}
+                className="block w-full truncate rounded-lg px-3 py-2 text-left text-base transition-colors hover:bg-accent"
+                style={{ fontFamily: f }}
+              >
+                {f.split(",")[0]}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

@@ -49,6 +49,7 @@ export function LeftPanel({
   onAddShape,
   onAddSubtitles,
   onAddStock,
+  onApplyFont,
   projectId,
   selectedClip,
   onOpenPlayground,
@@ -62,6 +63,7 @@ export function LeftPanel({
   onAddShape: (type: "rect" | "rounded" | "ellipse" | "triangle" | "star", color: string) => void;
   onAddSubtitles: (segments: { start: number; end: number; text: string }[]) => void;
   onAddStock: (url: string, kind: string) => void;
+  onApplyFont: (family: string) => void;
   projectId: string;
   selectedClip: Clip | null;
   onOpenPlayground: (mode: string) => void;
@@ -92,7 +94,7 @@ export function LeftPanel({
         ) : category === "elements" ? (
           <ElementsTab onAddText={onAddText} onAddShape={onAddShape} onAddStock={onAddStock} />
         ) : category === "brand" ? (
-          <BrandKitTab onImport={onImport} projectId={projectId} />
+          <BrandKitTab onImport={onImport} projectId={projectId} onApplyFont={onApplyFont} />
         ) : (
           <p className="px-4 py-3 text-sm text-muted-foreground">{title} — coming soon.</p>
         )}

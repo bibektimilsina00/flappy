@@ -54,7 +54,8 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 - [ ] **Visualizers**, **CTA Pop-Ups** — placeholder art (no real src); **View all** links
 
 ### Brand Kit tab (`left-panel/brand-kit-tab.tsx`)
-- [x] **Save to Brand Kit** (from any clip's ⋯) persists the asset/colour in `workspace.preferences.brand_kit`; the tab lists items (images/videos/audio/colours) with remove + click-to-add-to-project. No migration (JSON field).
+- [x] **Save to Brand Kit** (from any clip's ⋯) persists the asset/colour/**font** in `workspace.preferences.brand_kit`; the tab lists items (images/videos/audio/colours/**fonts**) with remove + click-to-add-to-project. No migration (JSON field).
+- [x] **Fonts** — an "Add font" picker saves a family (web-safe list); a saved font tile previews in its family and, on click, applies `fontFamily` to the selected text clip (preview only — export uses one baked font, see notes #4).
 
 ---
 
@@ -125,5 +126,5 @@ Most stubs fall into a few buckets — implementing the bucket unlocks many rows
 4. **Richer text renderer** — DONE: font/size/color/bold/italic/align now render (`clip.text.*`). Remaining: line-height, letter-spacing, text styles/effects, text-behind-person.
 5. **Transform extras** — DONE: Flip (H/V), Round Corners, Fit/Fill, and Order/z-index (via `transform.flipH/flipV/radius/fit/z`). Remaining: filters/effects.
 6. **Stock/asset providers** (stock video/image/music/SFX, stickers, shapes, GIFs, characters) -> Elements tab + all "Stock" sections.
-7. **Brand Kit** — DONE (save/list/remove assets + colours in `workspace.preferences`, add-to-project). Remaining: fonts, subtitle styles.
+7. **Brand Kit** — DONE (save/list/remove assets + colours + **fonts** in `workspace.preferences`; add-to-project; a saved font applies its family to the selected text clip, rendered in the preview). Remaining: subtitle styles, custom uploaded font files (export still uses one baked font — see #4).
 8. **Project actions** — Duplicate + Version History + Save as Template all DONE (templates stored in `workspace.preferences`, surfaced on the `/templates` page).

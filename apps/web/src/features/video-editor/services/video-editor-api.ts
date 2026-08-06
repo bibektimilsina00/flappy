@@ -166,12 +166,12 @@ export function importUrl(projectId: string, url: string, kind: string): Promise
 	});
 }
 
-export type BrandKitItem = { id: string; kind: string; name: string; color?: string; url?: string };
+export type BrandKitItem = { id: string; kind: string; name: string; color?: string; font?: string; url?: string };
 
 export function listBrandKit(): Promise<{ items: BrandKitItem[] }> {
 	return api("/video-editor/brand-kit");
 }
-export function addToBrandKit(body: { kind: string; workflow_id?: string; asset_id?: string; color?: string; name?: string }): Promise<BrandKitItem> {
+export function addToBrandKit(body: { kind: string; workflow_id?: string; asset_id?: string; color?: string; font?: string; name?: string }): Promise<BrandKitItem> {
 	return api("/video-editor/brand-kit", { method: "POST", body: JSON.stringify(body) });
 }
 export function removeFromBrandKit(itemId: string): Promise<{ ok: boolean }> {

@@ -203,9 +203,18 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
     const clip = selectedClip;
     if (!clip) return;
     if (clip.assetId) await addToBrandKit({ kind: clip.kind, workflow_id: projectId, asset_id: clip.assetId });
+    else if (clip.kind === "text" && clip.text?.fontFamily) await addToBrandKit({ kind: "font", font: clip.text.fontFamily });
     else if (clip.kind === "text" && clip.text?.color) await addToBrandKit({ kind: "color", color: clip.text.color });
     else return;
     qc.invalidateQueries({ queryKey: ["brand-kit"] });
+    toast.success("Saved to Brand Kit");
+  };
+  const applyFont = (family: string) => {
+    if (!doc || !selectedClip || selectedClip.kind !== "text") {
+      toast.error("Select a text clip first");
+      return;
+    }
+    commit(updateClip(doc, selectedClip.id, { text: { ...(selectedClip.text ?? { content: "" }), fontFamily: family } }));
   };
   const [playgroundOpen, setPlaygroundOpen] = useState(false);
   const [playgroundMode, setPlaygroundMode] = useState("text-to-video");
@@ -404,6 +413,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
                 onAddShape={(type, color) => addShapeClip({ type, color }, playhead)}
                 onAddSubtitles={addSubtitleClips}
                 onAddStock={addStock}
+                onApplyFont={applyFont}
                 projectId={projectId}
                 selectedClip={selectedClip}
                 onOpenPlayground={openPlayground}

@@ -898,6 +898,8 @@ def _brand_item_out(item: dict, storage) -> dict:
     out = {"id": item["id"], "kind": item["kind"], "name": item.get("name") or item["kind"]}
     if item.get("color"):
         out["color"] = item["color"]
+    if item.get("font"):
+        out["font"] = item["font"]
     if item.get("key"):
         out["url"] = storage.url(item["key"])
     return out
@@ -917,10 +919,11 @@ def list_brand_kit(
 
 
 class BrandKitAdd(BaseModel):
-    kind: str  # video | audio | image | color
+    kind: str  # video | audio | image | color | font
     workflow_id: uuid.UUID | None = None
     asset_id: str | None = None
     color: str | None = None
+    font: str | None = None  # CSS font-family string for kind == "font"
     name: str | None = None
 
 
@@ -941,6 +944,11 @@ def add_brand_kit(
             raise HTTPException(status_code=422, detail="color is required")
         item["color"] = body.color
         item["name"] = body.name or body.color
+    elif body.kind == "font":
+        if not body.font:
+            raise HTTPException(status_code=422, detail="font is required")
+        item["font"] = body.font
+        item["name"] = body.name or body.font.split(",")[0].strip()
     else:
         if not (body.workflow_id and body.asset_id):
             raise HTTPException(status_code=422, detail="workflow_id and asset_id are required")
