@@ -45,10 +45,8 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 - [x] Clicking a preset adds a text clip
 
 ### Subtitles tab (`left-panel/subtitles-tab.tsx`)
-- [ ] Source & language dropdowns (both views) — no options, no selection
-- [ ] **Auto-subtitle in English**, **Upload Subtitles File** — no transcription/import back-end
-- [ ] **Transcribe Manually** opens the manual sub-view; **Add Subtitles** creates nothing (no subtitle track)
-- [x] Add translation / Detect Speakers toggles hold local state; Transcribe Manually <-> back navigation works
+- [x] **Auto-subtitle** — transcribes the project audio via `POST /video-editor/projects/{id}/subtitles` (OpenRouter whisper) and drops timeline-mapped caption clips onto a "Subtitles" text track
+- [ ] Language / translation / Detect Speakers, **Upload Subtitles File**, **Transcribe Manually → Add Subtitles** — still visual (single-language auto only for now)
 
 ### Elements tab (`left-panel/elements-tab.tsx`)
 - [x] **Emoji** (adds a text clip) and **Shapes** (rect/rounded/ellipse/triangle/star — new `shape` clip kind, rendered as SVG, movable/resizable/animatable)
@@ -67,8 +65,8 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 - [x] **Speed**, **Volume**, **Opacity**, **Rotation**, **Flip H/V**, **Round Corners**, **Start/End**, **Delete**
 
 ### Audio clip
-- [ ] **Replace**, **Fade In/Out**, **AI Tools** (Clean Audio, Magic Cut, Remove Silences)
-- [x] **Mute/Unmute**, **Speed**, **Volume**, **Start/End**, **Delete**
+- [ ] **Replace**, **Fade In/Out**, **Magic Cut** (needs AI)
+- [x] **Clean Audio** (ffmpeg denoise) & **Remove Silences** (ffmpeg silenceremove) via `POST /video-editor/projects/{id}/enhance` — swaps the clip to the processed asset; **Mute/Unmute**, **Speed**, **Volume**, **Start/End**, **Delete**
 
 ### Image clip
 - [ ] **Generate Video**, **Replace**, **Animations** / **Adjust** tiles
@@ -120,7 +118,7 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 Most stubs fall into a few buckets — implementing the bucket unlocks many rows at once:
 
 1. **Generation back-end** (text->image/video, TTS, dubbing, AI transitions, characters) -> AI Playground, Add-TTS, most AI Tools tiles, Generate buttons.
-2. **Per-clip AI enhancement service** (clean audio, remove silences/filler, background removal, eye contact, magic cut, green screen, face filter) -> all inspector "AI Tools" lists + Enhance toggles.
+2. **Per-clip AI enhancement** — Clean Audio (denoise) + Remove Silences DONE (ffmpeg, `POST .../enhance`). Remaining need models/providers: remove-filler, background removal, eye contact, magic cut, green screen, face filter.
 3. **Animation/Transition render engine** — Animations DONE (`lib/animation-engine.ts`). Remaining: transition render (boundary crossfades between adjacent clips).
 4. **Richer text renderer** — DONE: font/size/color/bold/italic/align now render (`clip.text.*`). Remaining: line-height, letter-spacing, text styles/effects, text-behind-person.
 5. **Transform extras** — DONE: Flip (H/V), Round Corners, Fit/Fill, and Order/z-index (via `transform.flipH/flipV/radius/fit/z`). Remaining: filters/effects.

@@ -127,6 +127,31 @@ export function getExecution(
 	return api(`/executions/${id}`);
 }
 
+export type SubtitleSegment = { start: number; end: number; text: string };
+
+// Run an ffmpeg audio enhancement on a clip; returns a new pool asset.
+export function enhanceClipAudio(
+	projectId: string,
+	clipId: string,
+	op: "denoise" | "remove_silences",
+): Promise<{ asset_id: string; kind: string; url: string; duration: number }> {
+	return api(`/video-editor/projects/${projectId}/enhance`, {
+		method: "POST",
+		body: JSON.stringify({ clip_id: clipId, op }),
+	});
+}
+
+// Transcribe the project's audio into timeline-mapped caption segments.
+export function generateSubtitles(
+	projectId: string,
+	sourceAssetId?: string | null,
+): Promise<{ segments: SubtitleSegment[] }> {
+	return api(`/video-editor/projects/${projectId}/subtitles`, {
+		method: "POST",
+		body: JSON.stringify({ source_asset_id: sourceAssetId ?? null }),
+	});
+}
+
 // Upload media from the editor; the server adds it to the workflow graph so the
 // canvas shares it too. (Multipart, so it bypasses the JSON `api` helper.)
 export async function uploadToProject(

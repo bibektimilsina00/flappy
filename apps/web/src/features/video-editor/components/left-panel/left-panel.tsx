@@ -47,6 +47,7 @@ export function LeftPanel({
   importing,
   onAddText,
   onAddShape,
+  onAddSubtitles,
   projectId,
   selectedClip,
   onOpenPlayground,
@@ -58,6 +59,7 @@ export function LeftPanel({
   importing: boolean;
   onAddText: (content: string) => void;
   onAddShape: (type: "rect" | "rounded" | "ellipse" | "triangle" | "star", color: string) => void;
+  onAddSubtitles: (segments: { start: number; end: number; text: string }[]) => void;
   projectId: string;
   selectedClip: Clip | null;
   onOpenPlayground: (mode: string) => void;
@@ -84,7 +86,7 @@ export function LeftPanel({
         ) : category === "text" ? (
           <TextTab onAddText={onAddText} />
         ) : category === "subtitles" ? (
-          <SubtitlesTab />
+          <SubtitlesTab projectId={projectId} onAddSubtitles={onAddSubtitles} />
         ) : category === "elements" ? (
           <ElementsTab onAddText={onAddText} onAddShape={onAddShape} />
         ) : category === "brand" ? (

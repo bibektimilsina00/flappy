@@ -81,6 +81,38 @@ export function useVideoEditorPage(projectId: string) {
     setSelection(new Set([newId]));
   };
 
+  const addSubtitleClips = (segments: { start: number; end: number; text: string }[]) => {
+    if (!doc || !segments.length) return;
+    // dedicated subtitle track (reuse if present), styled bottom-center captions
+    let nextDoc = doc;
+    let track = nextDoc.tracks.find((t) => t.kind === "text" && t.name === "Subtitles");
+    if (!track) {
+      nextDoc = addTrack(nextDoc, "text");
+      track = nextDoc.tracks[0];
+      nextDoc = { ...nextDoc, tracks: nextDoc.tracks.map((t) => (t.id === track!.id ? { ...t, name: "Subtitles" } : t)) };
+      track = nextDoc.tracks.find((t) => t.id === track!.id)!;
+    }
+    for (const seg of segments) {
+      const dur = Math.max(0.3, seg.end - seg.start);
+      const clip: Clip = {
+        id: `c-${crypto.randomUUID().slice(0, 8)}`,
+        kind: "text",
+        start: Math.max(0, seg.start),
+        duration: dur,
+        in: 0,
+        out: dur,
+        speed: 1,
+        volume: 1,
+        transform: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
+        keyframes: [],
+        effects: [],
+        text: { content: seg.text, fontSize: 40, bold: true, align: "center" },
+      };
+      nextDoc = addClip(nextDoc, track.id, clip);
+    }
+    commit(nextDoc);
+  };
+
   const addShapeClip = (shape: NonNullable<Clip["shape"]>, playhead: number) => {
     if (!doc) return;
     let track = doc.tracks.find((t) => t.kind === "video");
@@ -193,6 +225,7 @@ export function useVideoEditorPage(projectId: string) {
     splitSelected,
     addTextClip,
     addShapeClip,
+    addSubtitleClips,
     doImport,
     dropAsset,
     setupKeybindings,

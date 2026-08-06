@@ -19,6 +19,7 @@ import {
   Frame,
   Image as ImageIcon,
   Italic,
+  Loader2,
   Maximize2,
   Orbit,
   Palette,
@@ -71,6 +72,7 @@ export function Inspector({
   onClose,
   onDelete,
   onAddText,
+  onEnhance,
 }: {
   clip: Clip;
   doc: VideoEditorDoc;
@@ -80,6 +82,7 @@ export function Inspector({
   onClose: () => void;
   onDelete: () => void;
   onAddText?: () => void;
+  onEnhance?: (op: "denoise" | "remove_silences") => Promise<void>;
 }) {
   const insp = useInspector({ clip, doc, startGesture, preview, endGesture });
 
@@ -95,7 +98,7 @@ export function Inspector({
       {clip.kind === "video" ? (
         <VideoBody clip={clip} insp={insp} onDelete={onDelete} />
       ) : clip.kind === "audio" ? (
-        <AudioBody clip={clip} insp={insp} onDelete={onDelete} />
+        <AudioBody clip={clip} insp={insp} onDelete={onDelete} onEnhance={onEnhance} />
       ) : clip.kind === "image" ? (
         <ImageBody clip={clip} insp={insp} onDelete={onDelete} />
       ) : clip.kind === "text" ? (
@@ -219,14 +222,41 @@ function VideoBody({ clip, insp, onDelete }: { clip: Clip; insp: Insp; onDelete:
   );
 }
 
-// AI audio enhancements — visual for now (no back-end).
-const AUDIO_TOOLS: { icon: typeof Eye; title: string; desc: string; chip?: "upgrade" | number }[] = [
-  { icon: Sparkles, title: "Clean Audio", desc: "Remove background noise", chip: "upgrade" },
-  { icon: Scissors, title: "Magic Cut", desc: "Remove ums, ahs and bad takes" },
-  { icon: AudioLines, title: "Remove Silences", desc: "Cut out dead air & awkward pauses" },
-];
+// A one-shot AI enhancement row: runs onRun, showing a spinner + error inline.
+function EnhanceRow({ icon: Icon, title, desc, onRun }: { icon: typeof Eye; title: string; desc: string; onRun?: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const run = async () => {
+    if (!onRun || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await onRun();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={run}
+      disabled={!onRun || busy}
+      className="flex w-full items-center gap-2.5 rounded-lg bg-secondary/40 px-3 py-2.5 text-left transition-colors hover:bg-accent disabled:opacity-60"
+    >
+      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#14b8a6]/15 text-[#14b8a6]">
+        {busy ? <Loader2 className="size-4 animate-spin" /> : <Icon className="size-4" />}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{title}</p>
+        <p className="truncate text-[11px] text-muted-foreground">{error ?? (busy ? "Processing…" : desc)}</p>
+      </div>
+    </button>
+  );
+}
 
-function AudioBody({ clip, insp, onDelete }: { clip: Clip; insp: Insp; onDelete: () => void }) {
+function AudioBody({ clip, insp, onDelete, onEnhance }: { clip: Clip; insp: Insp; onDelete: () => void; onEnhance?: (op: "denoise" | "remove_silences") => Promise<void> }) {
   const g = insp.gestureProps;
   const [fade, setFade] = useState(false);
   const muted = clip.volume === 0;
@@ -274,14 +304,11 @@ function AudioBody({ clip, insp, onDelete }: { clip: Clip; insp: Insp; onDelete:
       <div>
         <div className="mb-2 flex items-center justify-between">
           <span className="text-sm font-semibold">AI Tools</span>
-          <span className="flex items-center gap-1 rounded-lg bg-secondary px-2 py-1 text-xs text-muted-foreground">
-            <Sparkles className="size-3.5 text-[#bbf451]" /> 0 Credits
-          </span>
         </div>
         <div className="space-y-1">
-          {AUDIO_TOOLS.map((t) => (
-            <AiToolRow key={t.title} tool={t} />
-          ))}
+          <EnhanceRow icon={Sparkles} title="Clean Audio" desc="Remove background noise" onRun={onEnhance ? () => onEnhance("denoise") : undefined} />
+          <EnhanceRow icon={AudioLines} title="Remove Silences" desc="Cut out dead air & awkward pauses" onRun={onEnhance ? () => onEnhance("remove_silences") : undefined} />
+          <AiToolRow tool={{ icon: Scissors, title: "Magic Cut", desc: "Remove ums, ahs and bad takes" }} />
         </div>
       </div>
 

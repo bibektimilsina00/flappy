@@ -1,17 +1,35 @@
 "use client";
 
-import { Captions, ChevronDown, ChevronLeft, Info, PenLine, Upload, Gem } from "lucide-react";
+import { Captions, ChevronDown, ChevronLeft, Gem, Info, Loader2, PenLine, Upload } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/cn";
+import { type SubtitleSegment, generateSubtitles } from "../../services/video-editor-api";
 
 const ACCENT = "#14b8a6";
 
-// Subtitle generator — visual for now (no transcription back-end). Toggles hold
-// local state; the create/manual/import actions are stubs.
-export function SubtitlesTab() {
+// Subtitle generator. Auto-subtitle transcribes the project audio and drops
+// caption clips onto a Subtitles track; other actions remain stubs.
+export function SubtitlesTab({ projectId, onAddSubtitles }: { projectId: string; onAddSubtitles: (segments: SubtitleSegment[]) => void }) {
   const [translate, setTranslate] = useState(false);
   const [speakers, setSpeakers] = useState(false);
   const [manual, setManual] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const autoSubtitle = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const { segments } = await generateSubtitles(projectId);
+      if (!segments.length) setError("No speech detected in the project audio.");
+      else onAddSubtitles(segments);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Transcription failed");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (manual) return <ManualSubtitles onBack={() => setManual(false)} />;
 
@@ -31,11 +49,15 @@ export function SubtitlesTab() {
 
         <button
           type="button"
-          className="flex h-10 w-full items-center justify-center gap-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
+          onClick={autoSubtitle}
+          disabled={busy}
+          className="flex h-10 w-full items-center justify-center gap-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           style={{ backgroundColor: ACCENT }}
         >
-          <Captions className="size-4" /> Auto-subtitle in English
+          {busy ? <Loader2 className="size-4 animate-spin" /> : <Captions className="size-4" />}
+          {busy ? "Transcribing…" : "Auto-subtitle in English"}
         </button>
+        {error ? <p className="text-sm text-red-400">{error}</p> : null}
 
         <div className="-mx-3 border-b border-border" />
 

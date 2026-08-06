@@ -306,6 +306,183 @@ def generate_in_project(
     return {"execution_id": str(execution.id), "node_id": gen_id}
 
 
+class SubtitlesRequest(BaseModel):
+    source_asset_id: str | None = None  # a pool asset; defaults to the first video/audio clip
+
+
+@router.post("/projects/{project_id}/subtitles")
+def generate_subtitles(
+    project_id: uuid.UUID,
+    body: SubtitlesRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Transcribe the project's audio and return caption segments mapped to the
+    timeline. Picks the source clip (given asset, else the first video/audio clip),
+    transcribes its media via the shared OpenRouter pipeline, then maps each
+    segment's media time onto the timeline (honouring the clip's trim + speed)."""
+    from apps.api.app.features.clips.pipeline import _transcribe
+
+    project = repository.get(session, workspace_id, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+
+    tracks = (project.doc or {}).get("tracks") or []
+    clips = [c for t in tracks for c in (t.get("clips") or []) if c.get("assetId")]
+    # Choose the source clip: the requested asset, else the first video/audio clip.
+    clip = None
+    if body.source_asset_id:
+        clip = next((c for c in clips if c.get("assetId") == body.source_asset_id), None)
+    if clip is None:
+        clip = next((c for c in clips if c.get("kind") in ("video", "audio")), None)
+    if clip is None:
+        raise HTTPException(status_code=422, detail="No video or audio clip to transcribe")
+
+    workflow = workflows_repo.get(session, workspace_id, project.workflow_id)
+    refmap = {item["id"]: item for item in (_workflow_media(session, workflow) if workflow else [])}
+    item = refmap.get(clip["assetId"])
+    if item is None:
+        raise HTTPException(status_code=404, detail="Source media not found")
+
+    storage = get_storage()
+    c_start = float(clip.get("start") or 0)
+    c_in = float(clip.get("in") or 0)
+    c_out = float(clip.get("out") or (c_in + float(clip.get("duration") or 0)))
+    speed = float(clip.get("speed") or 1) or 1
+
+    with tempfile.TemporaryDirectory() as d:
+        ext = os.path.splitext(item["key"])[1] or ".bin"
+        path = os.path.join(d, f"src{ext}")
+        with open(path, "wb") as f:
+            f.write(storage.get(item["key"]))
+        try:
+            raw, _dur = _transcribe(path)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    out: list[dict] = []
+    for seg in raw:
+        s = float(seg.get("start") or 0)
+        e = float(seg.get("end") or 0)
+        if e <= c_in or s >= c_out:  # outside the trimmed region
+            continue
+        s = max(s, c_in)
+        e = min(e, c_out)
+        text = (seg.get("text") or "").strip()
+        if not text:
+            continue
+        out.append(
+            {
+                "start": round(c_start + (s - c_in) / speed, 3),
+                "end": round(c_start + (e - c_in) / speed, 3),
+                "text": text,
+            }
+        )
+    return {"segments": out}
+
+
+_ENHANCE_FILTERS = {
+    "denoise": "afftdn=nf=-25",
+    "remove_silences": (
+        "silenceremove=start_periods=1:start_threshold=-40dB:"
+        "stop_periods=-1:stop_threshold=-40dB:stop_duration=0.5"
+    ),
+}
+
+
+def _media_duration(exe: str, path: str) -> float:
+    """Parse a media file's duration from ffmpeg's banner (no ffprobe dependency)."""
+    proc = subprocess.run([exe, "-hide_banner", "-i", path], capture_output=True, text=True)
+    for line in proc.stderr.splitlines():
+        line = line.strip()
+        if line.startswith("Duration:"):
+            hms = line.split("Duration:", 1)[1].split(",", 1)[0].strip()
+            try:
+                h, m, s = hms.split(":")
+                return int(h) * 3600 + int(m) * 60 + float(s)
+            except ValueError:
+                return 0.0
+    return 0.0
+
+
+class EnhanceRequest(BaseModel):
+    clip_id: str
+    op: str  # "denoise" | "remove_silences"
+
+
+@router.post("/projects/{project_id}/enhance")
+def enhance_clip_audio(
+    project_id: uuid.UUID,
+    body: EnhanceRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Run an ffmpeg audio filter (denoise / remove-silences) on a clip's media and
+    store the result as a new pool asset. Returns the new asset + duration so the
+    editor can point the clip at it."""
+    if body.op not in _ENHANCE_FILTERS:
+        raise HTTPException(status_code=422, detail="Unknown enhancement")
+
+    project = repository.get(session, workspace_id, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+
+    clips = [
+        c
+        for t in (project.doc or {}).get("tracks", [])
+        for c in (t.get("clips") or [])
+    ]
+    clip = next((c for c in clips if c.get("id") == body.clip_id), None)
+    if clip is None or not clip.get("assetId"):
+        raise HTTPException(status_code=404, detail="Clip not found")
+
+    workflow = workflows_repo.get(session, workspace_id, project.workflow_id)
+    refmap = {item["id"]: item for item in (_workflow_media(session, workflow) if workflow else [])}
+    item = refmap.get(clip["assetId"])
+    if item is None:
+        raise HTTPException(status_code=404, detail="Source media not found")
+
+    storage = get_storage()
+    exe = imageio_ffmpeg.get_ffmpeg_exe()
+    with tempfile.TemporaryDirectory() as d:
+        ext = os.path.splitext(item["key"])[1] or ".bin"
+        src = os.path.join(d, f"src{ext}")
+        with open(src, "wb") as f:
+            f.write(storage.get(item["key"]))
+        out = os.path.join(d, "out.mp3")
+        proc = subprocess.run(
+            [exe, "-y", "-i", src, "-vn", "-af", _ENHANCE_FILTERS[body.op], "-c:a", "libmp3lame", "-q:a", "4", out],
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode != 0 or not os.path.exists(out):
+            raise HTTPException(status_code=502, detail="Audio processing failed")
+        data = open(out, "rb").read()
+        duration = _media_duration(exe, out)
+
+    key = f"{workspace_id}/edits/{uuid.uuid4()}.mp3"
+    storage.put(key, data, "audio/mpeg")
+
+    graph = dict(workflow.graph or {}) if workflow else {}
+    nodes = list(graph.get("nodes") or [])
+    nodes.append(
+        {
+            "id": f"node-{uuid.uuid4()}",
+            "type": "audio",
+            "position": {"x": 40, "y": 40 + len(nodes) * 40},
+            "data": {"kind": "audio", "upload_key": key, "label": body.op},
+        }
+    )
+    graph["nodes"] = nodes
+    if workflow:
+        workflow.graph = graph
+        workflows_repo.save(session, workflow)
+
+    return {"asset_id": key, "kind": "audio", "url": storage.url(key), "duration": round(duration, 3)}
+
+
 class ProjectUpdate(BaseModel):
     title: str | None = None
     doc: dict | None = None

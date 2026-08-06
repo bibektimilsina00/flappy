@@ -11,9 +11,11 @@ import {
   Settings,
   Undo2,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/cn";
+import { enhanceClipAudio } from "../services/video-editor-api";
 import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
 import { ExportPanel } from "../components/export-panel/export-panel";
 import { Inspector } from "../components/inspector/inspector";
@@ -116,6 +118,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
     splitSelected,
     addTextClip,
     addShapeClip,
+    addSubtitleClips,
     doImport,
     dropAsset,
     setupKeybindings,
@@ -147,6 +150,14 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
 
   const [aspectKey, setAspectKey] = useState<string | null>(null);
   const [showOverlay, setShowOverlay] = useState(true);
+  const qc = useQueryClient();
+  const enhanceSelected = async (op: "denoise" | "remove_silences") => {
+    if (!selectedClip || !doc) return;
+    const r = await enhanceClipAudio(projectId, selectedClip.id, op);
+    await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
+    const dur = r.duration || selectedClip.duration;
+    commit(updateClip(doc, selectedClip.id, { assetId: r.asset_id, in: 0, out: dur, duration: dur }));
+  };
   const [playgroundOpen, setPlaygroundOpen] = useState(false);
   const [playgroundMode, setPlaygroundMode] = useState("text-to-video");
   const openPlayground = (mode: string) => {
@@ -326,6 +337,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
                     setSelection(new Set());
                   }}
                   onAddText={() => addTextClip("Text", playhead)}
+                  onEnhance={enhanceSelected}
                 />
               )
             ) : (
@@ -337,6 +349,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
                 importing={importing}
                 onAddText={(content) => addTextClip(content, playhead)}
                 onAddShape={(type, color) => addShapeClip({ type, color }, playhead)}
+                onAddSubtitles={addSubtitleClips}
                 projectId={projectId}
                 selectedClip={selectedClip}
                 onOpenPlayground={openPlayground}
