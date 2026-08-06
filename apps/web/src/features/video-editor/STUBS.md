@@ -43,7 +43,7 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 
 ### Text tab (`left-panel/text-tab.tsx`)
 - [ ] **View all** links
-- [x] Clicking a preset adds a text clip
+- [x] Clicking a preset adds a text clip **with its style applied** (font family/size/weight/italic/color written onto the clip and rendered in the preview)
 
 ### Subtitles tab (`left-panel/subtitles-tab.tsx`)
 - [x] **Auto-subtitle** — transcribes the project audio via `POST /video-editor/projects/{id}/subtitles` (OpenRouter whisper) and drops timeline-mapped caption clips onto a "Subtitles" text track

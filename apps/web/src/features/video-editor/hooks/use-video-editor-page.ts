@@ -52,7 +52,7 @@ export function useVideoEditorPage(projectId: string) {
     if (next !== doc) commit(next);
   }, [doc, selectedClipId, commit]);
 
-  const addTextClip = (content: string, playhead: number) => {
+  const addTextClip = (content: string, playhead: number, style?: Partial<NonNullable<Clip["text"]>>) => {
     if (!doc) return;
     const kind = "text";
     let track = doc.tracks.find((t) => t.kind === kind);
@@ -76,7 +76,7 @@ export function useVideoEditorPage(projectId: string) {
       transform: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
       keyframes: [],
       effects: [],
-      text: { content },
+      text: { content, ...style },
     };
     commit(addClip(nextDoc, track.id, clip));
     setSelection(new Set([newId]));

@@ -4,57 +4,58 @@ import { ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/cn";
 
-type Preset = { title: string; subtitle?: string; cls: string; style?: React.CSSProperties };
+export type TextPresetStyle = { fontFamily?: string; fontSize?: number; bold?: boolean; italic?: boolean; color?: string };
+type Preset = { title: string; subtitle?: string; cls: string; style?: React.CSSProperties; apply: TextPresetStyle };
 type Group = { tag: string; items: Preset[] };
 
-// Text presets mirroring the reference. Clicking a tile adds a text clip with
-// that content; the visual style is a preview only (rendering styles TBD).
+// Text presets. Clicking a tile adds a styled text clip (its `apply` is written
+// onto the clip's text and rendered in the preview); `cls`/`style` drive the tile.
 const GROUPS: Group[] = [
   {
     tag: "Simple",
     items: [
-      { title: "Title", cls: "text-xl font-bold" },
-      { title: "Simple", cls: "text-base font-medium" },
-      { title: "Cursive", cls: "text-xl italic", style: { fontFamily: "cursive" } },
-      { title: "Serif", cls: "text-lg", style: { fontFamily: "Georgia, serif" } },
-      { title: "Typewriter", cls: "text-sm", style: { fontFamily: "monospace" } },
-      { title: "bold", cls: "text-xl font-extrabold" },
+      { title: "Title", cls: "text-xl font-bold", apply: { fontSize: 64, bold: true } },
+      { title: "Simple", cls: "text-base font-medium", apply: { fontSize: 44 } },
+      { title: "Cursive", cls: "text-xl italic", style: { fontFamily: "cursive" }, apply: { fontSize: 60, fontFamily: "cursive", italic: true } },
+      { title: "Serif", cls: "text-lg", style: { fontFamily: "Georgia, serif" }, apply: { fontSize: 52, fontFamily: "Georgia, serif" } },
+      { title: "Typewriter", cls: "text-sm", style: { fontFamily: "monospace" }, apply: { fontSize: 40, fontFamily: "Courier New, monospace" } },
+      { title: "bold", cls: "text-xl font-extrabold", apply: { fontSize: 64, bold: true } },
     ],
   },
   {
     tag: "Title",
     items: [
-      { title: "bold", subtitle: "Traditional", cls: "text-2xl font-extrabold" },
-      { title: "Editorial", subtitle: "Classic", cls: "text-lg", style: { fontFamily: "Georgia, serif" } },
-      { title: "Modern", subtitle: "Bauhaus", cls: "text-lg font-semibold" },
-      { title: "Elegant", subtitle: "Light", cls: "text-lg font-light tracking-wide" },
-      { title: "Signature", subtitle: "INDUSTRIAL", cls: "text-base italic", style: { fontFamily: "cursive" } },
-      { title: "RELIABLE", subtitle: "Typewriter", cls: "text-sm font-semibold tracking-wider", style: { fontFamily: "monospace" } },
+      { title: "bold", subtitle: "Traditional", cls: "text-2xl font-extrabold", apply: { fontSize: 72, bold: true } },
+      { title: "Editorial", subtitle: "Classic", cls: "text-lg", style: { fontFamily: "Georgia, serif" }, apply: { fontSize: 56, fontFamily: "Georgia, serif" } },
+      { title: "Modern", subtitle: "Bauhaus", cls: "text-lg font-semibold", apply: { fontSize: 56, bold: true } },
+      { title: "Elegant", subtitle: "Light", cls: "text-lg font-light tracking-wide", apply: { fontSize: 56 } },
+      { title: "Signature", subtitle: "INDUSTRIAL", cls: "text-base italic", style: { fontFamily: "cursive" }, apply: { fontSize: 52, fontFamily: "cursive", italic: true } },
+      { title: "RELIABLE", subtitle: "Typewriter", cls: "text-sm font-semibold tracking-wider", style: { fontFamily: "monospace" }, apply: { fontSize: 44, fontFamily: "Courier New, monospace", bold: true } },
     ],
   },
   {
     tag: "Lower Third",
     items: [
-      { title: "Name", subtitle: "Job title", cls: "text-base font-semibold" },
-      { title: "PRESENTER", subtitle: "riocut", cls: "text-sm font-bold tracking-wide" },
-      { title: "Location", subtitle: "Subtitle", cls: "text-base italic" },
-      { title: "Speaker", subtitle: "Company", cls: "text-base font-medium" },
+      { title: "Name", subtitle: "Job title", cls: "text-base font-semibold", apply: { fontSize: 44, bold: true } },
+      { title: "PRESENTER", subtitle: "riocut", cls: "text-sm font-bold tracking-wide", apply: { fontSize: 40, bold: true } },
+      { title: "Location", subtitle: "Subtitle", cls: "text-base italic", apply: { fontSize: 44, italic: true } },
+      { title: "Speaker", subtitle: "Company", cls: "text-base font-medium", apply: { fontSize: 44 } },
     ],
   },
   {
     tag: "Other",
     items: [
-      { title: "LIVE NOW", cls: "text-base font-extrabold tracking-wide" },
-      { title: "Candy Shop", cls: "text-lg font-bold", style: { color: "#a78bfa" } },
-      { title: "GOOD VIBES", cls: "text-lg font-black" },
-      { title: "THANKS FOR WATCHING", cls: "text-xs font-bold tracking-wide" },
-      { title: "Coffee hour", cls: "text-lg", style: { fontFamily: "Georgia, serif" } },
+      { title: "LIVE NOW", cls: "text-base font-extrabold tracking-wide", apply: { fontSize: 48, bold: true } },
+      { title: "Candy Shop", cls: "text-lg font-bold", style: { color: "#a78bfa" }, apply: { fontSize: 56, bold: true, color: "#a78bfa" } },
+      { title: "GOOD VIBES", cls: "text-lg font-black", apply: { fontSize: 56, bold: true } },
+      { title: "THANKS FOR WATCHING", cls: "text-xs font-bold tracking-wide", apply: { fontSize: 40, bold: true } },
+      { title: "Coffee hour", cls: "text-lg", style: { fontFamily: "Georgia, serif" }, apply: { fontSize: 56, fontFamily: "Georgia, serif" } },
     ],
   },
 ];
 const TAGS = ["All", ...GROUPS.map((g) => g.tag)];
 
-export function TextTab({ onAddText }: { onAddText: (content: string) => void }) {
+export function TextTab({ onAddText }: { onAddText: (content: string, style?: TextPresetStyle) => void }) {
   const [tag, setTag] = useState("All");
   const groups = tag === "All" ? GROUPS : GROUPS.filter((g) => g.tag === tag);
 
@@ -87,7 +88,7 @@ export function TextTab({ onAddText }: { onAddText: (content: string) => void })
                 <button
                   key={`${g.tag}-${p.title}-${p.subtitle ?? ""}`}
                   type="button"
-                  onClick={() => onAddText(p.title)}
+                  onClick={() => onAddText(p.title, p.apply)}
                   className="flex h-20 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-lg bg-secondary/60 px-2 text-center leading-tight transition-colors hover:bg-accent"
                 >
                   <span className={p.cls} style={p.style}>

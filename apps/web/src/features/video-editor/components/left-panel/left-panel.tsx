@@ -9,7 +9,7 @@ import { BrandKitTab } from "./brand-kit-tab";
 import { ElementsTab } from "./elements-tab";
 import { ImageTab } from "./image-tab";
 import { SubtitlesTab } from "./subtitles-tab";
-import { TextTab } from "./text-tab";
+import { type TextPresetStyle, TextTab } from "./text-tab";
 import { VideoTab } from "./video-tab";
 
 export const CATEGORIES: { id: CategoryId; label: string; icon: typeof Type }[] = [
@@ -58,7 +58,7 @@ export function LeftPanel({
   assets: VideoEditorAsset[];
   onImport: () => void;
   importing: boolean;
-  onAddText: (content: string) => void;
+  onAddText: (content: string, style?: TextPresetStyle) => void;
   onAddShape: (type: "rect" | "rounded" | "ellipse" | "triangle" | "star", color: string) => void;
   onAddSubtitles: (segments: { start: number; end: number; text: string }[]) => void;
   onAddStock: (url: string, kind: string) => void;

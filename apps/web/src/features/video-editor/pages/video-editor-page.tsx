@@ -388,7 +388,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
                 assets={assets}
                 onImport={() => importInput.current?.click()}
                 importing={importing}
-                onAddText={(content) => addTextClip(content, playhead)}
+                onAddText={(content, style) => addTextClip(content, playhead, style)}
                 onAddShape={(type, color) => addShapeClip({ type, color }, playhead)}
                 onAddSubtitles={addSubtitleClips}
                 onAddStock={addStock}
