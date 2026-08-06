@@ -1,22 +1,33 @@
 "use client";
 
-import { ChevronDown, ChevronRight, Plus, Search, Upload, Gem } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronDown, Loader2, Music, Search, Upload, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/cn";
+import { addBrandKitToProject, type BrandKitItem, listBrandKit, removeFromBrandKit } from "../../services/video-editor-api";
 
-const TAGS = ["All", "Saved Items", "Videos", "Audio", "Images", "Subtitles", "Fonts & Colors"];
-const SECTIONS = [
-  { title: "Saved Items", empty: "No Saved Items", hint: 'Select an item and click "Save to Brand Kit" to share across your team', add: false },
-  { title: "Videos", empty: "No Videos", hint: "Upload a video or select one from the Media tab", add: true },
-  { title: "Audio", empty: "No Audio", hint: "Upload an audio file or select one from the Audio tab", add: true },
-  { title: "Images", empty: "No Images", hint: "Upload an image file", add: true },
-  { title: "Subtitles", empty: "No Subtitles", hint: "Create a subtitle style and save to your Brand Kit", add: false },
-  { title: "Fonts", empty: "No Fonts", hint: "Click + to add a font", add: true },
-  { title: "Colors", empty: "No Colors", hint: "Click + to add a color", add: true },
+const SECTIONS: { kind: string; title: string; empty: string }[] = [
+  { kind: "image", title: "Images", empty: "No images saved yet" },
+  { kind: "video", title: "Videos", empty: "No videos saved yet" },
+  { kind: "audio", title: "Audio", empty: "No audio saved yet" },
+  { kind: "color", title: "Colors", empty: "No colors saved yet" },
 ];
 
-export function BrandKitTab({ onImport }: { onImport: () => void }) {
-  const [tag, setTag] = useState("All");
+export function BrandKitTab({ onImport, projectId }: { onImport: () => void; projectId: string }) {
+  const qc = useQueryClient();
+  const [q, setQ] = useState("");
+  const { data, isLoading } = useQuery({ queryKey: ["brand-kit"], queryFn: listBrandKit });
+
+  const remove = useMutation({
+    mutationFn: removeFromBrandKit,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["brand-kit"] }),
+  });
+  const addToProject = useMutation({
+    mutationFn: (itemId: string) => addBrandKitToProject(projectId, itemId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["editor-project", projectId] }),
+  });
+
+  const items = (data?.items ?? []).filter((i) => !q || i.name.toLowerCase().includes(q.toLowerCase()));
 
   return (
     <div className="px-3 pt-1">
@@ -27,52 +38,94 @@ export function BrandKitTab({ onImport }: { onImport: () => void }) {
         <div className="flex gap-2">
           <div className="flex flex-1 items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3">
             <Search className="size-4 shrink-0 text-muted-foreground" />
-            <input placeholder="Search your assets…" className="w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-muted-foreground" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search your assets…" className="w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-muted-foreground" />
           </div>
           <button type="button" onClick={onImport} className="grid size-10 shrink-0 place-items-center rounded-lg bg-secondary text-muted-foreground transition-colors hover:bg-accent" title="Upload">
             <Upload className="size-4" />
           </button>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {TAGS.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTag(t)}
-              className={cn("h-8 rounded-full px-3 text-xs font-semibold transition-colors", tag === t ? "bg-[#14b8a6] text-white" : "bg-secondary text-muted-foreground hover:bg-accent")}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
       </div>
 
-      <div className="space-y-6">
-        {SECTIONS.map((s) => (
-          <div key={s.title} className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="grid size-4 place-items-center rounded bg-gradient-to-br from-amber-300 to-amber-500 text-black" title="Upgrade">
-                  <Gem className="size-2.5 fill-current" />
-                </span>
+      {isLoading ? (
+        <div className="grid place-items-center py-10 text-muted-foreground">
+          <Loader2 className="size-5 animate-spin" />
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {SECTIONS.map((s) => {
+            const rows = items.filter((i) => i.kind === s.kind);
+            return (
+              <div key={s.kind} className="space-y-3">
                 <h3 className="text-[15px] font-semibold">{s.title}</h3>
-                {s.add ? (
-                  <button type="button" onClick={onImport} className="grid size-5 place-items-center rounded bg-secondary text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title="Add">
-                    <Plus className="size-3.5" />
-                  </button>
-                ) : null}
+                {rows.length === 0 ? (
+                  <div className="rounded-lg border border-border p-5 text-center text-sm text-muted-foreground">{s.empty}</div>
+                ) : s.kind === "color" ? (
+                  <div className="grid grid-cols-8 gap-1.5">
+                    {rows.map((i) => (
+                      <BrandColor key={i.id} item={i} onRemove={() => remove.mutate(i.id)} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className={cn("grid gap-2.5", s.kind === "audio" ? "grid-cols-1" : "grid-cols-3")}>
+                    {rows.map((i) => (
+                      <BrandMedia key={i.id} item={i} onAdd={() => addToProject.mutate(i.id)} onRemove={() => remove.mutate(i.id)} />
+                    ))}
+                  </div>
+                )}
               </div>
-              <button type="button" className="flex items-center gap-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
-                View all <ChevronRight className="size-3.5" />
-              </button>
-            </div>
-            <div className="flex flex-col items-center gap-1 rounded-lg border border-border p-6 text-center">
-              <p className="text-sm font-semibold">{s.empty}</p>
-              <p className="max-w-[200px] text-sm text-muted-foreground">{s.hint}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+            );
+          })}
+          <p className="pt-2 text-center text-[11px] text-muted-foreground">Use "Save to Brand Kit" on a clip to add items here.</p>
+        </div>
+      )}
     </div>
+  );
+}
+
+function BrandColor({ item, onRemove }: { item: BrandKitItem; onRemove: () => void }) {
+  return (
+    <div className="group relative">
+      <span className="block aspect-square rounded-md border border-border" style={{ backgroundColor: item.color }} title={item.color} />
+      <RemoveBtn onRemove={onRemove} />
+    </div>
+  );
+}
+
+function BrandMedia({ item, onAdd, onRemove }: { item: BrandKitItem; onAdd: () => void; onRemove: () => void }) {
+  return (
+    <div className="group relative">
+      <button
+        type="button"
+        onClick={onAdd}
+        title="Add to this project"
+        className={cn("flex w-full items-center overflow-hidden rounded-lg border border-border bg-secondary transition-colors hover:border-[#14b8a6]", item.kind === "audio" ? "gap-2 px-3 py-2" : "aspect-video")}
+      >
+        {item.kind === "video" ? (
+          // biome-ignore lint/a11y/useMediaCaption: thumbnail
+          <video src={item.url} muted playsInline preload="metadata" className="size-full object-cover" />
+        ) : item.kind === "audio" ? (
+          <>
+            <Music className="size-4 shrink-0 text-muted-foreground" /> <span className="truncate text-left text-xs">{item.name}</span>
+          </>
+        ) : (
+          // biome-ignore lint/a11y/useAltText: thumbnail
+          <img src={item.url} className="size-full object-cover" />
+        )}
+      </button>
+      <RemoveBtn onRemove={onRemove} />
+    </div>
+  );
+}
+
+function RemoveBtn({ onRemove }: { onRemove: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onRemove}
+      title="Remove"
+      className="absolute right-1 top-1 hidden size-5 place-items-center rounded-full bg-black/60 text-white group-hover:grid hover:bg-red-500"
+    >
+      <X className="size-3" />
+    </button>
   );
 }

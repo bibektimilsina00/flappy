@@ -16,7 +16,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/cn";
-import { detachClipAudio, duplicateProject, enhanceClipAudio } from "../services/video-editor-api";
+import { addToBrandKit, detachClipAudio, duplicateProject, enhanceClipAudio } from "../services/video-editor-api";
 import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
 import { ExportPanel } from "../components/export-panel/export-panel";
 import { Inspector } from "../components/inspector/inspector";
@@ -173,6 +173,14 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
     const r = await detachClipAudio(projectId, selectedClip.id);
     await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
     detachAudioClip(selectedClip.id, r.asset_id);
+  };
+  const saveToBrandKit = async () => {
+    const clip = selectedClip;
+    if (!clip) return;
+    if (clip.assetId) await addToBrandKit({ kind: clip.kind, workflow_id: projectId, asset_id: clip.assetId });
+    else if (clip.kind === "text" && clip.text?.color) await addToBrandKit({ kind: "color", color: clip.text.color });
+    else return;
+    qc.invalidateQueries({ queryKey: ["brand-kit"] });
   };
   const [playgroundOpen, setPlaygroundOpen] = useState(false);
   const [playgroundMode, setPlaygroundMode] = useState("text-to-video");
@@ -404,6 +412,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
                     onOpenAnimations={() => setClipView("animations")}
                     onOpenTransitions={() => setClipView("transitions")}
                     onGenerateVideo={() => openPlayground("text-to-video")}
+                    onSaveToBrandKit={saveToBrandKit}
                     onDuplicate={() => commit(duplicateClip(doc, selectedClip.id))}
                     onDelete={() => {
                       commit(removeClips(doc, new Set([selectedClip.id])));

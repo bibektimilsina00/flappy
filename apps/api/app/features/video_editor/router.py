@@ -9,6 +9,7 @@ import os
 import subprocess
 import tempfile
 import uuid
+from datetime import UTC, datetime
 
 import imageio_ffmpeg
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -30,6 +31,7 @@ from apps.api.app.features.video_editor.models import (
 from apps.api.app.features.video_editor.render import build_render_args, build_text_ass
 from apps.api.app.features.workflows import repository as workflows_repo
 from apps.api.app.features.workflows.models import Workflow
+from apps.api.app.features.workspaces.models import Workspace
 from apps.api.app.storage.factory import get_storage
 
 router = APIRouter(prefix="/video-editor", tags=["video-editor"])
@@ -614,6 +616,135 @@ def duplicate_project(
         ),
     )
     return {"workflow_id": str(new_wf.id)}
+
+
+# ── Brand Kit (stored in workspace.preferences — no migration needed) ────────
+
+
+def _brand_kit(ws: Workspace) -> list[dict]:
+    return list((ws.preferences or {}).get("brand_kit") or [])
+
+
+def _save_brand_kit(session: Session, ws: Workspace, items: list[dict]) -> None:
+    prefs = dict(ws.preferences or {})
+    prefs["brand_kit"] = items
+    ws.preferences = prefs  # reassign so the JSON column is marked dirty
+    session.add(ws)
+    session.commit()
+
+
+def _brand_item_out(item: dict, storage) -> dict:
+    out = {"id": item["id"], "kind": item["kind"], "name": item.get("name") or item["kind"]}
+    if item.get("color"):
+        out["color"] = item["color"]
+    if item.get("key"):
+        out["url"] = storage.url(item["key"])
+    return out
+
+
+@router.get("/brand-kit")
+def list_brand_kit(
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    ws = session.get(Workspace, workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    storage = get_storage()
+    return {"items": [_brand_item_out(i, storage) for i in _brand_kit(ws)]}
+
+
+class BrandKitAdd(BaseModel):
+    kind: str  # video | audio | image | color
+    workflow_id: uuid.UUID | None = None
+    asset_id: str | None = None
+    color: str | None = None
+    name: str | None = None
+
+
+@router.post("/brand-kit")
+def add_brand_kit(
+    body: BrandKitAdd,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    ws = session.get(Workspace, workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
+    item = {"id": str(uuid.uuid4()), "kind": body.kind, "created_at": datetime.now(UTC).isoformat()}
+    if body.kind == "color":
+        if not body.color:
+            raise HTTPException(status_code=422, detail="color is required")
+        item["color"] = body.color
+        item["name"] = body.name or body.color
+    else:
+        if not (body.workflow_id and body.asset_id):
+            raise HTTPException(status_code=422, detail="workflow_id and asset_id are required")
+        workflow = workflows_repo.get(session, workspace_id, body.workflow_id)
+        refmap = {m["id"]: m for m in (_workflow_media(session, workflow) if workflow else [])}
+        media = refmap.get(body.asset_id)
+        if media is None:
+            raise HTTPException(status_code=404, detail="Asset not found")
+        item["key"] = media["key"]
+        item["name"] = body.name or media["key"].rsplit("/", 1)[-1]
+
+    items = _brand_kit(ws)
+    items.append(item)
+    _save_brand_kit(session, ws, items)
+    return _brand_item_out(item, get_storage())
+
+
+@router.delete("/brand-kit/{item_id}")
+def remove_brand_kit(
+    item_id: str,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    ws = session.get(Workspace, workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    _save_brand_kit(session, ws, [i for i in _brand_kit(ws) if i.get("id") != item_id])
+    return {"ok": True}
+
+
+@router.post("/projects/{workflow_id}/brand-kit/{item_id}/add")
+def add_brand_kit_to_project(
+    workflow_id: uuid.UUID,
+    item_id: str,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Drop a saved brand-kit asset into the current project's media pool."""
+    ws = session.get(Workspace, workspace_id)
+    workflow = workflows_repo.get(session, workspace_id, workflow_id)
+    if ws is None or workflow is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    item = next((i for i in _brand_kit(ws) if i.get("id") == item_id), None)
+    if item is None or not item.get("key"):
+        raise HTTPException(status_code=404, detail="Brand kit item not found")
+
+    key = item["key"]
+    kind = assets_repo.kind_from_key(key) or item.get("kind") or "image"
+    graph = dict(workflow.graph or {})
+    nodes = list(graph.get("nodes") or [])
+    if not any((n.get("data") or {}).get("upload_key") == key for n in nodes):
+        nodes.append(
+            {
+                "id": f"node-{uuid.uuid4()}",
+                "type": kind,
+                "position": {"x": 40, "y": 40 + len(nodes) * 40},
+                "data": {"kind": kind, "upload_key": key, "label": item.get("name") or "brand kit"},
+            }
+        )
+        graph["nodes"] = nodes
+        workflow.graph = graph
+        workflows_repo.save(session, workflow)
+    return {"id": key, "kind": kind, "url": get_storage().url(key)}
 
 
 class ProjectUpdate(BaseModel):

@@ -58,6 +58,7 @@ export function ClipToolbar({
   onOpenAnimations,
   onOpenTransitions,
   onGenerateVideo,
+  onSaveToBrandKit,
   onDelete,
   onDuplicate,
 }: {
@@ -69,6 +70,7 @@ export function ClipToolbar({
   onOpenAnimations: () => void;
   onOpenTransitions: () => void;
   onGenerateVideo: () => void;
+  onSaveToBrandKit: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
 }) {
@@ -120,6 +122,7 @@ export function ClipToolbar({
             onAlign={insp.setAlign}
             order={order}
             timing={timing}
+            onSaveToBrandKit={onSaveToBrandKit}
           />
         </div>
       </div>
@@ -171,6 +174,7 @@ export function ClipToolbar({
           onFill={insp.fillCanvas}
           order={order}
           timing={timing}
+          onSaveToBrandKit={onSaveToBrandKit}
         />
       </div>
     </div>
@@ -282,6 +286,7 @@ function MorePopover({
   onAlign,
   order,
   timing,
+  onSaveToBrandKit,
 }: {
   variant?: "audio" | "image" | "text";
   opacity: number;
@@ -305,6 +310,7 @@ function MorePopover({
   onAlign?: (a: "left" | "center" | "right") => void;
   order?: { front: () => void; forward: () => void; backward: () => void; back: () => void };
   timing?: { start: number; end: number; onStart: (v: number) => void; onEnd: (v: number) => void; g: Gesture };
+  onSaveToBrandKit?: () => void;
 }) {
   const { open, setOpen, ref } = usePopover();
   const close = () => setOpen(false);
@@ -350,7 +356,14 @@ function MorePopover({
             <Divider />
             {copyItem}
             <OrderItem order={order} />
-            <Item icon={Palette} label="Save to Brand Kit" />
+            <Item
+              icon={Palette}
+              label="Save to Brand Kit"
+              onClick={() => {
+                onSaveToBrandKit?.();
+                close();
+              }}
+            />
             <Divider />
             <Item icon={SlidersHorizontal} label="Properties" />
             <AdjustTimingItem timing={timing} />
@@ -371,7 +384,14 @@ function MorePopover({
             <Divider />
             <AdjustTimingItem timing={timing} />
             <Item icon={Replace} label="Replace Audio" />
-            <Item icon={Wand2} label="Save to Brand Kit" upgrade />
+            <Item
+              icon={Wand2}
+              label="Save to Brand Kit"
+              onClick={() => {
+                onSaveToBrandKit?.();
+                close();
+              }}
+            />
             {deleteItem}
           </Panel>
         ) : null}
@@ -415,7 +435,14 @@ function MorePopover({
             <Divider />
             <AdjustTimingItem timing={timing} />
             <Item icon={Replace} label="Replace Image" />
-            <Item icon={Wand2} label="Save to Brand Kit" upgrade />
+            <Item
+              icon={Wand2}
+              label="Save to Brand Kit"
+              onClick={() => {
+                onSaveToBrandKit?.();
+                close();
+              }}
+            />
             {deleteItem}
           </Panel>
         ) : null}

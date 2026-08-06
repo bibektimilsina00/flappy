@@ -90,7 +90,7 @@ export function LeftPanel({
         ) : category === "elements" ? (
           <ElementsTab onAddText={onAddText} onAddShape={onAddShape} />
         ) : category === "brand" ? (
-          <BrandKitTab onImport={onImport} />
+          <BrandKitTab onImport={onImport} projectId={projectId} />
         ) : (
           <p className="px-4 py-3 text-sm text-muted-foreground">{title} — coming soon.</p>
         )}

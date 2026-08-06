@@ -53,7 +53,7 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 - [ ] **Animated Stickers**, **Visualizers**, **CTA Pop-Ups** — need image-from-URL / asset registration; **View all** links
 
 ### Brand Kit tab (`left-panel/brand-kit-tab.tsx`)
-- [ ] **Entire tab** is empty-state — search, workspace picker, upload, tag filters, all "No ..." sections; no save/load back-end
+- [x] **Save to Brand Kit** (from any clip's ⋯) persists the asset/colour in `workspace.preferences.brand_kit`; the tab lists items (images/videos/audio/colours) with remove + click-to-add-to-project. No migration (JSON field).
 
 ---
 
@@ -80,11 +80,11 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 
 ## Floating clip toolbar (`clip-toolbar/clip-toolbar.tsx`)
 
-- [ ] **Video** overflow menu: Fit/Fill, Filters, Effects, Adjust, Replace Video, Save to Brand Kit
-- [ ] **Audio** overflow: Replace Audio, Save to Brand Kit
-- [ ] **Image**: Adjust; overflow: Fit/Fill, Replace Image, Save to Brand Kit
-- [ ] **Text**: font / size display (edit in inspector), Effect, Depth; overflow: Line Height, Letter Spacing, Save to Brand Kit, Properties (color, Bold/Italic, align now work)
-- [x] **Volume**, **Speed** popovers; **Opacity** slider; **Flip H/V** & **Round Corners** (video/image); **Copy** (duplicate); **Order** (front/back); **Adjust Timing**; **Delete**; Animation/Transitions open their panels; image **Generate Video** opens the playground
+- [ ] **Video** overflow menu: Fit/Fill, Filters, Effects, Adjust, Replace Video
+- [ ] **Audio** overflow: Replace Audio
+- [ ] **Image**: Adjust; overflow: Fit/Fill, Replace Image
+- [ ] **Text**: font / size display (edit in inspector), Effect, Depth; overflow: Line Height, Letter Spacing, Properties (color, Bold/Italic, align now work)
+- [x] **Volume**, **Speed** popovers; **Opacity** slider; **Flip H/V** & **Round Corners** (video/image); **Copy** (duplicate); **Order** (front/back); **Adjust Timing**; **Save to Brand Kit**; **Delete**; Animation/Transitions open their panels; image **Generate Video** opens the playground
 
 ---
 
@@ -123,5 +123,5 @@ Most stubs fall into a few buckets — implementing the bucket unlocks many rows
 4. **Richer text renderer** — DONE: font/size/color/bold/italic/align now render (`clip.text.*`). Remaining: line-height, letter-spacing, text styles/effects, text-behind-person.
 5. **Transform extras** — DONE: Flip (H/V), Round Corners, Fit/Fill, and Order/z-index (via `transform.flipH/flipV/radius/fit/z`). Remaining: filters/effects.
 6. **Stock/asset providers** (stock video/image/music/SFX, stickers, shapes, GIFs, characters) -> Elements tab + all "Stock" sections.
-7. **Brand Kit service** (save/list assets, fonts, colors) -> Brand Kit tab + every "Save to Brand Kit".
+7. **Brand Kit** — DONE (save/list/remove assets + colours in `workspace.preferences`, add-to-project). Remaining: fonts, subtitle styles.
 8. **Project actions** (duplicate, save-as-template, version history) -> header menu.
