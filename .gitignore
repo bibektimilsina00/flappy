@@ -7,6 +7,8 @@ __pycache__/
 node_modules/
 .next/
 dist/
+*.tsbuildinfo
+image.png
 .turbo/
 # env
 .env
