@@ -622,8 +622,10 @@ def magic_cut(
     workspace_id: uuid.UUID = Depends(current_workspace_id),
     _user: User = Depends(get_current_user),
 ) -> dict:
-    """Transcribe an audio clip and cut filler words (um/uh/...) — the audio-only
-    part of 'Magic Cut'. Returns a new pool asset + its trimmed duration."""
+    """Transcribe a clip and cut filler words (um/uh/...). Audio in → trimmed mp3;
+    video in → trimmed mp4 (this is 'Remove Filler Words'). Returns a new pool
+    asset + its trimmed duration. ponytail: sync re-encode, same as chroma/magic-cut
+    — a very long clip can be slow; move to the async clip-op path if that bites."""
     from apps.api.app.features.clips.pipeline import _transcribe
 
     project = repository.get_by_workflow(session, workspace_id, project_id)
@@ -638,8 +640,8 @@ def magic_cut(
         ),
         None,
     )
-    if clip is None or not clip.get("assetId") or clip.get("kind") != "audio":
-        raise HTTPException(status_code=404, detail="Audio clip not found")
+    if clip is None or not clip.get("assetId") or clip.get("kind") not in ("audio", "video"):
+        raise HTTPException(status_code=404, detail="Audio or video clip not found")
 
     workflow = workflows_repo.get(session, workspace_id, project.workflow_id)
     refmap = {item["id"]: item for item in (_workflow_media(session, workflow) if workflow else [])}
@@ -680,30 +682,37 @@ def magic_cut(
         if not keeps:
             raise HTTPException(status_code=422, detail="Nothing left after cutting")
 
-        out = os.path.join(d, "out.mp3")
-        parts = [f"[0:a]atrim=start={s:.3f}:end={e:.3f},asetpts=N/SR/TB[a{i}]" for i, (s, e) in enumerate(keeps)]
-        concat = "".join(f"[a{i}]" for i in range(len(keeps))) + f"concat=n={len(keeps)}:v=0:a=1[out]"
-        fc = ";".join([*parts, concat])
-        proc = subprocess.run(
-            [exe, "-y", "-i", src, "-filter_complex", fc, "-map", "[out]", "-c:a", "libmp3lame", "-q:a", "4", out],
-            capture_output=True,
-            text=True,
-        )
+        aparts = [f"[0:a]atrim=start={s:.3f}:end={e:.3f},asetpts=N/SR/TB[a{i}]" for i, (s, e) in enumerate(keeps)]
+        if clip.get("kind") == "video":
+            out = os.path.join(d, "out.mp4")
+            vparts = [f"[0:v]trim=start={s:.3f}:end={e:.3f},setpts=N/FRAME_RATE/TB[v{i}]" for i, (s, e) in enumerate(keeps)]
+            concat = "".join(f"[v{i}][a{i}]" for i in range(len(keeps))) + f"concat=n={len(keeps)}:v=1:a=1[vout][aout]"
+            fc = ";".join([*vparts, *aparts, concat])
+            cmd = [exe, "-y", "-i", src, "-filter_complex", fc, "-map", "[vout]", "-map", "[aout]", "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", out]
+            out_ext, out_mime, out_kind = "mp4", "video/mp4", "video"
+        else:
+            out = os.path.join(d, "out.mp3")
+            concat = "".join(f"[a{i}]" for i in range(len(keeps))) + f"concat=n={len(keeps)}:v=0:a=1[out]"
+            fc = ";".join([*aparts, concat])
+            cmd = [exe, "-y", "-i", src, "-filter_complex", fc, "-map", "[out]", "-c:a", "libmp3lame", "-q:a", "4", out]
+            out_ext, out_mime, out_kind = "mp3", "audio/mpeg", "audio"
+
+        proc = subprocess.run(cmd, capture_output=True, text=True)
         if proc.returncode != 0 or not os.path.exists(out):
             raise HTTPException(status_code=502, detail="Magic cut failed")
         data = open(out, "rb").read()
         duration = _media_duration(exe, out)
 
-    key = f"{workspace_id}/edits/{uuid.uuid4()}.mp3"
-    storage.put(key, data, "audio/mpeg")
+    key = f"{workspace_id}/edits/{uuid.uuid4()}.{out_ext}"
+    storage.put(key, data, out_mime)
     graph = dict(workflow.graph or {}) if workflow else {}
     nodes = list(graph.get("nodes") or [])
     nodes.append(
         {
             "id": f"node-{uuid.uuid4()}",
-            "type": "audio",
+            "type": out_kind,
             "position": {"x": 40, "y": 40 + len(nodes) * 40},
-            "data": {"kind": "audio", "upload_key": key, "label": "magic cut"},
+            "data": {"kind": out_kind, "upload_key": key, "label": "magic cut"},
         }
     )
     graph["nodes"] = nodes
@@ -711,7 +720,7 @@ def magic_cut(
         workflow.graph = graph
         workflows_repo.save(session, workflow)
 
-    return {"asset_id": key, "kind": "audio", "url": storage.url(key), "duration": round(duration, 3)}
+    return {"asset_id": key, "kind": out_kind, "url": storage.url(key), "duration": round(duration, 3)}
 
 
 class ChromaRequest(BaseModel):

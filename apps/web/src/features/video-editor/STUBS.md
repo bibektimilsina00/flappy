@@ -64,7 +64,8 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 
 ### Video clip
 - [ ] Edit with Script, **Animations** / **Adjust** tiles, **Fade Audio**
-- [ ] **AI Tools** list remaining: Remove Filler Words, AI Background Expand, Magic B-Roll, AI Transitions, Face Filter (each = one `clip_ops._OPS` entry + a model)
+- [x] **Remove Filler Words** / **Magic Cut** (video) — transcribe → drop um/uh segments → re-render trimmed mp4 (extends `.../magic-cut` to video; ffmpeg, no provider), swaps in the result
+- [ ] **AI Tools** list remaining: AI Background Expand, Magic B-Roll, AI Transitions, Face Filter (each = one `clip_ops._OPS` entry + a model)
 - [x] **Remove Background** & **Eye Contact** — async ops on the worker (`POST .../clip-op` → `run_clip_op` → Replicate; editor polls the Execution then swaps in the result). Remove-bg uses RVM; Eye Contact's model is operator-supplied via `EYE_CONTACT_MODEL` (501 until set). Gated on `REPLICATE_API_KEY`.
 - [x] **Green Screen** (ffmpeg chromakey → transparent webm), **Speed**, **Volume**, **Opacity**, **Rotation**, **Flip H/V**, **Round Corners**, **Replace**, **Detach Audio**, **Start/End**, **Delete**
 
@@ -124,7 +125,7 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 Most stubs fall into a few buckets — implementing the bucket unlocks many rows at once:
 
 1. **Generation back-end** (text->image/video, TTS, dubbing, AI transitions, characters) -> AI Playground, Add-TTS, most AI Tools tiles, Generate buttons.
-2. **Per-clip AI enhancement** — Clean Audio (denoise) + Remove Silences DONE (ffmpeg, `POST .../enhance`). Green Screen DONE (ffmpeg chromakey). Background removal DONE for **images** (sync, `POST .../remove-bg`) **and video** (async worker path, `POST .../clip-op` → `run_clip_op` → Replicate RVM, polled via the Execution). Both gated on `REPLICATE_API_KEY`. **Eye Contact DONE** (async, operator-supplied model via `EYE_CONTACT_MODEL`). The async path (`clip_ops.run_op` + `run_clip_op`) is the reusable foundation for any slow ML op — remaining ones (remove-filler, face filter, AI dubbing/transitions) just need a model + an entry in `clip_ops._OPS`.
+2. **Per-clip AI enhancement** — Clean Audio (denoise) + Remove Silences DONE (ffmpeg, `POST .../enhance`). Green Screen DONE (ffmpeg chromakey). Background removal DONE for **images** (sync, `POST .../remove-bg`) **and video** (async worker path, `POST .../clip-op` → `run_clip_op` → Replicate RVM, polled via the Execution). Both gated on `REPLICATE_API_KEY`. **Eye Contact DONE** (async, operator-supplied model via `EYE_CONTACT_MODEL`). The async path (`clip_ops.run_op` + `run_clip_op`) is the reusable foundation for any slow ML op — **Remove Filler Words DONE** for video too (ffmpeg, extends `.../magic-cut`). Remaining ones (face filter, AI dubbing/transitions, background-expand) just need a model + an entry in `clip_ops._OPS`.
 3. **Animation/Transition render engine** — Animations DONE (`lib/animation-engine.ts`). Remaining: transition render (boundary crossfades between adjacent clips).
 4. **Richer text renderer** — DONE in preview AND export: per-clip font-family/size/color/bold/italic/align/letter-spacing/opacity + position now burn into the MP4 via per-event ASS overrides (`render.py build_text_ass`; subtitle-track clips keep the bottom-center caption pill). Ceilings: libass only renders bundled fonts faithfully (Poppins/Anton/Bangers) — other families fall back via fontconfig; line-height and text effects/text-behind-person still unsupported in export.
 5. **Transform extras** — DONE: Flip (H/V), Round Corners, Fit/Fill, and Order/z-index (via `transform.flipH/flipV/radius/fit/z`). Remaining: filters/effects.

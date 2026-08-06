@@ -259,6 +259,8 @@ function VideoBody({ clip, insp, onDelete, replace, onDetachAudio, onEnhance }: 
               <EnhanceRow key={t.title} icon={Eraser} title="Remove Background" desc="Auto-erase the background (may take a minute)" onRun={() => onEnhance("remove_bg")} />
             ) : t.title === "Eye Contact" && onEnhance ? (
               <EnhanceRow key={t.title} icon={Eye} title="Eye Contact" desc="Redirect gaze to the camera (may take a minute)" onRun={() => onEnhance("eye_contact")} />
+            ) : (t.title === "Remove Filler Words" || t.title === "Magic Cut") && onEnhance ? (
+              <EnhanceRow key={t.title} icon={t.icon} title={t.title} desc="Cut ums, uhs & filler words" onRun={() => onEnhance("magic_cut")} />
             ) : (
               <AiToolRow key={t.title} tool={t} />
             ),
