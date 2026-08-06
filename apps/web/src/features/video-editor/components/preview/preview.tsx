@@ -122,6 +122,7 @@ export function Preview({
               return (
                 <div
                   key={clip.id}
+                  data-clip={clip.id}
                   className="pointer-events-none absolute left-1/2 top-1/2 max-w-[92%] whitespace-pre-wrap break-words"
                   style={{
                     zIndex: (t.z ?? z) + 40,

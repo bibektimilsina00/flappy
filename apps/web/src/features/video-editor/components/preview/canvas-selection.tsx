@@ -1,6 +1,6 @@
 "use client";
 
-import type { RefObject } from "react";
+import { type RefObject, useLayoutEffect, useState } from "react";
 import type { Clip, VideoEditorDoc } from "../../types";
 import { useCanvasSelection } from "./hooks/use-canvas-selection";
 
@@ -40,10 +40,23 @@ export function CanvasSelection({
   preview: (d: VideoEditorDoc) => void;
   endGesture: (changed?: boolean) => void;
 }) {
-  const { onPointerDown, guides } = useCanvasSelection({ clip, doc, boxRef, startGesture, preview, endGesture });
   const t = clip.transform;
-  const w = bw * t.scale;
-  const h = bh * t.scale;
+
+  // Text fills only its content, not the canvas — measure the rendered element so
+  // the box hugs the text instead of spanning the whole frame.
+  const isText = clip.kind === "text";
+  const [textBox, setTextBox] = useState<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!isText) return setTextBox(null);
+    const el = boxRef.current?.querySelector(`[data-clip="${clip.id}"]`) as HTMLElement | null;
+    if (el) setTextBox({ w: el.offsetWidth, h: el.offsetHeight });
+  }, [isText, clip.id, clip.text?.content, clip.text?.fontSize, clip.text?.letterSpacing, clip.text?.lineHeight, bw, boxRef]);
+
+  const baseW = isText && textBox ? textBox.w : bw;
+  const baseH = isText && textBox ? textBox.h : bh;
+  const { onPointerDown, guides } = useCanvasSelection({ clip, doc, boxRef, baseW, baseH, startGesture, preview, endGesture });
+  const w = baseW * t.scale;
+  const h = baseH * t.scale;
   const left = bw / 2 + t.x - w / 2;
   const top = bh / 2 + t.y - h / 2;
 
