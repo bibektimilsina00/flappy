@@ -52,9 +52,10 @@ export function CanvasSelection({
     if (el) setTextBox({ w: el.offsetWidth, h: el.offsetHeight });
   }, [isText, clip.id, clip.text?.content, clip.text?.fontSize, clip.text?.letterSpacing, clip.text?.lineHeight, bw, boxRef]);
 
-  const PAD = 16; // preview px of breathing room around the text
-  const baseW = isText && textBox ? textBox.w + PAD * 2 : bw;
-  const baseH = isText && textBox ? textBox.h + PAD : bh;
+  const PAD_X = 48; // horizontal breathing room around the text
+  const PAD_Y = 16; // vertical breathing room
+  const baseW = isText && textBox ? textBox.w + PAD_X * 2 : bw;
+  const baseH = isText && textBox ? textBox.h + PAD_Y : bh;
   const { onPointerDown, guides } = useCanvasSelection({ clip, doc, boxRef, baseW, baseH, startGesture, preview, endGesture });
   const w = baseW * t.scale;
   const h = baseH * t.scale;
