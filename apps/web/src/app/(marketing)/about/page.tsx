@@ -1,8 +1,5 @@
 import type { Metadata } from "next";
-import { STATS } from "@/features/marketing/content";
-import { Poster } from "@/features/marketing/media";
-import { CTA } from "@/features/marketing/sections";
-import { Container, Section, SectionHeading } from "@/features/marketing/ui";
+import { CTA, Poster, STATS, Container, Section, SectionHeading } from "@/features/marketing";
 
 export const metadata: Metadata = {
   title: "About",

@@ -1,8 +1,5 @@
 import type { Metadata } from "next";
-import { FaqList } from "@/features/marketing/faq";
-import { MarketingPricing } from "@/features/marketing/pricing-full";
-import { CTA } from "@/features/marketing/sections";
-import { Container, Section, SectionHeading } from "@/features/marketing/ui";
+import { FaqList, MarketingPricing, CTA, Container, Section, SectionHeading } from "@/features/marketing";
 
 export const metadata: Metadata = {
   title: "Pricing",

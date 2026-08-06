@@ -4,7 +4,7 @@ import { ArrowRight, ChevronDown, Globe, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { cn } from "@/lib/cn";
-import { BRAND, NAV, type NavItem, type NavMenuItem } from "./content";
+import { BRAND, NAV, type NavItem, type NavMenuItem } from "../lib/content";
 import { Icon } from "./icon";
 import { MenuVisual } from "./menu-visuals";
 import { Button } from "./ui";

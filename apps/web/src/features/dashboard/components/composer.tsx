@@ -50,7 +50,7 @@ export function Composer({
 			<div className="mt-2 flex items-center justify-between gap-2">
 				{/* Generation-type tabs — the node kind we create + run on submit. */}
 				<div className="flex items-center gap-1">
-					{CREATE_NODE_KINDS.map((k) => {
+					{CREATE_NODE_KINDS.map((k: NodeKind) => {
 						const Icon = NODE_CONFIG[k].icon;
 						const active = k === kind;
 						const locked = PREMIUM_KINDS.has(k) && !isPremium;

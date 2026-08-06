@@ -1,6 +1,6 @@
 import { ArrowRight, Check, Play, Scissors, Star, X } from "lucide-react";
 import type { ReactNode } from "react";
-import { COMPARE, FEATURE_ROWS, FEATURES, HERO, LOGOS, MODELS, STATS, STEPS, TESTIMONIALS, USE_CASES } from "./content";
+import { COMPARE, FEATURE_ROWS, FEATURES, HERO, LOGOS, MODELS, STATS, STEPS, TESTIMONIALS, USE_CASES } from "../lib/content";
 import { cn } from "@/lib/cn";
 import { FaqList } from "./faq";
 import { Icon } from "./icon";

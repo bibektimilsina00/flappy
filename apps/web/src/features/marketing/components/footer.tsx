@@ -1,6 +1,6 @@
 import { AtSign, ChevronDown, Globe, MessageCircle, Play } from "lucide-react";
 import Link from "next/link";
-import { BRAND, FOOTER } from "./content";
+import { BRAND, FOOTER } from "../lib/content";
 import { Container } from "./ui";
 import { Wordmark } from "./wordmark";
 

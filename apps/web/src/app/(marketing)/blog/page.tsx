@@ -1,10 +1,7 @@
 import { ArrowRight } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BLOG } from "@/features/marketing/content";
-import { Poster } from "@/features/marketing/media";
-import { CTA } from "@/features/marketing/sections";
-import { Container, Section, SectionHeading } from "@/features/marketing/ui";
+import { BLOG, CTA, Poster, Container, Section, SectionHeading } from "@/features/marketing";
 
 export const metadata: Metadata = {
   title: "Blog",

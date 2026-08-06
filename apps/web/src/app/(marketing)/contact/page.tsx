@@ -1,7 +1,6 @@
 import { Mail, MessageCircle, Users } from "lucide-react";
 import type { Metadata } from "next";
-import { BRAND } from "@/features/marketing/content";
-import { Button, Container, Section, SectionHeading } from "@/features/marketing/ui";
+import { BRAND, Button, Container, Section, SectionHeading } from "@/features/marketing";
 
 export const metadata: Metadata = {
   title: "Contact",

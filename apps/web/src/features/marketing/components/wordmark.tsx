@@ -1,4 +1,4 @@
-import { BRAND } from "./content";
+import { BRAND } from "../lib/content";
 
 /** Riocut logo mark — a play button sliced in two: video, cut. The right
  * piece drifts down-stream (the rio). */

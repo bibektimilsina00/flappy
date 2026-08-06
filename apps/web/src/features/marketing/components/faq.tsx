@@ -1,4 +1,4 @@
-import { FAQ } from "./content";
+import { FAQ } from "../lib/content";
 
 export function FaqList() {
   return (

@@ -1,21 +1,21 @@
-import { FeatureTabs } from "@/features/marketing/feature-tabs";
-import { Reveal } from "@/features/marketing/reveal";
 import {
-  ClipsShowcase,
+  FeatureTabs,
+  Reveal,
   Compare,
   CTA,
   Faq,
-  FeatureRows,
   Features,
-  Gallery,
+  FeatureRows,
   Hero,
-  HowItWorks,
   LogoCloud,
   Models,
   Stats,
+  HowItWorks,
   Testimonials,
   UseCases,
-} from "@/features/marketing/sections";
+  ClipsShowcase,
+  Gallery,
+} from "@/features/marketing";
 
 // Structured data for rich results — one block, landing page only.
 const JSON_LD = {

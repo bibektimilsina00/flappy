@@ -1,11 +1,6 @@
 import { ArrowRight, Check } from "lucide-react";
 import type { Metadata } from "next";
-import { FEATURES, MODES } from "@/features/marketing/content";
-import { Icon } from "@/features/marketing/icon";
-import { Poster } from "@/features/marketing/media";
-import { ProductMock } from "@/features/marketing/product-mock";
-import { CTA } from "@/features/marketing/sections";
-import { Button, Container, Section, SectionHeading } from "@/features/marketing/ui";
+import { CTA, FEATURES, MODES, Icon, Poster, ProductMock, Button, Container, Section, SectionHeading } from "@/features/marketing";
 
 export const metadata: Metadata = {
   title: "Features",

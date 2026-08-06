@@ -3,7 +3,7 @@
 import { Check, Minus, Plus } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/cn";
-import { TOOL_TABS } from "./content";
+import { TOOL_TABS } from "../lib/content";
 import { Poster, unsplash } from "./media";
 import { Button, Container, Section, SectionHeading } from "./ui";
 

@@ -1,4 +1,4 @@
-import { COMMUNITY_WORKS } from "../constants";
+import { COMMUNITY_WORKS } from "../lib/constants";
 import type { CommunityWork } from "../types";
 
 export function useCommunityWorks(): { works: CommunityWork[] } {

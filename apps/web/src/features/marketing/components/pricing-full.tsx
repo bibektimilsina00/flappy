@@ -4,7 +4,7 @@ import { Check } from "lucide-react";
 import { useState } from "react";
 import { type Plan, PLANS, STUDIO_SIZES, UpgradeCta } from "@/features/billing";
 import { cn } from "@/lib/cn";
-import { BRAND } from "./content";
+import { BRAND } from "../lib/content";
 
 // Marketing-themed render of the shared PLANS ladder. Monthly billing only.
 export function MarketingPricing() {

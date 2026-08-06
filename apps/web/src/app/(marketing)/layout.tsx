@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import { MarketingFooter } from "@/features/marketing/footer";
-import { MarketingNav } from "@/features/marketing/nav";
-import { BRAND } from "@/features/marketing/content";
+import { Footer as MarketingFooter, Nav as MarketingNav, BRAND } from "@/features/marketing";
 
 const DESCRIPTION =
   "Riocut turns long videos into viral short clips and finished videos with AI — " +

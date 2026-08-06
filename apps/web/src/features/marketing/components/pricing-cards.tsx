@@ -1,7 +1,7 @@
 import { Check } from "lucide-react";
 import { UpgradeCta } from "@/features/billing";
 import { cn } from "@/lib/cn";
-import { BRAND, PRICING } from "./content";
+import { BRAND, PRICING } from "../lib/content";
 import { Button } from "./ui";
 
 export function PricingCards() {

@@ -1,6 +1,5 @@
-import type { CommunityWork } from "./types";
+import type { CommunityWork } from "../types";
 
-// ponytail: static seed. Swap for a services/ API call to the public feed later.
 export const COMMUNITY_WORKS: CommunityWork[] = [
   {
     id: "last-delivery",

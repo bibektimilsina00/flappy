@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Legal } from "@/features/marketing/legal";
+import { Legal } from "@/features/marketing";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
