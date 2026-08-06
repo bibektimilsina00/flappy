@@ -37,6 +37,26 @@ def test_no_text_returns_none():
     assert r.build_text_ass({"tracks": [{"clips": [{"kind": "image"}]}]}) is None
 
 
+def _video_doc(transition):
+    clip = {"id": "c1", "kind": "video", "assetId": "a1", "start": 0, "duration": 4}
+    if transition is not None:
+        clip["transition"] = transition
+    return {"width": 1080, "height": 1920, "fps": 30, "tracks": [{"clips": [clip]}]}
+
+
+def test_transition_adds_alpha_fade():
+    _, fc, _, _ = r.build_render_args(_video_doc("Dissolve"), {"a1": {"path": "/x.mp4", "kind": "video"}})
+    assert "fade=t=in" in fc and "alpha=1" in fc
+
+
+def test_no_transition_no_fade():
+    _, fc, _, _ = r.build_render_args(_video_doc(None), {"a1": {"path": "/x.mp4", "kind": "video"}})
+    assert "fade=t=in" not in fc
+    # "None" is treated as no transition
+    _, fc2, _, _ = r.build_render_args(_video_doc("None"), {"a1": {"path": "/x.mp4", "kind": "video"}})
+    assert "fade=t=in" not in fc2
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

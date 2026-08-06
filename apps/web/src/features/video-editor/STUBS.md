@@ -101,8 +101,8 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 - [x] **In / Out / Loop / Zoom presets render at playback** — driven by `lib/animation-engine.ts` (`animate(clip, playhead)`), applied in the preview for media + text; selection persists on the clip
 
 ### Transitions (`transitions-panel/transitions-panel.tsx`)
-- [ ] Presets don't render (`clip.transition` stored, no engine)
-- [ ] **Create new AI Transition** form — Start/End video pickers, prompt, **Generate (50)** — all visual
+- [x] Presets render — `clip.transition` burns an alpha fade-in at the clip boundary in **preview** (`txFade`) and **export** (`render.py` ffmpeg `fade`), reading as a crossfade over what's beneath. Per-style motion (glitch/zoom/orbit) approximates to the crossfade for now.
+- [ ] **Create new AI Transition** form — Start/End video pickers, prompt, **Generate (50)** — still visual (needs a two-frame morph/interpolation model + insert-clip-between)
 - [x] Selection persists on the clip
 
 ---
@@ -127,7 +127,7 @@ Most stubs fall into a few buckets — implementing the bucket unlocks many rows
 
 1. **Generation back-end** (text->image/video, TTS, dubbing, AI transitions, characters) -> AI Playground, Add-TTS, most AI Tools tiles, Generate buttons.
 2. **Per-clip AI enhancement** — Clean Audio (denoise) + Remove Silences DONE (ffmpeg, `POST .../enhance`). Green Screen DONE (ffmpeg chromakey). Background removal DONE for **images** (sync, `POST .../remove-bg`) **and video** (async worker path, `POST .../clip-op` → `run_clip_op` → Replicate RVM, polled via the Execution). Both gated on `REPLICATE_API_KEY`. **Eye Contact DONE** (async, operator-supplied model via `EYE_CONTACT_MODEL`). The async path (`clip_ops.run_op` + `run_clip_op`) is the reusable foundation for any slow ML op — **Remove Filler Words DONE** for video too (ffmpeg, extends `.../magic-cut`). **Face Filter DONE** (async, `FACE_FILTER_MODEL`). Remaining ones (AI dubbing/transitions, background-expand, magic b-roll) just need a model + an entry in `clip_ops._OPS`.
-3. **Animation/Transition render engine** — Animations DONE (`lib/animation-engine.ts`). Remaining: transition render (boundary crossfades between adjacent clips).
+3. **Animation/Transition render engine** — Animations DONE (`lib/animation-engine.ts`). Transition presets DONE — `clip.transition` renders as a boundary alpha fade-in (crossfade) in preview + export. Remaining: the AI-generated morph transition (two-frame interpolation model → inserted clip).
 4. **Richer text renderer** — DONE in preview AND export: per-clip font-family/size/color/bold/italic/align/letter-spacing/opacity + position now burn into the MP4 via per-event ASS overrides (`render.py build_text_ass`; subtitle-track clips keep the bottom-center caption pill). Ceilings: libass only renders bundled fonts faithfully (Poppins/Anton/Bangers) — other families fall back via fontconfig; line-height and text effects/text-behind-person still unsupported in export.
 5. **Transform extras** — DONE: Flip (H/V), Round Corners, Fit/Fill, and Order/z-index (via `transform.flipH/flipV/radius/fit/z`). Remaining: filters/effects.
 6. **Stock/asset providers** — stock **video + image** DONE via Pexels search (`/video-editor/stock/search`, gated on `PEXELS_API_KEY`; imports through the existing `/import-url` allow-list). Remaining: music/SFX, animated stickers search, characters (each needs its own provider/key).

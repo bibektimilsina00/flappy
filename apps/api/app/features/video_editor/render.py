@@ -13,6 +13,10 @@ def _f(x: float) -> str:
     return f"{float(x):.4f}"
 
 
+# Transition fade length (seconds) at a clip boundary — capped to half the clip.
+_TRANSITION_D = 0.6
+
+
 def _lane(kind: str) -> str:
     return "audio" if kind == "audio" else "text" if kind == "text" else "visual"
 
@@ -208,7 +212,14 @@ def build_render_args(
             chain += f"trim=start={_f(clip.get('in', 0))}:end={_f(clip.get('out', dur))},"
         chain += f"setpts=(PTS-STARTPTS)/{_f(speed)}+{_f(start)}/TB,"
         chain += f"scale={sw}:{sh}:force_original_aspect_ratio=decrease,"
-        chain += f"format=rgba,colorchannelmixer=aa={_f(op)}[v{n}]"
+        chain += f"format=rgba,colorchannelmixer=aa={_f(op)}"
+        # Transition: alpha fade-in at the clip's start — reads as a crossfade over
+        # whatever (lower track / previous clip / background) shows through beneath.
+        tr = clip.get("transition")
+        if tr and tr != "None":
+            td = min(_TRANSITION_D, dur / 2)
+            chain += f",fade=t=in:st={_f(start)}:d={_f(td)}:alpha=1"
+        chain += f"[v{n}]"
         fc.append(chain)
 
         x = f"(main_w-overlay_w)/2+{_f(tx)}"

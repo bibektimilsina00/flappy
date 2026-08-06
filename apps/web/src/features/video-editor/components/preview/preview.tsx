@@ -13,6 +13,16 @@ import { type OverlayKind, PlatformOverlay } from "./platform-overlays";
 
 const ACCENT = "#14b8a6";
 
+// A clip's transition renders as an alpha fade-in over its first ~0.6s — a
+// crossfade with whatever shows through beneath. Matches render.py's ffmpeg fade.
+function txFade(clip: Clip, playhead: number): number {
+  const tr = clip.transition;
+  if (!tr || tr === "None") return 1;
+  const d = Math.min(0.6, clip.duration / 2);
+  const dt = playhead - clip.start;
+  return dt >= d ? 1 : Math.max(0, dt / d);
+}
+
 export function Preview({
   doc,
   urlOf,
@@ -69,7 +79,7 @@ export function Preview({
                     className="pointer-events-none absolute left-1/2 top-1/2"
                     style={{
                       zIndex: t.z ?? z,
-                      opacity: t.opacity * a.opacity,
+                      opacity: t.opacity * a.opacity * txFade(clip, playhead),
                       width: size,
                       height: size,
                       transform: `translate(-50%, -50%) translate(${t.x + a.dx * bw}px, ${t.y + a.dy * bh}px) scale(${t.scale * a.scale * (t.flipH ? -1 : 1)}, ${t.scale * a.scale * (t.flipV ? -1 : 1)}) rotate(${t.rotation + a.rotate}deg)`,
@@ -83,7 +93,7 @@ export function Preview({
               const sy = t.scale * a.scale * (t.flipV ? -1 : 1);
               const style = {
                 zIndex: t.z ?? z,
-                opacity: t.opacity * a.opacity,
+                opacity: t.opacity * a.opacity * txFade(clip, playhead),
                 transform: `translate(${t.x + a.dx * bw}px, ${t.y + a.dy * bh}px) scale(${sx}, ${sy}) rotate(${t.rotation + a.rotate}deg)`,
                 borderRadius: t.radius ? `${t.radius}px` : undefined,
               } as const;
@@ -115,7 +125,7 @@ export function Preview({
                   className="pointer-events-none absolute left-1/2 top-1/2 max-w-[92%] whitespace-pre-wrap break-words"
                   style={{
                     zIndex: (t.z ?? z) + 40,
-                    opacity: t.opacity * a.opacity,
+                    opacity: t.opacity * a.opacity * txFade(clip, playhead),
                     color: ts?.color ?? "#ffffff",
                     fontFamily: ts?.fontFamily ?? "Inter, system-ui, sans-serif",
                     fontSize: (ts?.fontSize ?? 48) * fontScale,
