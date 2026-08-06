@@ -20,8 +20,8 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 - [x] Category nav, prompt textarea, **Enhance** toggle, opens on correct mode
 
 ### Video tab (`left-panel/video-tab.tsx`)
-- [ ] **Talking Characters** grid — external thumbnails, click does nothing
-- [ ] **Stock Videos** — category chips filter is cosmetic; tiles don't add/drag to timeline
+- [x] **Talking Characters** — click imports the image (allow-listed CDN via `POST .../import-url`) and adds it to the timeline
+- [ ] **Stock Videos** — only placeholder thumbnails in the UI data (no real video src to import); chips cosmetic
 - [ ] **View all** links
 - [x] **Generate** (opens playground), **Upload**, **Asset Library** tiles drag to timeline
 
@@ -37,7 +37,8 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 
 ### Image tab (`left-panel/image-tab.tsx`)
 - [ ] **Generate B-roll images** (upgrade)
-- [ ] **Stock Images**, **Backgrounds**, **GIFs** — tiles don't add to timeline; chips cosmetic
+- [x] **Stock Images** & **GIFs** — click imports + adds to the timeline
+- [ ] **Backgrounds** (placeholder gradients); Stock chips cosmetic
 - [x] **Generate** (opens playground), **Upload**, **Asset Library** tiles drag to timeline
 
 ### Text tab (`left-panel/text-tab.tsx`)
@@ -49,8 +50,8 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 - [ ] Language / translation / Detect Speakers, **Upload Subtitles File**, **Transcribe Manually → Add Subtitles** — still visual (single-language auto only for now)
 
 ### Elements tab (`left-panel/elements-tab.tsx`)
-- [x] **Emoji** (adds a text clip) and **Shapes** (rect/rounded/ellipse/triangle/star — new `shape` clip kind, rendered as SVG, movable/resizable/animatable)
-- [ ] **Animated Stickers**, **Visualizers**, **CTA Pop-Ups** — need image-from-URL / asset registration; **View all** links
+- [x] **Emoji** (text clip), **Shapes** (new `shape` clip kind, SVG), **Animated Stickers** (imported + added to timeline)
+- [ ] **Visualizers**, **CTA Pop-Ups** — placeholder art (no real src); **View all** links
 
 ### Brand Kit tab (`left-panel/brand-kit-tab.tsx`)
 - [x] **Save to Brand Kit** (from any clip's ⋯) persists the asset/colour in `workspace.preferences.brand_kit`; the tab lists items (images/videos/audio/colours) with remove + click-to-add-to-project. No migration (JSON field).

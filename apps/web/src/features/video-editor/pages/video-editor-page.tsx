@@ -16,7 +16,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/cn";
-import { addToBrandKit, chromaKeyClip, detachClipAudio, duplicateProject, enhanceClipAudio, magicCutClip } from "../services/video-editor-api";
+import { addToBrandKit, chromaKeyClip, detachClipAudio, duplicateProject, enhanceClipAudio, importUrl, magicCutClip } from "../services/video-editor-api";
 import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
 import { ExportPanel } from "../components/export-panel/export-panel";
 import { Inspector } from "../components/inspector/inspector";
@@ -123,6 +123,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
     addTextClip,
     addShapeClip,
     addSubtitleClips,
+    addImportedClip,
     detachAudioClip,
     doImport,
     dropAsset,
@@ -178,6 +179,11 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
     const r = await detachClipAudio(projectId, selectedClip.id);
     await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
     detachAudioClip(selectedClip.id, r.asset_id);
+  };
+  const addStock = async (url: string, kind: string) => {
+    const r = await importUrl(projectId, url, kind);
+    await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
+    addImportedClip(r.id, r.kind, playhead);
   };
   const saveToBrandKit = async () => {
     const clip = selectedClip;
@@ -382,6 +388,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
                 onAddText={(content) => addTextClip(content, playhead)}
                 onAddShape={(type, color) => addShapeClip({ type, color }, playhead)}
                 onAddSubtitles={addSubtitleClips}
+                onAddStock={addStock}
                 projectId={projectId}
                 selectedClip={selectedClip}
                 onOpenPlayground={openPlayground}

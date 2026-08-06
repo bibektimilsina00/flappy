@@ -18,7 +18,7 @@ const TAGS = ["All", "Stickers", "Shapes", "Visualizers"];
 
 type ShapeType = "rect" | "rounded" | "ellipse" | "triangle" | "star";
 
-export function ElementsTab({ onAddText, onAddShape }: { onAddText: (content: string) => void; onAddShape: (type: ShapeType, color: string) => void }) {
+export function ElementsTab({ onAddText, onAddShape, onAddStock }: { onAddText: (content: string) => void; onAddShape: (type: ShapeType, color: string) => void; onAddStock: (url: string, kind: string) => void }) {
   const [tag, setTag] = useState("All");
   const show = (t: string) => tag === "All" || tag === t;
 
@@ -54,7 +54,7 @@ export function ElementsTab({ onAddText, onAddShape }: { onAddText: (content: st
           <Section title="Animated Stickers">
             <div className="grid grid-cols-4 gap-2.5">
               {STICKER_GIFS.map((id) => (
-                <button key={id} type="button" className="grid aspect-square place-items-center overflow-hidden rounded-lg bg-secondary/60 transition-opacity hover:opacity-90" title="Animated sticker">
+                <button key={id} type="button" onClick={() => onAddStock(gifSrc(id), "image")} className="grid aspect-square place-items-center overflow-hidden rounded-lg bg-secondary/60 transition-opacity hover:opacity-90" title="Animated sticker">
                   {/* biome-ignore lint/performance/noImgElement: external placeholder thumbnail */}
                   <img src={gifSrc(id)} alt="" loading="lazy" className="size-full object-contain" />
                 </button>

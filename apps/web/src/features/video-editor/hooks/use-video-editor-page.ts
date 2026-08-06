@@ -194,6 +194,21 @@ export function useVideoEditorPage(projectId: string) {
     }
   };
 
+  // Add a clip for a freshly-imported asset (id may not be in the pool yet).
+  const addImportedClip = (assetId: string, kind: string, dropTime: number) => {
+    if (!doc) return;
+    const targetKind = trackKindForClip(kind);
+    let track = doc.tracks.find((t) => t.kind === targetKind);
+    let nextDoc = doc;
+    if (!track) {
+      nextDoc = addTrack(doc, targetKind);
+      track = nextDoc.tracks.find((t) => t.kind === targetKind)!;
+    }
+    const clip = clipForAsset({ id: assetId, kind, url: "" }, Math.max(0, dropTime));
+    commit(addClip(nextDoc, track.id, clip));
+    setSelection(new Set([clip.id]));
+  };
+
   const dropAsset = (assetId: string, dropTime: number, rowTrackId: string | null) => {
     if (!doc) return;
     const asset = assets.find((a) => a.id === assetId);
@@ -257,6 +272,7 @@ export function useVideoEditorPage(projectId: string) {
     addTextClip,
     addShapeClip,
     addSubtitleClips,
+    addImportedClip,
     detachAudioClip,
     doImport,
     dropAsset,

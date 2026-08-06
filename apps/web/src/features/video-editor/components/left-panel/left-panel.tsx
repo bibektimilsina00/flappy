@@ -48,6 +48,7 @@ export function LeftPanel({
   onAddText,
   onAddShape,
   onAddSubtitles,
+  onAddStock,
   projectId,
   selectedClip,
   onOpenPlayground,
@@ -60,6 +61,7 @@ export function LeftPanel({
   onAddText: (content: string) => void;
   onAddShape: (type: "rect" | "rounded" | "ellipse" | "triangle" | "star", color: string) => void;
   onAddSubtitles: (segments: { start: number; end: number; text: string }[]) => void;
+  onAddStock: (url: string, kind: string) => void;
   projectId: string;
   selectedClip: Clip | null;
   onOpenPlayground: (mode: string) => void;
@@ -78,17 +80,17 @@ export function LeftPanel({
         {category === "ai-tools" ? (
           <AiToolsPanel projectId={projectId} assets={assets} selectedClip={selectedClip} setCategory={setCategory} onOpenPlayground={onOpenPlayground} />
         ) : category === "video" ? (
-          <VideoTab videos={byKind("video")} onImport={onImport} importing={importing} onGenerate={() => onOpenPlayground("text-to-video")} />
+          <VideoTab videos={byKind("video")} onImport={onImport} importing={importing} onGenerate={() => onOpenPlayground("text-to-video")} onAddStock={onAddStock} />
         ) : category === "audio" ? (
           <AudioTab audios={byKind("audio")} onImport={onImport} importing={importing} projectId={projectId} />
         ) : category === "image" ? (
-          <ImageTab images={byKind("image")} onImport={onImport} importing={importing} onGenerate={() => onOpenPlayground("text-to-image")} />
+          <ImageTab images={byKind("image")} onImport={onImport} importing={importing} onGenerate={() => onOpenPlayground("text-to-image")} onAddStock={onAddStock} />
         ) : category === "text" ? (
           <TextTab onAddText={onAddText} />
         ) : category === "subtitles" ? (
           <SubtitlesTab projectId={projectId} onAddSubtitles={onAddSubtitles} />
         ) : category === "elements" ? (
-          <ElementsTab onAddText={onAddText} onAddShape={onAddShape} />
+          <ElementsTab onAddText={onAddText} onAddShape={onAddShape} onAddStock={onAddStock} />
         ) : category === "brand" ? (
           <BrandKitTab onImport={onImport} projectId={projectId} />
         ) : (

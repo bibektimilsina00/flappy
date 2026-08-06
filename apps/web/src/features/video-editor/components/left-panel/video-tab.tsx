@@ -32,7 +32,7 @@ const STOCK = [
   { dur: "0:19", src: "https://images.pexels.com/videos/3018542/free-video-3018542.jpg?auto=compress&cs=tinysrgb&fit=crop&h=630&w=1200" },
 ];
 
-export function VideoTab({ videos, onImport, importing, onGenerate }: { videos: VideoEditorAsset[]; onImport: () => void; importing: boolean; onGenerate: () => void }) {
+export function VideoTab({ videos, onImport, importing, onGenerate, onAddStock }: { videos: VideoEditorAsset[]; onImport: () => void; importing: boolean; onGenerate: () => void; onAddStock: (url: string, kind: string) => void }) {
   const [tag, setTag] = useState<string>("All");
 
   return (
@@ -80,7 +80,7 @@ export function VideoTab({ videos, onImport, importing, onGenerate }: { videos: 
       <Section title="Talking Characters" viewAll>
         <div className="grid grid-cols-3 gap-2.5">
           {CHARACTERS.map((c) => (
-            <button key={c.id} type="button" className="overflow-hidden rounded-lg border border-border transition-opacity hover:opacity-90" title={c.name}>
+            <button key={c.id} type="button" onClick={() => onAddStock(characterSrc(c.id), "image")} className="overflow-hidden rounded-lg border border-border transition-opacity hover:opacity-90" title={c.name}>
               {/* biome-ignore lint/performance/noImgElement: external placeholder thumbnail */}
               <img src={characterSrc(c.id)} alt={c.name} loading="lazy" className="aspect-square w-full object-cover object-top" />
             </button>

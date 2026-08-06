@@ -24,7 +24,7 @@ const BACKGROUNDS = [
   "linear-gradient(135deg,#7a5a3a,#c4a06e)",
 ];
 
-export function ImageTab({ images, onImport, importing, onGenerate }: { images: VideoEditorAsset[]; onImport: () => void; importing: boolean; onGenerate: () => void }) {
+export function ImageTab({ images, onImport, importing, onGenerate, onAddStock }: { images: VideoEditorAsset[]; onImport: () => void; importing: boolean; onGenerate: () => void; onAddStock: (url: string, kind: string) => void }) {
   const [tag, setTag] = useState("All");
 
   return (
@@ -95,7 +95,7 @@ export function ImageTab({ images, onImport, importing, onGenerate }: { images: 
         </div>
         <div className="mt-3 grid grid-cols-3 gap-2.5">
           {STOCK_IDS.map((id) => (
-            <button key={id} type="button" className="group relative aspect-square overflow-hidden rounded-lg border border-border" title="Stock image">
+            <button key={id} type="button" onClick={() => onAddStock(stockSrc(id), "image")} className="group relative aspect-square overflow-hidden rounded-lg border border-border" title="Stock image">
               {/* biome-ignore lint/performance/noImgElement: external placeholder thumbnail */}
               <img src={stockSrc(id)} alt="" loading="lazy" className="size-full object-cover transition-transform group-hover:scale-105" />
             </button>
@@ -116,7 +116,7 @@ export function ImageTab({ images, onImport, importing, onGenerate }: { images: 
       <Section title="GIFs" viewAll>
         <div className="grid grid-cols-3 gap-2.5">
           {GIF_IDS.map((id) => (
-            <button key={id} type="button" className="aspect-square overflow-hidden rounded-lg border border-border transition-opacity hover:opacity-90" title="GIF">
+            <button key={id} type="button" onClick={() => onAddStock(gifSrc(id), "image")} className="aspect-square overflow-hidden rounded-lg border border-border transition-opacity hover:opacity-90" title="GIF">
               {/* biome-ignore lint/performance/noImgElement: external placeholder thumbnail */}
               <img src={gifSrc(id)} alt="" loading="lazy" className="size-full object-cover" />
             </button>

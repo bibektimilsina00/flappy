@@ -8,6 +8,7 @@ import copy
 import os
 import subprocess
 import tempfile
+import urllib.parse
 import uuid
 from datetime import UTC, datetime
 
@@ -308,6 +309,73 @@ def generate_in_project(
         session, workspace_id, workflow_id, node_id=gen_id
     )
     return {"execution_id": str(execution.id), "node_id": gen_id}
+
+
+_STOCK_HOSTS = (".pexels.com", ".giphy.com", ".veed.io")
+_EXT_BY_MIME = {
+    "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif",
+    "video/mp4": "mp4", "video/webm": "webm", "audio/mpeg": "mp3", "audio/wav": "wav",
+}
+
+
+class ImportUrlRequest(BaseModel):
+    url: str
+    kind: str  # image | video | audio
+
+
+@router.post("/projects/{workflow_id}/import-url")
+def import_url(
+    workflow_id: uuid.UUID,
+    body: ImportUrlRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Import a stock asset from an allow-listed CDN (Pexels/Giphy/VEED) into the
+    project pool — the frontend's stock tiles use these hosts."""
+    import httpx
+
+    workflow = workflows_repo.get(session, workspace_id, workflow_id)
+    if workflow is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if body.kind not in ("image", "video", "audio"):
+        raise HTTPException(status_code=422, detail="Unsupported kind")
+
+    host = (urllib.parse.urlparse(body.url).hostname or "").lower()
+    if not any(host == h.lstrip(".") or host.endswith(h) for h in _STOCK_HOSTS):
+        raise HTTPException(status_code=422, detail="URL host is not allowed")
+
+    try:
+        with httpx.Client(timeout=30, follow_redirects=True) as client:
+            res = client.get(body.url)
+            res.raise_for_status()
+            data = res.content
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail="Could not fetch the asset") from exc
+    if len(data) > 100 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Asset too large")
+
+    ctype = res.headers.get("content-type", "").split(";")[0].strip()
+    ext = _EXT_BY_MIME.get(ctype) or (body.url.rsplit(".", 1)[-1].split("?")[0].lower() if "." in body.url else "bin")
+    key = f"{workspace_id}/uploads/{uuid.uuid4()}.{ext}"
+    kind = assets_repo.kind_from_key(key) or body.kind
+    storage = get_storage()
+    storage.put(key, data, ctype or "application/octet-stream")
+
+    graph = dict(workflow.graph or {})
+    nodes = list(graph.get("nodes") or [])
+    nodes.append(
+        {
+            "id": f"node-{uuid.uuid4()}",
+            "type": kind,
+            "position": {"x": 240 + (len(nodes) % 4) * 300, "y": 140 + len(nodes) * 40},
+            "data": {"kind": kind, "upload_key": key, "label": "stock"},
+        }
+    )
+    graph["nodes"] = nodes
+    workflow.graph = graph
+    workflows_repo.save(session, workflow)
+    return {"id": key, "kind": kind, "url": storage.url(key)}
 
 
 class SubtitlesRequest(BaseModel):

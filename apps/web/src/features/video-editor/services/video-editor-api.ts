@@ -129,6 +129,14 @@ export function getExecution(
 
 export type SubtitleSegment = { start: number; end: number; text: string };
 
+// Import a stock asset from an allow-listed CDN into the project pool.
+export function importUrl(projectId: string, url: string, kind: string): Promise<{ id: string; kind: string; url: string }> {
+	return api(`/video-editor/projects/${projectId}/import-url`, {
+		method: "POST",
+		body: JSON.stringify({ url, kind }),
+	});
+}
+
 export type BrandKitItem = { id: string; kind: string; name: string; color?: string; url?: string };
 
 export function listBrandKit(): Promise<{ items: BrandKitItem[] }> {
