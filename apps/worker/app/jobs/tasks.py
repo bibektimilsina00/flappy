@@ -39,6 +39,39 @@ def _subgraph(graph: dict, node_id: str) -> dict:
     }
 
 
+@celery_app.task(name="run_clip_op")
+def run_clip_op_task(
+    execution_id: str, workspace_id: str, workflow_id: str, node_id: str, op: str, src_key: str
+) -> None:
+    """Run a slow per-clip op (e.g. video background matting) and record the result
+    asset against the execution so it joins the workflow's media pool. Reuses the
+    Execution status the editor already polls; the op itself lives in clip_ops."""
+    from apps.api.app.features.video_editor import clip_ops
+
+    exec_uuid = uuid.UUID(execution_id)
+    ws_uuid = uuid.UUID(workspace_id)
+    storage = get_storage()
+    with Session(engine) as session:
+        executions_repo.set_status(session, exec_uuid, "running")
+        try:
+            key, kind = clip_ops.run_op(storage, op, src_key, ws_uuid, timeout_s=8 * 60)
+            assets_repo.add(
+                session,
+                Asset(
+                    workspace_id=ws_uuid,
+                    execution_id=exec_uuid,
+                    node_id=node_id,
+                    kind=kind,
+                    key=key,
+                    url=storage.url(key),
+                    cost=0.0,
+                ),
+            )
+            executions_repo.set_status(session, exec_uuid, "completed", finished=True)
+        except Exception as exc:  # noqa: BLE001 — surface as a failed execution
+            executions_repo.set_status(session, exec_uuid, "failed", str(exc), finished=True)
+
+
 @celery_app.task(name="run_workflow")
 def run_workflow_task(
     execution_id: str, workspace_id: str, graph: dict, node_id: str | None = None

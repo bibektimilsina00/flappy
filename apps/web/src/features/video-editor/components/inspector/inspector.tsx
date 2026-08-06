@@ -255,6 +255,8 @@ function VideoBody({ clip, insp, onDelete, replace, onDetachAudio, onEnhance }: 
           {AI_TOOLS.map((t) =>
             t.title === "Green Screen" && onEnhance ? (
               <EnhanceRow key={t.title} icon={Palette} title="Green Screen" desc="Remove green from your video" onRun={() => onEnhance("chroma_key")} />
+            ) : t.title === "Remove Background" && onEnhance ? (
+              <EnhanceRow key={t.title} icon={Eraser} title="Remove Background" desc="Auto-erase the background (may take a minute)" onRun={() => onEnhance("remove_bg")} />
             ) : (
               <AiToolRow key={t.title} tool={t} />
             ),

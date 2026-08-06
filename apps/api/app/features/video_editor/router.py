@@ -21,10 +21,12 @@ from apps.api.app.api.deps import current_workspace_id, get_current_user, get_se
 from apps.api.app.core.celery import celery_app
 from apps.api.app.features.assets import repository as assets_repo
 from apps.api.app.features.assets.models import Asset
+from apps.api.app.features.executions import repository as executions_repo
 from apps.api.app.features.executions import service as executions_service
+from apps.api.app.features.executions.models import Execution
 from apps.api.app.features.social.models import SocialAccount
 from apps.api.app.features.users.models import User
-from apps.api.app.features.video_editor import repository
+from apps.api.app.features.video_editor import clip_ops, repository
 from apps.api.app.features.video_editor.models import (
     VideoEditorComment,
     VideoEditorProject,
@@ -800,28 +802,11 @@ class RemoveBgRequest(BaseModel):
     clip_id: str
 
 
-# Replicate model run via /models/{owner}/{name}/predictions (latest version, no hash).
-_REMBG_MODEL = "851-labs/background-remover"
-_IMG_MIME = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
-
-
-def _settle_replicate(client, headers: dict, pred: dict, timeout_s: float = 90.0) -> dict:
-    """Poll a Replicate prediction to a terminal state (Prefer:wait often returns
-    it already). Blocks the worker thread — only viable for fast models."""
-    import time
-
-    terminal = {"succeeded", "failed", "canceled"}
-    deadline = time.monotonic() + timeout_s
-    while pred.get("status") not in terminal:
-        if time.monotonic() > deadline:
-            raise TimeoutError("prediction timed out")
-        time.sleep(3)
-        r = client.get(f"https://api.replicate.com/v1/predictions/{pred['id']}", headers=headers)
-        r.raise_for_status()
-        pred = r.json()
-    if pred.get("status") != "succeeded":
-        raise RuntimeError(str(pred.get("error") or pred.get("status")))
-    return pred
+def _clip_by_id(project, clip_id: str) -> dict | None:
+    return next(
+        (c for t in (project.doc or {}).get("tracks", []) for c in (t.get("clips") or []) if c.get("id") == clip_id),
+        None,
+    )
 
 
 @router.post("/projects/{project_id}/remove-bg")
@@ -832,22 +817,19 @@ def remove_bg(
     workspace_id: uuid.UUID = Depends(current_workspace_id),
     _user: User = Depends(get_current_user),
 ) -> dict:
-    """Remove an image clip's background (Replicate matting model) and store the
-    cutout PNG as a new pool asset. Video isn't supported here — use Green Screen.
-    ponytail: synchronous + gated on REPLICATE_API_KEY; images settle in seconds."""
+    """Remove an image clip's background (Replicate matting) and store the cutout
+    PNG as a new pool asset. Runs inline — image matting settles in seconds. Video
+    goes through the async /clip-op path instead. Gated on REPLICATE_API_KEY."""
     from apps.api.app.core.config import settings
 
     project = repository.get_by_workflow(session, workspace_id, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Editor project not found")
-    clip = next(
-        (c for t in (project.doc or {}).get("tracks", []) for c in (t.get("clips") or []) if c.get("id") == body.clip_id),
-        None,
-    )
+    clip = _clip_by_id(project, body.clip_id)
     if clip is None or not clip.get("assetId"):
         raise HTTPException(status_code=404, detail="Clip not found")
     if clip.get("kind") != "image":
-        raise HTTPException(status_code=422, detail="Background removal supports images — use Green Screen for video")
+        raise HTTPException(status_code=422, detail="Use the async path for video — this endpoint handles images")
     if not settings.replicate_api_key:
         raise HTTPException(status_code=501, detail="Background removal is not configured")
 
@@ -857,49 +839,76 @@ def remove_bg(
     if item is None:
         raise HTTPException(status_code=404, detail="Source media not found")
 
-    import base64
-
-    import httpx
-
     storage = get_storage()
-    src_bytes = storage.get(item["key"])
-    mime = _IMG_MIME.get(os.path.splitext(item["key"])[1].lower(), "image/png")
-    data_uri = f"data:{mime};base64,{base64.b64encode(src_bytes).decode()}"
-    headers = {"Authorization": f"Bearer {settings.replicate_api_key}"}
     try:
-        with httpx.Client(timeout=120) as client:
-            res = client.post(
-                f"https://api.replicate.com/v1/models/{_REMBG_MODEL}/predictions",
-                headers={**headers, "Prefer": "wait=60"},
-                json={"input": {"image": data_uri}},
-            )
-            res.raise_for_status()
-            pred = _settle_replicate(client, headers, res.json())
-            output = pred.get("output")
-            url = output[0] if isinstance(output, list) else output
-            if not isinstance(url, str):
-                raise RuntimeError("no image output")
-            out_bytes = client.get(url).content
+        key, kind = clip_ops.run_op(storage, "remove_bg_image", item["key"], workspace_id)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail="Background removal failed") from exc
 
-    key = f"{workspace_id}/edits/{uuid.uuid4()}.png"
-    storage.put(key, out_bytes, "image/png")
     graph = dict(workflow.graph or {}) if workflow else {}
     nodes = list(graph.get("nodes") or [])
     nodes.append(
         {
             "id": f"node-{uuid.uuid4()}",
-            "type": "image",
+            "type": kind,
             "position": {"x": 40, "y": 40 + len(nodes) * 40},
-            "data": {"kind": "image", "upload_key": key, "label": "cutout"},
+            "data": {"kind": kind, "upload_key": key, "label": "cutout"},
         }
     )
     graph["nodes"] = nodes
     if workflow:
         workflow.graph = graph
         workflows_repo.save(session, workflow)
-    return {"asset_id": key, "kind": "image", "url": storage.url(key)}
+    return {"asset_id": key, "kind": kind, "url": storage.url(key)}
+
+
+class ClipOpRequest(BaseModel):
+    clip_id: str
+    op: str  # clip_ops.SUPPORTED_OPS — e.g. "remove_bg_video"
+
+
+@router.post("/projects/{project_id}/clip-op")
+def clip_op(
+    project_id: uuid.UUID,
+    body: ClipOpRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Kick off a slow per-clip op (e.g. video background matting) on the worker.
+    Creates an Execution and dispatches `run_clip_op`; the produced asset joins the
+    pool via the execution. Poll GET /executions/{id}, then read its /assets."""
+    from apps.api.app.core.config import settings
+
+    if body.op not in clip_ops.SUPPORTED_OPS:
+        raise HTTPException(status_code=422, detail="Unknown operation")
+    if not settings.replicate_api_key:
+        raise HTTPException(status_code=501, detail="Background removal is not configured")
+
+    project = repository.get_by_workflow(session, workspace_id, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+    clip = _clip_by_id(project, body.clip_id)
+    if clip is None or not clip.get("assetId"):
+        raise HTTPException(status_code=404, detail="Clip not found")
+    if clip.get("kind") != clip_ops.clip_kind_for_op(body.op):
+        raise HTTPException(status_code=422, detail=f"{body.op} expects a {clip_ops.clip_kind_for_op(body.op)} clip")
+
+    workflow = workflows_repo.get(session, workspace_id, project.workflow_id)
+    refmap = {item["id"]: item for item in (_workflow_media(session, workflow) if workflow else [])}
+    item = refmap.get(clip["assetId"])
+    if item is None:
+        raise HTTPException(status_code=404, detail="Source media not found")
+
+    execution = executions_repo.add(
+        session, Execution(workspace_id=workspace_id, workflow_id=project.workflow_id, status="pending")
+    )
+    node_id = f"op-{uuid.uuid4()}"
+    celery_app.send_task(
+        "run_clip_op",
+        args=[str(execution.id), str(workspace_id), str(project.workflow_id), node_id, body.op, item["key"]],
+    )
+    return {"execution_id": str(execution.id), "node_id": node_id}
 
 
 class DetachRequest(BaseModel):

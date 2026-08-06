@@ -199,6 +199,20 @@ export function magicCutClip(
 	});
 }
 
+// Kick off a slow per-clip op (e.g. video background matting) on the worker.
+// Poll getExecution(execution_id), then read listExecutionAssets for the result.
+export function startClipOp(projectId: string, clipId: string, op: "remove_bg_video"): Promise<{ execution_id: string; node_id: string }> {
+	return api(`/video-editor/projects/${projectId}/clip-op`, {
+		method: "POST",
+		body: JSON.stringify({ clip_id: clipId, op }),
+	});
+}
+
+export type ExecutionAsset = { id: string; node_id: string; kind: string; url: string };
+export function listExecutionAssets(executionId: string): Promise<ExecutionAsset[]> {
+	return api(`/executions/${executionId}/assets`);
+}
+
 // Remove an image clip's background (Replicate matting); returns a cutout PNG asset.
 export function removeClipBackground(
 	projectId: string,

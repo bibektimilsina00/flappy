@@ -17,7 +17,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { cn } from "@/lib/cn";
-import { addToBrandKit, chromaKeyClip, detachClipAudio, duplicateProject, enhanceClipAudio, importUrl, magicCutClip, removeClipBackground, saveTemplate } from "../services/video-editor-api";
+import { addToBrandKit, chromaKeyClip, detachClipAudio, duplicateProject, enhanceClipAudio, getExecution, importUrl, listExecutionAssets, magicCutClip, removeClipBackground, saveTemplate, startClipOp } from "../services/video-editor-api";
 import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
 import { ExportPanel } from "../components/export-panel/export-panel";
 import { Inspector } from "../components/inspector/inspector";
@@ -44,6 +44,22 @@ import type { Clip, Track } from "../types";
 
 const ACCENT = "#14b8a6";
 const CARD = "rounded-xl border border-border bg-card shadow-sm";
+
+// Poll an async clip-op execution to completion, then return its produced asset.
+// (Slow ML ops — e.g. video matting — can take minutes; cap the wait.)
+async function pollExecutionAsset(executionId: string) {
+  for (let i = 0; i < 200; i++) {
+    const ex = await getExecution(executionId);
+    if (ex.status === "completed") {
+      const assets = await listExecutionAssets(executionId);
+      if (!assets.length) throw new Error("The job finished but produced no output");
+      return assets[0];
+    }
+    if (ex.status === "failed") throw new Error(ex.error || "Background removal failed");
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+  throw new Error("Timed out — try again");
+}
 
 const PROJECT_MENU = [
   { label: "Duplicate Project", icon: Copy },
@@ -179,6 +195,15 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
   const enhanceSelected = async (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg") => {
     if (!selectedClip || !doc) return;
     try {
+      // Video background removal is a slow ML op → runs async on the worker; poll it.
+      if (op === "remove_bg" && selectedClip.kind === "video") {
+        const { execution_id } = await startClipOp(projectId, selectedClip.id, "remove_bg_video");
+        const asset = await pollExecutionAsset(execution_id);
+        await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
+        const dur = selectedClip.duration;
+        commit(updateClip(doc, selectedClip.id, { assetId: asset.id, in: 0, out: dur, duration: dur }));
+        return;
+      }
       const r =
         op === "chroma_key"
           ? await chromaKeyClip(projectId, selectedClip.id)
