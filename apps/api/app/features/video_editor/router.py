@@ -796,6 +796,112 @@ def chroma_key(
     return {"asset_id": key, "kind": "video", "url": storage.url(key), "duration": round(duration, 3)}
 
 
+class RemoveBgRequest(BaseModel):
+    clip_id: str
+
+
+# Replicate model run via /models/{owner}/{name}/predictions (latest version, no hash).
+_REMBG_MODEL = "851-labs/background-remover"
+_IMG_MIME = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
+
+
+def _settle_replicate(client, headers: dict, pred: dict, timeout_s: float = 90.0) -> dict:
+    """Poll a Replicate prediction to a terminal state (Prefer:wait often returns
+    it already). Blocks the worker thread — only viable for fast models."""
+    import time
+
+    terminal = {"succeeded", "failed", "canceled"}
+    deadline = time.monotonic() + timeout_s
+    while pred.get("status") not in terminal:
+        if time.monotonic() > deadline:
+            raise TimeoutError("prediction timed out")
+        time.sleep(3)
+        r = client.get(f"https://api.replicate.com/v1/predictions/{pred['id']}", headers=headers)
+        r.raise_for_status()
+        pred = r.json()
+    if pred.get("status") != "succeeded":
+        raise RuntimeError(str(pred.get("error") or pred.get("status")))
+    return pred
+
+
+@router.post("/projects/{project_id}/remove-bg")
+def remove_bg(
+    project_id: uuid.UUID,
+    body: RemoveBgRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Remove an image clip's background (Replicate matting model) and store the
+    cutout PNG as a new pool asset. Video isn't supported here — use Green Screen.
+    ponytail: synchronous + gated on REPLICATE_API_KEY; images settle in seconds."""
+    from apps.api.app.core.config import settings
+
+    project = repository.get_by_workflow(session, workspace_id, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+    clip = next(
+        (c for t in (project.doc or {}).get("tracks", []) for c in (t.get("clips") or []) if c.get("id") == body.clip_id),
+        None,
+    )
+    if clip is None or not clip.get("assetId"):
+        raise HTTPException(status_code=404, detail="Clip not found")
+    if clip.get("kind") != "image":
+        raise HTTPException(status_code=422, detail="Background removal supports images — use Green Screen for video")
+    if not settings.replicate_api_key:
+        raise HTTPException(status_code=501, detail="Background removal is not configured")
+
+    workflow = workflows_repo.get(session, workspace_id, project.workflow_id)
+    refmap = {item["id"]: item for item in (_workflow_media(session, workflow) if workflow else [])}
+    item = refmap.get(clip["assetId"])
+    if item is None:
+        raise HTTPException(status_code=404, detail="Source media not found")
+
+    import base64
+
+    import httpx
+
+    storage = get_storage()
+    src_bytes = storage.get(item["key"])
+    mime = _IMG_MIME.get(os.path.splitext(item["key"])[1].lower(), "image/png")
+    data_uri = f"data:{mime};base64,{base64.b64encode(src_bytes).decode()}"
+    headers = {"Authorization": f"Bearer {settings.replicate_api_key}"}
+    try:
+        with httpx.Client(timeout=120) as client:
+            res = client.post(
+                f"https://api.replicate.com/v1/models/{_REMBG_MODEL}/predictions",
+                headers={**headers, "Prefer": "wait=60"},
+                json={"input": {"image": data_uri}},
+            )
+            res.raise_for_status()
+            pred = _settle_replicate(client, headers, res.json())
+            output = pred.get("output")
+            url = output[0] if isinstance(output, list) else output
+            if not isinstance(url, str):
+                raise RuntimeError("no image output")
+            out_bytes = client.get(url).content
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail="Background removal failed") from exc
+
+    key = f"{workspace_id}/edits/{uuid.uuid4()}.png"
+    storage.put(key, out_bytes, "image/png")
+    graph = dict(workflow.graph or {}) if workflow else {}
+    nodes = list(graph.get("nodes") or [])
+    nodes.append(
+        {
+            "id": f"node-{uuid.uuid4()}",
+            "type": "image",
+            "position": {"x": 40, "y": 40 + len(nodes) * 40},
+            "data": {"kind": "image", "upload_key": key, "label": "cutout"},
+        }
+    )
+    graph["nodes"] = nodes
+    if workflow:
+        workflow.graph = graph
+        workflows_repo.save(session, workflow)
+    return {"asset_id": key, "kind": "image", "url": storage.url(key)}
+
+
 class DetachRequest(BaseModel):
     clip_id: str
 

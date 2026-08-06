@@ -199,6 +199,17 @@ export function magicCutClip(
 	});
 }
 
+// Remove an image clip's background (Replicate matting); returns a cutout PNG asset.
+export function removeClipBackground(
+	projectId: string,
+	clipId: string,
+): Promise<{ asset_id: string; kind: string; url: string; duration?: number }> {
+	return api(`/video-editor/projects/${projectId}/remove-bg`, {
+		method: "POST",
+		body: JSON.stringify({ clip_id: clipId }),
+	});
+}
+
 // Chroma-key (green screen) a video clip; returns a new transparent-webm asset.
 export function chromaKeyClip(
 	projectId: string,

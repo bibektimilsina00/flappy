@@ -17,7 +17,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { cn } from "@/lib/cn";
-import { addToBrandKit, chromaKeyClip, detachClipAudio, duplicateProject, enhanceClipAudio, importUrl, magicCutClip, saveTemplate } from "../services/video-editor-api";
+import { addToBrandKit, chromaKeyClip, detachClipAudio, duplicateProject, enhanceClipAudio, importUrl, magicCutClip, removeClipBackground, saveTemplate } from "../services/video-editor-api";
 import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
 import { ExportPanel } from "../components/export-panel/export-panel";
 import { Inspector } from "../components/inspector/inspector";
@@ -176,17 +176,23 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
       toast.error(e instanceof Error ? e.message : "Couldn't save template");
     }
   };
-  const enhanceSelected = async (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut") => {
+  const enhanceSelected = async (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg") => {
     if (!selectedClip || !doc) return;
-    const r =
-      op === "chroma_key"
-        ? await chromaKeyClip(projectId, selectedClip.id)
-        : op === "magic_cut"
-          ? await magicCutClip(projectId, selectedClip.id)
-          : await enhanceClipAudio(projectId, selectedClip.id, op);
-    await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
-    const dur = r.duration || selectedClip.duration;
-    commit(updateClip(doc, selectedClip.id, { assetId: r.asset_id, in: 0, out: dur, duration: dur }));
+    try {
+      const r =
+        op === "chroma_key"
+          ? await chromaKeyClip(projectId, selectedClip.id)
+          : op === "magic_cut"
+            ? await magicCutClip(projectId, selectedClip.id)
+            : op === "remove_bg"
+              ? await removeClipBackground(projectId, selectedClip.id)
+              : await enhanceClipAudio(projectId, selectedClip.id, op);
+      await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
+      const dur = r.duration || selectedClip.duration;
+      commit(updateClip(doc, selectedClip.id, { assetId: r.asset_id, in: 0, out: dur, duration: dur }));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "That didn't work — try again");
+    }
   };
   const detachSelected = async () => {
     if (!selectedClip) return;
