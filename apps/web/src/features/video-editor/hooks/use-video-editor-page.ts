@@ -114,6 +114,34 @@ export function useVideoEditorPage(projectId: string) {
     commit(nextDoc);
   };
 
+  // Drop an AI transition morph video onto a "Transitions" overlay track at the boundary.
+  const addMorphClip = (assetId: string, start: number, duration = 2) => {
+    if (!doc) return;
+    let nextDoc = doc;
+    let track = nextDoc.tracks.find((t) => t.kind === "video" && t.name === "Transitions");
+    if (!track) {
+      nextDoc = addTrack(nextDoc, "video");
+      track = nextDoc.tracks[0];
+      nextDoc = { ...nextDoc, tracks: nextDoc.tracks.map((t) => (t.id === track!.id ? { ...t, name: "Transitions" } : t)) };
+      track = nextDoc.tracks.find((t) => t.id === track!.id)!;
+    }
+    const clip: Clip = {
+      id: `c-${crypto.randomUUID().slice(0, 8)}`,
+      assetId,
+      kind: "video",
+      start: Math.max(0, start),
+      duration,
+      in: 0,
+      out: duration,
+      speed: 1,
+      volume: 1,
+      transform: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
+      keyframes: [],
+      effects: [],
+    };
+    commit(addClip(nextDoc, track.id, clip));
+  };
+
   const addSubtitleClips = (segments: { start: number; end: number; text: string }[]) => {
     if (!doc || !segments.length) return;
     // dedicated subtitle track (reuse if present), styled bottom-center captions
@@ -305,6 +333,7 @@ export function useVideoEditorPage(projectId: string) {
     addShapeClip,
     addSubtitleClips,
     addBrollClips,
+    addMorphClip,
     addImportedClip,
     detachAudioClip,
     doImport,

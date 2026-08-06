@@ -158,6 +158,15 @@ export function deleteTemplate(templateId: string): Promise<{ ok: boolean }> {
 	return api(`/video-editor/templates/${templateId}`, { method: "DELETE" });
 }
 
+// Generate an AI morph transition between two video clips (async on the worker).
+// Poll the execution, then insert the result at `start` (the clip boundary).
+export function startTransitionMorph(projectId: string, fromClipId: string, toClipId: string, prompt?: string): Promise<{ execution_id: string; node_id: string; start: number }> {
+	return api(`/video-editor/projects/${projectId}/transition-morph`, {
+		method: "POST",
+		body: JSON.stringify({ from_clip_id: fromClipId, to_clip_id: toClipId, prompt: prompt ?? null }),
+	});
+}
+
 export type BrollItem = { asset_id: string; kind: string; url: string; start: number; duration: number; query: string };
 
 // Transcribe the clip → topic windows → a stock photo per topic. The client

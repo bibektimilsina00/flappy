@@ -1,11 +1,13 @@
 "use client";
 
-import { Ban, ChevronDown, ChevronLeft, ChevronsUpDown, Sparkles } from "lucide-react";
+import { Ban, ChevronLeft, Loader2, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/cn";
 import type { Clip } from "../../types";
 
 const ACCENT = "#14b8a6";
+
+export type MorphClip = { id: string; label: string };
 
 // AI transition presets — visual for now (no rendering back-end). Thumbnails use
 // a gradient placeholder rather than external art. Selection persists on the clip.
@@ -21,9 +23,21 @@ const TRANSITIONS = [
   { id: "Glitch", from: "#b06a4a", to: "#e0a878" },
 ];
 
-export function TransitionsPanel({ clip, onApply, onBack }: { clip: Clip; onApply: (preset: string) => void; onBack: () => void }) {
+export function TransitionsPanel({
+  clip,
+  onApply,
+  onBack,
+  videoClips,
+  onGenerateMorph,
+}: {
+  clip: Clip;
+  onApply: (preset: string) => void;
+  onBack: () => void;
+  videoClips: MorphClip[];
+  onGenerateMorph: (fromId: string, toId: string, prompt: string) => Promise<void>;
+}) {
   const [creating, setCreating] = useState(false);
-  if (creating) return <AiTransitionCreate onBack={() => setCreating(false)} />;
+  if (creating) return <AiTransitionCreate onBack={() => setCreating(false)} videoClips={videoClips} defaultFromId={clip.id} onGenerate={onGenerateMorph} />;
 
   const selected = clip.transition ?? "None";
 
@@ -63,9 +77,39 @@ export function TransitionsPanel({ clip, onApply, onBack }: { clip: Clip; onAppl
   );
 }
 
-// ── AI transition generator (visual — no back-end yet) ──────
-function AiTransitionCreate({ onBack }: { onBack: () => void }) {
+// ── AI transition generator — morphs between two clips' boundary frames ──────
+function AiTransitionCreate({
+  onBack,
+  videoClips,
+  defaultFromId,
+  onGenerate,
+}: {
+  onBack: () => void;
+  videoClips: MorphClip[];
+  defaultFromId: string;
+  onGenerate: (fromId: string, toId: string, prompt: string) => Promise<void>;
+}) {
   const [prompt, setPrompt] = useState("");
+  const [fromId, setFromId] = useState(defaultFromId);
+  const [toId, setToId] = useState(videoClips.find((c) => c.id !== defaultFromId)?.id ?? "");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const canRun = fromId && toId && fromId !== toId && !busy;
+
+  const run = async () => {
+    if (!canRun) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await onGenerate(fromId, toId, prompt);
+      onBack();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't generate the transition");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col select-none">
       <div className="flex items-center gap-2 px-3 py-3">
@@ -73,14 +117,11 @@ function AiTransitionCreate({ onBack }: { onBack: () => void }) {
           <ChevronLeft className="size-4" />
         </button>
         <h2 className="flex-1 text-base font-semibold">AI Transitions</h2>
-        <span className="flex items-center gap-1 rounded-lg bg-secondary px-2 py-1 text-xs font-medium text-muted-foreground">
-          <Sparkles className="size-3.5 text-[#14b8a6]" /> 0 Credits <ChevronDown className="size-3.5" />
-        </span>
       </div>
 
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-3 [scrollbar-width:thin]">
-        <VideoField label="Start video" hint="Select a video you want to transition from" />
-        <VideoField label="End video" hint="Select a video you want to transition to" muted />
+        <VideoField label="Start video" hint="Transition from the end of this clip" value={fromId} onChange={setFromId} options={videoClips} />
+        <VideoField label="End video" hint="…into the start of this clip" value={toId} onChange={setToId} options={videoClips} />
 
         <div className="rounded-xl border border-border bg-secondary/40 p-3">
           <textarea
@@ -90,36 +131,44 @@ function AiTransitionCreate({ onBack }: { onBack: () => void }) {
             placeholder="Describe your transition. Try prompts like: shatter into glass, zoom through light, or ripple into the next video."
             className="w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between gap-2">
+            {fromId && toId && fromId === toId ? <span className="text-xs text-amber-500">Pick two different clips</span> : <span />}
             <button
               type="button"
-              className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+              onClick={run}
+              disabled={!canRun}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
               style={{ backgroundColor: ACCENT }}
             >
-              <Sparkles className="size-4" /> 50
+              {busy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />} {busy ? "Generating…" : "Generate"}
             </button>
           </div>
+          {err ? <p className="mt-2 text-xs text-red-400">{err}</p> : null}
         </div>
       </div>
     </div>
   );
 }
 
-function VideoField({ label, hint, muted }: { label: string; hint: string; muted?: boolean }) {
+function VideoField({ label, hint, value, onChange, options }: { label: string; hint: string; value: string; onChange: (v: string) => void; options: MorphClip[] }) {
   return (
     <div>
       <p className="text-sm font-semibold">{label}</p>
       <p className="mb-2 text-sm text-muted-foreground">{hint}</p>
-      <button
-        type="button"
-        className={cn(
-          "flex w-full items-center justify-between rounded-lg border border-border bg-secondary/40 px-3 py-2.5 text-sm transition-colors hover:bg-accent",
-          muted ? "text-muted-foreground/60" : "text-muted-foreground",
-        )}
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn("w-full rounded-lg border border-border bg-secondary/40 px-3 py-2.5 text-sm outline-none transition-colors hover:bg-accent focus:ring-1 focus:ring-[#14b8a6]", value ? "" : "text-muted-foreground")}
       >
-        Select a video…
-        <ChevronsUpDown className="size-4 shrink-0" />
-      </button>
+        <option value="" disabled>
+          Select a video…
+        </option>
+        {options.map((o) => (
+          <option key={o.id} value={o.id} className="bg-card text-foreground">
+            {o.label}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

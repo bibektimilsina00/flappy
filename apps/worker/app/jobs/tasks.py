@@ -72,6 +72,30 @@ def run_clip_op_task(
             executions_repo.set_status(session, exec_uuid, "failed", str(exc), finished=True)
 
 
+@celery_app.task(name="run_transition_morph")
+def run_transition_morph_task(
+    execution_id: str, workspace_id: str, workflow_id: str, node_id: str, from_key: str, to_key: str, prompt: str
+) -> None:
+    """Generate an AI transition morph between two boundary frames and record it as
+    an asset against the execution (so it joins the pool). Editor polls the status."""
+    from apps.api.app.features.video_editor import clip_ops
+
+    exec_uuid = uuid.UUID(execution_id)
+    ws_uuid = uuid.UUID(workspace_id)
+    storage = get_storage()
+    with Session(engine) as session:
+        executions_repo.set_status(session, exec_uuid, "running")
+        try:
+            key, kind = clip_ops.run_morph(storage, from_key, to_key, prompt, ws_uuid)
+            assets_repo.add(
+                session,
+                Asset(workspace_id=ws_uuid, execution_id=exec_uuid, node_id=node_id, kind=kind, key=key, url=storage.url(key), cost=0.0),
+            )
+            executions_repo.set_status(session, exec_uuid, "completed", finished=True)
+        except Exception as exc:  # noqa: BLE001
+            executions_repo.set_status(session, exec_uuid, "failed", str(exc), finished=True)
+
+
 @celery_app.task(name="run_workflow")
 def run_workflow_task(
     execution_id: str, workspace_id: str, graph: dict, node_id: str | None = None

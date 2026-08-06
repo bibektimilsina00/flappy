@@ -63,28 +63,24 @@ def settle_prediction(client, headers: dict, pred: dict, timeout_s: float = 90.0
     return pred
 
 
-def run_op(storage, op: str, src_key: str, workspace_id, timeout_s: float = 90.0) -> tuple[str, str]:
-    """Run a matting op on the stored source and return (new_key, kind). Raises on
-    failure. `timeout_s` bounds the Replicate poll (video callers pass minutes)."""
+def _data_uri(storage, key: str, mime: str) -> str:
+    return f"data:{mime};base64,{base64.b64encode(storage.get(key)).decode()}"
+
+
+def _run_prediction(model: str, input_payload: dict, timeout_s: float) -> bytes:
+    """POST a Replicate prediction, settle it, download the first file output. Raises."""
     import httpx
 
     from apps.api.app.core.config import settings
 
-    spec = _OPS.get(op)
-    if spec is None:
-        raise ValueError(f"unsupported op: {op}")
-    model = _model_for(op, settings)
     if not settings.replicate_api_key or not model:
         raise RuntimeError("This effect is not configured")
-
-    src_bytes = storage.get(src_key)
-    data_uri = f"data:{spec['mime']};base64,{base64.b64encode(src_bytes).decode()}"
     headers = {"Authorization": f"Bearer {settings.replicate_api_key}"}
     with httpx.Client(timeout=120) as client:
         res = client.post(
             f"https://api.replicate.com/v1/models/{model}/predictions",
             headers={**headers, "Prefer": "wait=60"},
-            json={"input": {spec["field"]: data_uri}},
+            json={"input": input_payload},
         )
         res.raise_for_status()
         pred = settle_prediction(client, headers, res.json(), timeout_s)
@@ -92,8 +88,39 @@ def run_op(storage, op: str, src_key: str, workspace_id, timeout_s: float = 90.0
         url = output[0] if isinstance(output, list) else output
         if not isinstance(url, str):
             raise RuntimeError("no media output")
-        out_bytes = client.get(url).content
+        return client.get(url).content
 
+
+def run_op(storage, op: str, src_key: str, workspace_id, timeout_s: float = 90.0) -> tuple[str, str]:
+    """Run a matting op on the stored source and return (new_key, kind). Raises on
+    failure. `timeout_s` bounds the Replicate poll (video callers pass minutes)."""
+    from apps.api.app.core.config import settings
+
+    spec = _OPS.get(op)
+    if spec is None:
+        raise ValueError(f"unsupported op: {op}")
+    out_bytes = _run_prediction(_model_for(op, settings), {spec["field"]: _data_uri(storage, src_key, spec["mime"])}, timeout_s)
     key = f"{workspace_id}/edits/{uuid.uuid4()}.{spec['ext']}"
     storage.put(key, out_bytes, spec["mime"])
     return key, spec["kind"]
+
+
+def morph_configured() -> bool:
+    """AI-transition morph is runnable (Replicate key + a model set)."""
+    from apps.api.app.core.config import settings
+
+    return bool(settings.replicate_api_key) and bool(settings.transition_morph_model)
+
+
+def run_morph(storage, from_key: str, to_key: str, prompt: str, workspace_id, timeout_s: float = 8 * 60) -> tuple[str, str]:
+    """Morph between two boundary frames (image_1 -> image_2, optional prompt) into a
+    transition video. `from_key`/`to_key` are stored PNG frames. Returns (key, kind)."""
+    from apps.api.app.core.config import settings
+
+    payload = {"image_1": _data_uri(storage, from_key, "image/png"), "image_2": _data_uri(storage, to_key, "image/png")}
+    if (prompt or "").strip():
+        payload["prompt"] = prompt.strip()
+    out_bytes = _run_prediction(settings.transition_morph_model, payload, timeout_s)
+    key = f"{workspace_id}/edits/{uuid.uuid4()}.mp4"
+    storage.put(key, out_bytes, "video/mp4")
+    return key, "video"

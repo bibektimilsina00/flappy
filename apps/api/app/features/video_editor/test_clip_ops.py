@@ -37,6 +37,21 @@ def test_is_configured_gates_on_model_and_key():
         settings.replicate_api_key, settings.eye_contact_model = orig_key, orig_model
 
 
+def test_morph_configured_needs_key_and_model():
+    from apps.api.app.core.config import settings
+
+    orig_key, orig_model = settings.replicate_api_key, settings.transition_morph_model
+    try:
+        settings.replicate_api_key, settings.transition_morph_model = "k", ""
+        assert c.morph_configured() is False  # model unset
+        settings.transition_morph_model = "owner/morph"
+        assert c.morph_configured() is True
+        settings.replicate_api_key = ""
+        assert c.morph_configured() is False  # no key
+    finally:
+        settings.replicate_api_key, settings.transition_morph_model = orig_key, orig_model
+
+
 def test_settle_already_succeeded_short_circuits():
     pred = {"status": "succeeded", "output": "https://x/out.mp4"}
     assert c.settle_prediction(_NoClient(), {}, pred) is pred

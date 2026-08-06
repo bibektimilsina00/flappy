@@ -13,11 +13,11 @@ import {
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { cn } from "@/lib/cn";
-import { addToBrandKit, chromaKeyClip, detachClipAudio, duplicateProject, enhanceClipAudio, getExecution, importUrl, listExecutionAssets, magicBroll, magicCutClip, removeClipBackground, saveTemplate, startClipOp } from "../services/video-editor-api";
+import { addToBrandKit, chromaKeyClip, detachClipAudio, duplicateProject, enhanceClipAudio, getExecution, importUrl, listExecutionAssets, magicBroll, magicCutClip, removeClipBackground, saveTemplate, startClipOp, startTransitionMorph } from "../services/video-editor-api";
 import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
 import { ExportPanel } from "../components/export-panel/export-panel";
 import { Inspector } from "../components/inspector/inspector";
@@ -145,6 +145,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
     addSubtitleClips,
     addImportedClip,
     addBrollClips,
+    addMorphClip,
     detachAudioClip,
     doImport,
     dropAsset,
@@ -252,6 +253,19 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
       toast.error(e instanceof Error ? e.message : "Couldn't add that clip");
     }
   };
+  // AI transition morph: generate between two clips, poll, then drop at the boundary.
+  const generateMorph = async (fromId: string, toId: string, prompt: string) => {
+    const { execution_id, start } = await startTransitionMorph(projectId, fromId, toId, prompt);
+    const asset = await pollExecutionAsset(execution_id);
+    await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
+    addMorphClip(asset.id, start);
+    toast.success("Transition added");
+  };
+  const videoClips = useMemo(() => {
+    const vids = (doc?.tracks.flatMap((t) => t.clips) ?? []).filter((c) => c.kind === "video");
+    vids.sort((a, b) => a.start - b.start);
+    return vids.map((c, i) => ({ id: c.id, label: `Clip ${i + 1}` }));
+  }, [doc]);
   const saveToBrandKit = async () => {
     const clip = selectedClip;
     if (!clip) return;
@@ -434,6 +448,8 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
                   clip={selectedClip}
                   onApply={(preset) => commit(updateClip(doc, selectedClip.id, { transition: preset }))}
                   onBack={() => setClipView("inspector")}
+                  videoClips={videoClips}
+                  onGenerateMorph={generateMorph}
                 />
               ) : (
                 <Inspector

@@ -688,6 +688,16 @@ def _media_duration(exe: str, path: str) -> float:
     return 0.0
 
 
+def _extract_frame(exe: str, src: str, at: float, out_png: str) -> bool:
+    """Grab a single frame at time `at` (seconds) into out_png. Returns success."""
+    proc = subprocess.run(
+        [exe, "-y", "-ss", f"{max(0.0, at):.3f}", "-i", src, "-frames:v", "1", "-q:v", "3", out_png],
+        capture_output=True,
+        text=True,
+    )
+    return proc.returncode == 0 and os.path.exists(out_png)
+
+
 class EnhanceRequest(BaseModel):
     clip_id: str
     op: str  # "denoise" | "remove_silences"
@@ -1073,6 +1083,70 @@ def clip_op(
         args=[str(execution.id), str(workspace_id), str(project.workflow_id), node_id, body.op, item["key"]],
     )
     return {"execution_id": str(execution.id), "node_id": node_id}
+
+
+class TransitionMorphRequest(BaseModel):
+    from_clip_id: str
+    to_clip_id: str
+    prompt: str | None = None
+
+
+@router.post("/projects/{project_id}/transition-morph")
+def transition_morph(
+    project_id: uuid.UUID,
+    body: TransitionMorphRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Generate an AI morph transition between two video clips: grab the last frame
+    of the 'from' clip and the first frame of the 'to' clip, then run a morph model
+    over them (async on the worker). Returns the execution + the timeline point to
+    drop the morph at (the boundary). Gated on TRANSITION_MORPH_MODEL."""
+    if not clip_ops.morph_configured():
+        raise HTTPException(status_code=501, detail="AI transitions are not set up on this workspace yet")
+
+    project = repository.get_by_workflow(session, workspace_id, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+    a = _clip_by_id(project, body.from_clip_id)
+    b = _clip_by_id(project, body.to_clip_id)
+    if a is None or b is None or a.get("kind") != "video" or b.get("kind") != "video":
+        raise HTTPException(status_code=422, detail="Pick two video clips to transition between")
+
+    workflow = workflows_repo.get(session, workspace_id, project.workflow_id)
+    refmap = {item["id"]: item for item in (_workflow_media(session, workflow) if workflow else [])}
+    a_media, b_media = refmap.get(a.get("assetId")), refmap.get(b.get("assetId"))
+    if a_media is None or b_media is None:
+        raise HTTPException(status_code=404, detail="Source media not found")
+
+    storage = get_storage()
+    exe = imageio_ffmpeg.get_ffmpeg_exe()
+    with tempfile.TemporaryDirectory() as d:
+        a_src = os.path.join(d, "a" + (os.path.splitext(a_media["key"])[1] or ".mp4"))
+        b_src = os.path.join(d, "b" + (os.path.splitext(b_media["key"])[1] or ".mp4"))
+        with open(a_src, "wb") as f:
+            f.write(storage.get(a_media["key"]))
+        with open(b_src, "wb") as f:
+            f.write(storage.get(b_media["key"]))
+        a_frame, b_frame = os.path.join(d, "a.png"), os.path.join(d, "b.png")
+        # last frame of 'from' (its out point), first frame of 'to' (its in point)
+        a_at = max(0.0, float(a.get("out") or (float(a.get("in") or 0) + float(a.get("duration") or 0))) - 0.1)
+        if not _extract_frame(exe, a_src, a_at, a_frame) or not _extract_frame(exe, b_src, float(b.get("in") or 0), b_frame):
+            raise HTTPException(status_code=502, detail="Couldn't read the clip frames")
+        from_key = f"{workspace_id}/edits/{uuid.uuid4()}.png"
+        to_key = f"{workspace_id}/edits/{uuid.uuid4()}.png"
+        storage.put(from_key, open(a_frame, "rb").read(), "image/png")
+        storage.put(to_key, open(b_frame, "rb").read(), "image/png")
+
+    execution = executions_repo.add(session, Execution(workspace_id=workspace_id, workflow_id=project.workflow_id, status="pending"))
+    node_id = f"morph-{uuid.uuid4()}"
+    celery_app.send_task(
+        "run_transition_morph",
+        args=[str(execution.id), str(workspace_id), str(project.workflow_id), node_id, from_key, to_key, body.prompt or ""],
+    )
+    boundary = round(float(a.get("start") or 0) + float(a.get("duration") or 0), 3)
+    return {"execution_id": str(execution.id), "node_id": node_id, "start": boundary}
 
 
 class DetachRequest(BaseModel):
