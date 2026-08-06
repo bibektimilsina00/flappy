@@ -80,11 +80,11 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 
 ## Floating clip toolbar (`clip-toolbar/clip-toolbar.tsx`)
 
-- [ ] **Video** overflow menu: Fit/Fill, Filters, Effects, Adjust, Adjust Timing, Replace Video, Detach Audio, Save to Brand Kit
-- [ ] **Audio** overflow: Adjust Timing, Replace Audio, Save to Brand Kit
-- [ ] **Image**: Adjust; overflow: Fit/Fill, Adjust Timing, Replace Image, Save to Brand Kit
-- [ ] **Text**: font / size display (edit in inspector), Effect, Depth; overflow: Line Height, Letter Spacing, Save to Brand Kit, Properties, Adjust Timing (color, Bold/Italic, align now work)
-- [x] **Volume**, **Speed** popovers; **Opacity** slider; **Flip H/V** & **Round Corners** (video/image); **Copy** (duplicate); **Order** (front/back); **Delete**; Animation/Transitions open their panels; image **Generate Video** opens the playground
+- [ ] **Video** overflow menu: Fit/Fill, Filters, Effects, Adjust, Replace Video, Save to Brand Kit
+- [ ] **Audio** overflow: Replace Audio, Save to Brand Kit
+- [ ] **Image**: Adjust; overflow: Fit/Fill, Replace Image, Save to Brand Kit
+- [ ] **Text**: font / size display (edit in inspector), Effect, Depth; overflow: Line Height, Letter Spacing, Save to Brand Kit, Properties (color, Bold/Italic, align now work)
+- [x] **Volume**, **Speed** popovers; **Opacity** slider; **Flip H/V** & **Round Corners** (video/image); **Copy** (duplicate); **Order** (front/back); **Adjust Timing**; **Delete**; Animation/Transitions open their panels; image **Generate Video** opens the playground
 
 ---
 

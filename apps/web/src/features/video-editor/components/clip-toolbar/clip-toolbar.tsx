@@ -78,6 +78,7 @@ export function ClipToolbar({
   const isText = clip.kind === "text";
   const variant = isImage ? "image" : isAudio ? "audio" : isText ? "text" : undefined;
   const order = { front: insp.bringToFront, forward: insp.bringForward, backward: insp.sendBackward, back: insp.sendToBack };
+  const timing = { start: clip.start, end: clip.start + clip.duration, onStart: insp.updateStart, onEnd: insp.updateEnd, g: insp.gestureProps };
 
   if (isText) {
     return (
@@ -118,6 +119,7 @@ export function ClipToolbar({
             onItalic={insp.toggleItalic}
             onAlign={insp.setAlign}
             order={order}
+            timing={timing}
           />
         </div>
       </div>
@@ -168,6 +170,7 @@ export function ClipToolbar({
           onFit={insp.fitCanvas}
           onFill={insp.fillCanvas}
           order={order}
+          timing={timing}
         />
       </div>
     </div>
@@ -278,6 +281,7 @@ function MorePopover({
   onItalic,
   onAlign,
   order,
+  timing,
 }: {
   variant?: "audio" | "image" | "text";
   opacity: number;
@@ -300,6 +304,7 @@ function MorePopover({
   onItalic?: () => void;
   onAlign?: (a: "left" | "center" | "right") => void;
   order?: { front: () => void; forward: () => void; backward: () => void; back: () => void };
+  timing?: { start: number; end: number; onStart: (v: number) => void; onEnd: (v: number) => void; g: Gesture };
 }) {
   const { open, setOpen, ref } = usePopover();
   const close = () => setOpen(false);
@@ -348,7 +353,7 @@ function MorePopover({
             <Item icon={Palette} label="Save to Brand Kit" />
             <Divider />
             <Item icon={SlidersHorizontal} label="Properties" />
-            <Item icon={RotateCw} label="Adjust Timing" chevron />
+            <AdjustTimingItem timing={timing} />
             {deleteItem}
           </Panel>
         ) : null}
@@ -364,7 +369,7 @@ function MorePopover({
           <Panel className="w-56" align="right" up>
             {copyItem}
             <Divider />
-            <Item icon={RotateCw} label="Adjust Timing" chevron />
+            <AdjustTimingItem timing={timing} />
             <Item icon={Replace} label="Replace Audio" />
             <Item icon={Wand2} label="Save to Brand Kit" upgrade />
             {deleteItem}
@@ -408,7 +413,7 @@ function MorePopover({
             {copyItem}
             <OrderItem order={order} />
             <Divider />
-            <Item icon={RotateCw} label="Adjust Timing" chevron />
+            <AdjustTimingItem timing={timing} />
             <Item icon={Replace} label="Replace Image" />
             <Item icon={Wand2} label="Save to Brand Kit" upgrade />
             {deleteItem}
@@ -546,6 +551,44 @@ function OrderItem({ order }: { order?: { front: () => void; forward: () => void
             <button key={label} type="button" onClick={fn} className="rounded-lg px-2.5 py-1.5 text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
               {label}
             </button>
+          ))}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+// Adjust Timing — expands to Start / End number inputs (commit on blur via g).
+function AdjustTimingItem({ timing }: { timing?: { start: number; end: number; onStart: (v: number) => void; onEnd: (v: number) => void; g: Gesture } }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-accent">
+        <RotateCw className="size-[18px] shrink-0 text-muted-foreground" />
+        <span className="flex-1 text-left">Adjust Timing</span>
+        <ChevronDown className={cn("size-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
+      </button>
+      {open && timing ? (
+        <div className="ml-2.5 flex gap-2 border-l border-border py-1 pl-2">
+          {(
+            [
+              ["Start", timing.start, timing.onStart],
+              ["End", timing.end, timing.onEnd],
+            ] as const
+          ).map(([label, value, onInput]) => (
+            <label key={label} className="flex flex-1 items-center gap-1.5 rounded-md bg-secondary/60 px-2 py-1 text-xs">
+              <span className="text-muted-foreground">{label}</span>
+              <input
+                type="number"
+                min={0}
+                step={0.1}
+                value={Number(value.toFixed(1))}
+                onFocus={timing.g.onFocus}
+                onBlur={timing.g.onBlur}
+                onChange={(e) => onInput(Number(e.target.value))}
+                className="w-full min-w-0 bg-transparent text-right tabular-nums outline-none"
+              />
+            </label>
           ))}
         </div>
       ) : null}
