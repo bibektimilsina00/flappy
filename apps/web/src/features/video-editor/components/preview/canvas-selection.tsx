@@ -74,7 +74,8 @@ export function CanvasSelection({
           style={{ borderColor: ACCENT }}
           aria-label="Move clip"
         />
-        {EDGES.map((hh) => (
+        {/* text is a single row — drop the top handles (dy === -1) */}
+        {EDGES.filter((hh) => !(isText && hh.dy === -1)).map((hh) => (
           <span
             key={hh.pos}
             onPointerDown={(e) => onPointerDown(e, { dx: hh.dx, dy: hh.dy })}
@@ -82,7 +83,7 @@ export function CanvasSelection({
             style={{ cursor: hh.cursor }}
           />
         ))}
-        {CORNERS.map((hh) => (
+        {CORNERS.filter((hh) => !(isText && hh.dy === -1)).map((hh) => (
           <span
             key={hh.pos}
             onPointerDown={(e) => onPointerDown(e, { dx: hh.dx, dy: hh.dy })}
