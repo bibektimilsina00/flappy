@@ -110,6 +110,53 @@ function ProjectMenu({ onDuplicate, onVersionHistory, onSaveTemplate }: { onDupl
   );
 }
 
+const FPS_OPTIONS = [24, 30, 60];
+
+// Project settings popover (bottom bar) — currently just frame rate, which
+// nothing else exposes. Opens upward since it lives at the canvas footer.
+function SettingsMenu({ fps, onFps }: { fps: number; onFps: (v: number) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+      >
+        <Settings className="size-4" />
+        Settings
+      </button>
+      {open ? (
+        <div className="absolute bottom-full right-0 z-50 mb-1.5 w-44 rounded-xl border border-border bg-card p-2 shadow-2xl">
+          <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Frame rate</p>
+          <div className="flex gap-1">
+            {FPS_OPTIONS.map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => {
+                  onFps(f);
+                  setOpen(false);
+                }}
+                className={cn("flex-1 rounded-md py-1.5 text-xs font-medium transition-colors", fps === f ? "bg-[#14b8a6] text-white" : "bg-secondary text-muted-foreground hover:bg-accent")}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function VideoEditorPage({ projectId }: { projectId: string }) {
   const page = useVideoEditorPage(projectId);
   const {
@@ -567,10 +614,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
                     />
                     <span className="mx-0.5 h-5 w-px bg-border" />
                     <BackgroundMenu doc={doc} onChange={(color) => commit({ ...doc, background: color })} assets={assets} urlOf={urlOf} />
-                    <button type="button" className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground">
-                      <Settings className="size-4" />
-                      Settings
-                    </button>
+                    <SettingsMenu fps={doc.fps} onFps={(f) => commit({ ...doc, fps: f })} />
                   </div>
                 )}
               </div>

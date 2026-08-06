@@ -39,7 +39,7 @@ export function ElementsTab({ onAddText, onAddShape, onAddStock }: { onAddText: 
 
       <div className="space-y-8">
         {show("Stickers") ? (
-          <Section title="Stickers">
+          <Section title="Stickers" onViewAll={tag === "All" ? () => setTag("Stickers") : undefined}>
             <div className="grid grid-cols-4 gap-2.5">
               {EMOJIS.map((e) => (
                 <button key={e} type="button" onClick={() => onAddText(e)} className="grid aspect-square place-items-center rounded-lg bg-secondary/60 text-3xl transition-colors hover:bg-accent" title="Emoji">
@@ -51,7 +51,7 @@ export function ElementsTab({ onAddText, onAddShape, onAddStock }: { onAddText: 
         ) : null}
 
         {show("Stickers") ? (
-          <Section title="Animated Stickers">
+          <Section title="Animated Stickers" onViewAll={tag === "All" ? () => setTag("Stickers") : undefined}>
             <div className="grid grid-cols-4 gap-2.5">
               {STICKER_GIFS.map((id) => (
                 <button key={id} type="button" onClick={() => onAddStock(gifSrc(id), "image")} className="grid aspect-square place-items-center overflow-hidden rounded-lg bg-secondary/60 transition-opacity hover:opacity-90" title="Animated sticker">
@@ -64,7 +64,7 @@ export function ElementsTab({ onAddText, onAddShape, onAddStock }: { onAddText: 
         ) : null}
 
         {show("Shapes") ? (
-          <Section title="Shapes">
+          <Section title="Shapes" onViewAll={tag === "All" ? () => setTag("Shapes") : undefined}>
             <div className="grid grid-cols-4 gap-2.5">
               {SHAPES.map((s) => (
                 <button
@@ -82,7 +82,7 @@ export function ElementsTab({ onAddText, onAddShape, onAddStock }: { onAddText: 
         ) : null}
 
         {show("Visualizers") ? (
-          <Section title="Visualizers">
+          <Section title="Visualizers" onViewAll={tag === "All" ? () => setTag("Visualizers") : undefined}>
             <div className="grid grid-cols-2 gap-2.5">
               <div className="grid h-20 place-items-center rounded-lg border-4 border-[#6edfa3] bg-secondary/40 text-xs text-muted-foreground">Rainbow border</div>
               <div className="flex h-20 items-center rounded-lg bg-secondary/40 px-3">
@@ -99,14 +99,16 @@ export function ElementsTab({ onAddText, onAddShape, onAddStock }: { onAddText: 
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, onViewAll, children }: { title: string; onViewAll?: () => void; children: React.ReactNode }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-[15px] font-semibold">{title}</h3>
-        <button type="button" className="flex items-center gap-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
-          View all <ChevronRight className="size-3.5" />
-        </button>
+        {onViewAll ? (
+          <button type="button" onClick={onViewAll} className="flex items-center gap-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
+            View all <ChevronRight className="size-3.5" />
+          </button>
+        ) : null}
       </div>
       {children}
     </div>

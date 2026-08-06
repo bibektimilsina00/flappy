@@ -1,11 +1,14 @@
 "use client";
 
-import { ChevronRight, Plus, Upload, Wand2 } from "lucide-react";
+import { ChevronDown, Plus, Upload, Wand2 } from "lucide-react";
+import { useState } from "react";
+import { cn } from "@/lib/cn";
 import type { VideoEditorAsset } from "../../types";
 import { MediaTileThumb } from "./media-grid";
 import { StockSearch } from "./stock-search";
 
 const ACCENT = "#14b8a6";
+const PREVIEW = 6; // items shown before "View all"
 
 // Placeholder content mirroring the reference — swap for a real characters/stock
 // provider when one exists. Thumbnails are external (VEED CDN / Pexels).
@@ -22,6 +25,8 @@ const CHARACTERS = [
 const characterSrc = (id: string) => `https://cdn-user.veed.io/cdn-cgi/image/width=400,format=png/image/${id}.png`;
 
 export function VideoTab({ videos, onImport, importing, onGenerate, onAddStock, onTalkingCharacter }: { videos: VideoEditorAsset[]; onImport: () => void; importing: boolean; onGenerate: () => void; onAddStock: (url: string, kind: string) => void; onTalkingCharacter: (imageUrl: string) => void }) {
+  const [allVids, setAllVids] = useState(false);
+  const [allChars, setAllChars] = useState(false);
   return (
     <div className="space-y-8 px-3">
       {/* generate + upload */}
@@ -46,9 +51,9 @@ export function VideoTab({ videos, onImport, importing, onGenerate, onAddStock, 
 
       {/* asset library — the project's own videos */}
       {videos.length ? (
-        <Section title="Asset Library" onAdd={onImport} viewAll>
+        <Section title="Asset Library" onAdd={onImport} expand={videos.length > PREVIEW ? { on: allVids, toggle: () => setAllVids((v) => !v) } : undefined}>
           <div className="grid grid-cols-3 gap-2.5">
-            {videos.map((v) => (
+            {(allVids ? videos : videos.slice(0, PREVIEW)).map((v) => (
               <div
                 key={v.id}
                 draggable
@@ -64,9 +69,9 @@ export function VideoTab({ videos, onImport, importing, onGenerate, onAddStock, 
       ) : null}
 
       {/* talking characters */}
-      <Section title="Talking Characters" viewAll>
+      <Section title="Talking Characters" expand={CHARACTERS.length > PREVIEW ? { on: allChars, toggle: () => setAllChars((v) => !v) } : undefined}>
         <div className="grid grid-cols-3 gap-2.5">
-          {CHARACTERS.map((c) => (
+          {(allChars ? CHARACTERS : CHARACTERS.slice(0, PREVIEW)).map((c) => (
             <button key={c.id} type="button" onClick={() => onTalkingCharacter(characterSrc(c.id))} className="overflow-hidden rounded-lg border border-border transition-opacity hover:opacity-90" title={`Make ${c.name} talk`}>
               {/* biome-ignore lint/performance/noImgElement: external placeholder thumbnail */}
               <img src={characterSrc(c.id)} alt={c.name} loading="lazy" className="aspect-square w-full object-cover object-top" />
@@ -83,7 +88,7 @@ export function VideoTab({ videos, onImport, importing, onGenerate, onAddStock, 
   );
 }
 
-function Section({ title, viewAll, onAdd, children }: { title: string; viewAll?: boolean; onAdd?: () => void; children: React.ReactNode }) {
+function Section({ title, expand, onAdd, children }: { title: string; expand?: { on: boolean; toggle: () => void }; onAdd?: () => void; children: React.ReactNode }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -100,9 +105,9 @@ function Section({ title, viewAll, onAdd, children }: { title: string; viewAll?:
             </button>
           ) : null}
         </div>
-        {viewAll ? (
-          <button type="button" className="flex items-center gap-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
-            View all <ChevronRight className="size-3.5" />
+        {expand ? (
+          <button type="button" onClick={expand.toggle} className="flex items-center gap-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
+            {expand.on ? "Show less" : "View all"} <ChevronDown className={cn("size-3.5 transition-transform", expand.on && "rotate-180")} />
           </button>
         ) : null}
       </div>

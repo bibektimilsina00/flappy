@@ -79,9 +79,11 @@ export function TextTab({ onAddText }: { onAddText: (content: string, style?: Te
           <div key={g.tag}>
             <div className="mb-2 flex items-center justify-between">
               <h3 className="text-[15px] font-semibold">{g.tag}</h3>
-              <button type="button" className="flex items-center gap-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
-                View all <ChevronRight className="size-3.5" />
-              </button>
+              {tag === "All" ? (
+                <button type="button" onClick={() => setTag(g.tag)} className="flex items-center gap-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
+                  View all <ChevronRight className="size-3.5" />
+                </button>
+              ) : null}
             </div>
             <div className="grid grid-cols-2 gap-2.5">
               {g.items.map((p) => (

@@ -1,11 +1,14 @@
 "use client";
 
-import { ChevronRight, ImagePlus, Plus, Upload, Gem } from "lucide-react";
+import { ChevronDown, ImagePlus, Plus, Upload, Gem } from "lucide-react";
+import { useState } from "react";
+import { cn } from "@/lib/cn";
 import type { VideoEditorAsset } from "../../types";
 import { MediaTileThumb } from "./media-grid";
 import { StockSearch } from "./stock-search";
 
 const ACCENT = "#14b8a6";
+const PREVIEW = 6; // items shown before "View all"
 
 // GIF stickers stay curated (Giphy needs its own key); stock images/videos are
 // live via Pexels (StockSearch). Thumbnails are external.
@@ -16,6 +19,9 @@ const gifSrc = (id: string) => `https://media.giphy.com/media/${id}/100w.gif`;
 const BACKGROUNDS = ["#000000", "#ffffff", "#14b8a6", "#1e293b", "#3b5b6b", "#8a5a3a", "#6b7bb0", "#9fb07a", "#c99b6e"];
 
 export function ImageTab({ images, onImport, importing, onGenerate, onAddStock, onSetBackground }: { images: VideoEditorAsset[]; onImport: () => void; importing: boolean; onGenerate: () => void; onAddStock: (url: string, kind: string) => void; onSetBackground: (bg: string) => void }) {
+  const [allImgs, setAllImgs] = useState(false);
+  const [allBg, setAllBg] = useState(false);
+  const [allGifs, setAllGifs] = useState(false);
   return (
     <div className="space-y-8 px-3 pt-1">
       {/* generate + upload */}
@@ -48,9 +54,9 @@ export function ImageTab({ images, onImport, importing, onGenerate, onAddStock, 
 
       {/* asset library — the project's own images */}
       {images.length ? (
-        <Section title="Asset Library" onAdd={onImport} viewAll>
+        <Section title="Asset Library" onAdd={onImport} expand={images.length > PREVIEW ? { on: allImgs, toggle: () => setAllImgs((v) => !v) } : undefined}>
           <div className="grid grid-cols-3 gap-2.5">
-            {images.map((v) => (
+            {(allImgs ? images : images.slice(0, PREVIEW)).map((v) => (
               <div
                 key={v.id}
                 draggable
@@ -71,18 +77,18 @@ export function ImageTab({ images, onImport, importing, onGenerate, onAddStock, 
       </Section>
 
       {/* backgrounds */}
-      <Section title="Backgrounds" viewAll>
+      <Section title="Backgrounds" expand={BACKGROUNDS.length > PREVIEW ? { on: allBg, toggle: () => setAllBg((v) => !v) } : undefined}>
         <div className="grid grid-cols-3 gap-2.5">
-          {BACKGROUNDS.map((bg) => (
+          {(allBg ? BACKGROUNDS : BACKGROUNDS.slice(0, PREVIEW)).map((bg) => (
             <button key={bg} type="button" onClick={() => onSetBackground(bg)} className="aspect-video rounded-lg border border-border transition-opacity hover:opacity-90" style={{ background: bg }} title="Set as background" />
           ))}
         </div>
       </Section>
 
       {/* gifs */}
-      <Section title="GIFs" viewAll>
+      <Section title="GIFs" expand={GIF_IDS.length > PREVIEW ? { on: allGifs, toggle: () => setAllGifs((v) => !v) } : undefined}>
         <div className="grid grid-cols-3 gap-2.5">
-          {GIF_IDS.map((id) => (
+          {(allGifs ? GIF_IDS : GIF_IDS.slice(0, PREVIEW)).map((id) => (
             <button key={id} type="button" onClick={() => onAddStock(gifSrc(id), "image")} className="aspect-square overflow-hidden rounded-lg border border-border transition-opacity hover:opacity-90" title="GIF">
               {/* biome-ignore lint/performance/noImgElement: external placeholder thumbnail */}
               <img src={gifSrc(id)} alt="" loading="lazy" className="size-full object-cover" />
@@ -94,7 +100,7 @@ export function ImageTab({ images, onImport, importing, onGenerate, onAddStock, 
   );
 }
 
-function Section({ title, viewAll, onAdd, children }: { title: string; viewAll?: boolean; onAdd?: () => void; children: React.ReactNode }) {
+function Section({ title, expand, onAdd, children }: { title: string; expand?: { on: boolean; toggle: () => void }; onAdd?: () => void; children: React.ReactNode }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -106,9 +112,9 @@ function Section({ title, viewAll, onAdd, children }: { title: string; viewAll?:
             </button>
           ) : null}
         </div>
-        {viewAll ? (
-          <button type="button" className="flex items-center gap-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
-            View all <ChevronRight className="size-3.5" />
+        {expand ? (
+          <button type="button" onClick={expand.toggle} className="flex items-center gap-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
+            {expand.on ? "Show less" : "View all"} <ChevronDown className={cn("size-3.5 transition-transform", expand.on && "rotate-180")} />
           </button>
         ) : null}
       </div>

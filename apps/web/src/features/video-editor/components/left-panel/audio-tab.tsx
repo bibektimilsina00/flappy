@@ -1,12 +1,13 @@
 "use client";
 
-import { AudioLines, ChevronRight, MessageSquareText, Mic, MoreHorizontal, Play, Plus, Upload, Gem } from "lucide-react";
+import { AudioLines, ChevronDown, MessageSquareText, Mic, MoreHorizontal, Play, Plus, Upload, Gem } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/cn";
 import type { VideoEditorAsset } from "../../types";
 import { AddTts } from "./add-tts";
 
 const ACCENT = "#14b8a6";
+const PREVIEW = 6; // items shown before "View all"
 
 // Placeholder stock content mirroring the reference — swap for a real provider
 // when one exists. Playback / add are visual stubs for stock rows.
@@ -31,6 +32,7 @@ const WAVE = [6, 10, 14, 9, 16, 22, 18, 12, 20, 26, 17, 11, 21, 30, 24, 14, 19, 
 
 export function AudioTab({ audios, onImport, importing, projectId }: { audios: VideoEditorAsset[]; onImport: () => void; importing: boolean; projectId: string }) {
   const [tts, setTts] = useState(false);
+  const [allAudio, setAllAudio] = useState(false);
   if (tts) return <AddTts onBack={() => setTts(false)} projectId={projectId} />;
 
   return (
@@ -75,9 +77,9 @@ export function AudioTab({ audios, onImport, importing, projectId }: { audios: V
 
       {/* Asset Library — the project's own audio */}
       {audios.length ? (
-        <Section title="Asset Library" onAdd={onImport} viewAll>
+        <Section title="Asset Library" onAdd={onImport} expand={audios.length > PREVIEW ? { on: allAudio, toggle: () => setAllAudio((v) => !v) } : undefined}>
           <div className="space-y-2.5">
-            {audios.map((a) => (
+            {(allAudio ? audios : audios.slice(0, PREVIEW)).map((a) => (
               <AudioRow key={a.id} name={fileName(a.url)} dur="" draggableId={a.id} />
             ))}
           </div>
@@ -92,8 +94,9 @@ export function AudioTab({ audios, onImport, importing, projectId }: { audios: V
 
 function StockSection({ title, tags, items }: { title: string; tags: string[]; items: { name: string; dur: string }[] }) {
   const [tag, setTag] = useState("All");
+  const [all, setAll] = useState(false);
   return (
-    <Section title={title} viewAll>
+    <Section title={title} expand={items.length > PREVIEW ? { on: all, toggle: () => setAll((v) => !v) } : undefined}>
       <div className="flex flex-wrap gap-2">
         {tags.map((t) => (
           <button
@@ -110,7 +113,7 @@ function StockSection({ title, tags, items }: { title: string; tags: string[]; i
         </button>
       </div>
       <div className="mt-3 space-y-2.5">
-        {items.map((s) => (
+        {(all ? items : items.slice(0, PREVIEW)).map((s) => (
           <AudioRow key={s.name} name={s.name} dur={s.dur} />
         ))}
       </div>
@@ -150,7 +153,7 @@ function AudioRow({ name, dur, draggableId }: { name: string; dur: string; dragg
   );
 }
 
-function Section({ title, viewAll, onAdd, children }: { title: string; viewAll?: boolean; onAdd?: () => void; children: React.ReactNode }) {
+function Section({ title, expand, onAdd, children }: { title: string; expand?: { on: boolean; toggle: () => void }; onAdd?: () => void; children: React.ReactNode }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -162,9 +165,9 @@ function Section({ title, viewAll, onAdd, children }: { title: string; viewAll?:
             </button>
           ) : null}
         </div>
-        {viewAll ? (
-          <button type="button" className="flex items-center gap-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
-            View all <ChevronRight className="size-3.5" />
+        {expand ? (
+          <button type="button" onClick={expand.toggle} className="flex items-center gap-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
+            {expand.on ? "Show less" : "View all"} <ChevronDown className={cn("size-3.5 transition-transform", expand.on && "rotate-180")} />
           </button>
         ) : null}
       </div>

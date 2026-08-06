@@ -22,7 +22,7 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 ### Video tab (`left-panel/video-tab.tsx`)
 - [x] **Talking Characters** — click a portrait → prompt for a script → async talking-head video (`POST .../talking-character` → `run_talking_character` → Replicate), inserted as a clip at the playhead. Gated on `TALKING_CHARACTER_MODEL`.
 - [x] **Stock Videos** — live Pexels search (`GET /video-editor/stock/search?kind=video`); clicking a result imports the mp4 + drops a clip. Needs `PEXELS_API_KEY` server-side (501 → "not set up" message when absent).
-- [ ] **View all** links
+- [x] **View all** links — collapse each section to a preview (first 6) and toggle to show all; auto-hidden when there's nothing more
 - [x] **Generate** (opens playground), **Upload**, **Asset Library** tiles drag to timeline
 
 ### Audio tab (`left-panel/audio-tab.tsx`)
@@ -43,7 +43,7 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 - [x] **Generate** (opens playground), **Upload**, **Asset Library** tiles drag to timeline
 
 ### Text tab (`left-panel/text-tab.tsx`)
-- [ ] **View all** links
+- [x] **View all** links — collapse each section to a preview (first 6) and toggle to show all; auto-hidden when there's nothing more
 - [x] Clicking a preset adds a text clip **with its style applied** (font family/size/weight/italic/color written onto the clip and rendered in the preview)
 
 ### Subtitles tab (`left-panel/subtitles-tab.tsx`)
@@ -53,7 +53,7 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 
 ### Elements tab (`left-panel/elements-tab.tsx`)
 - [x] **Emoji** (text clip), **Shapes** (new `shape` clip kind, SVG), **Animated Stickers** (imported + added to timeline)
-- [ ] **Visualizers**, **CTA Pop-Ups** — placeholder art (no real src); **View all** links
+- [ ] **Visualizers**, **CTA Pop-Ups** — placeholder art (no real src). **View all** now filters to the category
 
 ### Brand Kit tab (`left-panel/brand-kit-tab.tsx`)
 - [x] **Save to Brand Kit** (from any clip's ⋯) persists the asset/colour/**font** in `workspace.preferences.brand_kit`; the tab lists items (images/videos/audio/colours/**fonts**) with remove + click-to-add-to-project. No migration (JSON field).
@@ -114,7 +114,7 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 ## Preview & chrome
 
 ### Preview control bar (nothing selected) (`preview/preview.tsx`)
-- [ ] **Settings** button
+- [x] **Settings** button — popover to set the project frame rate (24/30/60 → `doc.fps`, honoured by the renderer)
 - [x] **Aspect ratio** picker (+ platform overlays), **Background** — color picker + **Image** tab (pick a project image, stored as `asset:<id>`); color also renders in exports; on-canvas move/resize/snap
 
 ### Top header (`pages/video-editor-page.tsx`)
