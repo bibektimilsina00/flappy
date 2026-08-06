@@ -144,6 +144,17 @@ export function addBrandKitToProject(workflowId: string, itemId: string): Promis
 	return api(`/video-editor/projects/${workflowId}/brand-kit/${itemId}/add`, { method: "POST" });
 }
 
+// Magic Cut an audio clip (transcribe → cut filler words); returns a new asset.
+export function magicCutClip(
+	projectId: string,
+	clipId: string,
+): Promise<{ asset_id: string; kind: string; url: string; duration: number }> {
+	return api(`/video-editor/projects/${projectId}/magic-cut`, {
+		method: "POST",
+		body: JSON.stringify({ clip_id: clipId }),
+	});
+}
+
 // Chroma-key (green screen) a video clip; returns a new transparent-webm asset.
 export function chromaKeyClip(
 	projectId: string,

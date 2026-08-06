@@ -65,8 +65,8 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 - [x] **Green Screen** (ffmpeg chromakey → transparent webm), **Speed**, **Volume**, **Opacity**, **Rotation**, **Flip H/V**, **Round Corners**, **Replace**, **Detach Audio**, **Start/End**, **Delete**
 
 ### Audio clip
-- [ ] **Fade In/Out**, **Magic Cut** (needs AI)
-- [x] **Clean Audio** (ffmpeg denoise) & **Remove Silences** (ffmpeg silenceremove) via `POST /video-editor/projects/{id}/enhance` — swaps the clip to the processed asset; **Mute/Unmute**, **Speed**, **Volume**, **Replace**, **Start/End**, **Delete**
+- [ ] **Fade In/Out**
+- [x] **Clean Audio** (ffmpeg denoise) & **Remove Silences** (ffmpeg silenceremove) via `.../enhance`, plus **Magic Cut** (transcribe → cut filler words) via `.../magic-cut` — swaps the clip to the processed asset; **Mute/Unmute**, **Speed**, **Volume**, **Replace**, **Start/End**, **Delete**
 
 ### Image clip
 - [ ] **Generate Video**, **Animations** / **Adjust** tiles

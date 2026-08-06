@@ -489,6 +489,113 @@ def enhance_clip_audio(
     return {"asset_id": key, "kind": "audio", "url": storage.url(key), "duration": round(duration, 3)}
 
 
+_FILLERS = {"um", "uh", "er", "ah", "hmm", "mm", "erm", "uhm", "uhh", "umm", "mhm", "huh", "uhhh"}
+
+
+class MagicCutRequest(BaseModel):
+    clip_id: str
+
+
+@router.post("/projects/{project_id}/magic-cut")
+def magic_cut(
+    project_id: uuid.UUID,
+    body: MagicCutRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Transcribe an audio clip and cut filler words (um/uh/...) — the audio-only
+    part of 'Magic Cut'. Returns a new pool asset + its trimmed duration."""
+    from apps.api.app.features.clips.pipeline import _transcribe
+
+    project = repository.get_by_workflow(session, workspace_id, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+    clip = next(
+        (
+            c
+            for t in (project.doc or {}).get("tracks", [])
+            for c in (t.get("clips") or [])
+            if c.get("id") == body.clip_id
+        ),
+        None,
+    )
+    if clip is None or not clip.get("assetId") or clip.get("kind") != "audio":
+        raise HTTPException(status_code=404, detail="Audio clip not found")
+
+    workflow = workflows_repo.get(session, workspace_id, project.workflow_id)
+    refmap = {item["id"]: item for item in (_workflow_media(session, workflow) if workflow else [])}
+    item = refmap.get(clip["assetId"])
+    if item is None:
+        raise HTTPException(status_code=404, detail="Source media not found")
+
+    storage = get_storage()
+    exe = imageio_ffmpeg.get_ffmpeg_exe()
+    with tempfile.TemporaryDirectory() as d:
+        ext = os.path.splitext(item["key"])[1] or ".bin"
+        src = os.path.join(d, f"src{ext}")
+        with open(src, "wb") as f:
+            f.write(storage.get(item["key"]))
+        try:
+            segs, total = _transcribe(src)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+        # filler word time ranges (small pad so cuts don't clip neighbours)
+        cuts: list[tuple[float, float]] = []
+        for seg in segs:
+            for w in seg.get("words") or []:
+                token = str(w.get("w") or "").strip().lower().strip(".,!?;:")
+                if token in _FILLERS:
+                    cuts.append((max(0.0, float(w["s"]) - 0.05), float(w["e"]) + 0.05))
+        cuts.sort()
+
+        # keep = complement of the cuts across [0, total]
+        keeps: list[tuple[float, float]] = []
+        prev = 0.0
+        for s, e in cuts:
+            if s > prev:
+                keeps.append((prev, s))
+            prev = max(prev, e)
+        keeps.append((prev, total))
+        keeps = [(s, e) for s, e in keeps if e - s > 0.02]
+        if not keeps:
+            raise HTTPException(status_code=422, detail="Nothing left after cutting")
+
+        out = os.path.join(d, "out.mp3")
+        parts = [f"[0:a]atrim=start={s:.3f}:end={e:.3f},asetpts=N/SR/TB[a{i}]" for i, (s, e) in enumerate(keeps)]
+        concat = "".join(f"[a{i}]" for i in range(len(keeps))) + f"concat=n={len(keeps)}:v=0:a=1[out]"
+        fc = ";".join([*parts, concat])
+        proc = subprocess.run(
+            [exe, "-y", "-i", src, "-filter_complex", fc, "-map", "[out]", "-c:a", "libmp3lame", "-q:a", "4", out],
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode != 0 or not os.path.exists(out):
+            raise HTTPException(status_code=502, detail="Magic cut failed")
+        data = open(out, "rb").read()
+        duration = _media_duration(exe, out)
+
+    key = f"{workspace_id}/edits/{uuid.uuid4()}.mp3"
+    storage.put(key, data, "audio/mpeg")
+    graph = dict(workflow.graph or {}) if workflow else {}
+    nodes = list(graph.get("nodes") or [])
+    nodes.append(
+        {
+            "id": f"node-{uuid.uuid4()}",
+            "type": "audio",
+            "position": {"x": 40, "y": 40 + len(nodes) * 40},
+            "data": {"kind": "audio", "upload_key": key, "label": "magic cut"},
+        }
+    )
+    graph["nodes"] = nodes
+    if workflow:
+        workflow.graph = graph
+        workflows_repo.save(session, workflow)
+
+    return {"asset_id": key, "kind": "audio", "url": storage.url(key), "duration": round(duration, 3)}
+
+
 class ChromaRequest(BaseModel):
     clip_id: str
     color: str | None = None  # key colour, default green

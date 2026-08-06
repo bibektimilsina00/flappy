@@ -85,7 +85,7 @@ export function Inspector({
   onClose: () => void;
   onDelete: () => void;
   onAddText?: () => void;
-  onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key") => Promise<void>;
+  onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut") => Promise<void>;
   assets?: VideoEditorAsset[];
   onReplace?: (assetId: string) => void;
   onDetachAudio?: () => Promise<void>;
@@ -191,7 +191,7 @@ function fileName(url: string) {
 type Insp = ReturnType<typeof useInspector>;
 type GestureProps = { onPointerDown: () => void; onFocus: () => void; onBlur: () => void; onPointerUp: () => void };
 
-function VideoBody({ clip, insp, onDelete, replace, onDetachAudio, onEnhance }: { clip: Clip; insp: Insp; onDelete: () => void; replace?: React.ReactNode; onDetachAudio?: () => Promise<void>; onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key") => Promise<void> }) {
+function VideoBody({ clip, insp, onDelete, replace, onDetachAudio, onEnhance }: { clip: Clip; insp: Insp; onDelete: () => void; replace?: React.ReactNode; onDetachAudio?: () => Promise<void>; onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut") => Promise<void> }) {
   const g = insp.gestureProps;
   const [fadeAudio, setFadeAudio] = useState(false);
   const [detaching, setDetaching] = useState(false);
@@ -351,7 +351,7 @@ function EnhanceRow({ icon: Icon, title, desc, onRun }: { icon: typeof Eye; titl
   );
 }
 
-function AudioBody({ clip, insp, onDelete, onEnhance, replace }: { clip: Clip; insp: Insp; onDelete: () => void; onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key") => Promise<void>; replace?: React.ReactNode }) {
+function AudioBody({ clip, insp, onDelete, onEnhance, replace }: { clip: Clip; insp: Insp; onDelete: () => void; onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut") => Promise<void>; replace?: React.ReactNode }) {
   const g = insp.gestureProps;
   const [fade, setFade] = useState(false);
   const muted = clip.volume === 0;
@@ -397,7 +397,11 @@ function AudioBody({ clip, insp, onDelete, onEnhance, replace }: { clip: Clip; i
         <div className="space-y-1">
           <EnhanceRow icon={Sparkles} title="Clean Audio" desc="Remove background noise" onRun={onEnhance ? () => onEnhance("denoise") : undefined} />
           <EnhanceRow icon={AudioLines} title="Remove Silences" desc="Cut out dead air & awkward pauses" onRun={onEnhance ? () => onEnhance("remove_silences") : undefined} />
-          <AiToolRow tool={{ icon: Scissors, title: "Magic Cut", desc: "Remove ums, ahs and bad takes" }} />
+          {onEnhance ? (
+            <EnhanceRow icon={Scissors} title="Magic Cut" desc="Remove filler words (um, uh…)" onRun={() => onEnhance("magic_cut")} />
+          ) : (
+            <AiToolRow tool={{ icon: Scissors, title: "Magic Cut", desc: "Remove ums, ahs and bad takes" }} />
+          )}
         </div>
       </div>
 
