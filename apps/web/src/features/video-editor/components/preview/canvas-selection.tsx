@@ -74,7 +74,7 @@ export function CanvasSelection({
           style={{ borderColor: ACCENT }}
           aria-label="Move clip"
         />
-        {/* text is a single row — only the side handles resize it (drop top & bottom, dy !== 0) */}
+        {/* text is a single row — drop the top/bottom centre edge handles, keep the corners */}
         {EDGES.filter((hh) => !(isText && hh.dy !== 0)).map((hh) => (
           <span
             key={hh.pos}
@@ -83,7 +83,7 @@ export function CanvasSelection({
             style={{ cursor: hh.cursor }}
           />
         ))}
-        {CORNERS.filter((hh) => !(isText && hh.dy !== 0)).map((hh) => (
+        {CORNERS.map((hh) => (
           <span
             key={hh.pos}
             onPointerDown={(e) => onPointerDown(e, { dx: hh.dx, dy: hh.dy })}
