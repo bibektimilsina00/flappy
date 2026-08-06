@@ -2,8 +2,9 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
+import { PostHogProvider } from "@/shared/providers/posthog-provider";
 
-// App-wide client providers. Add new global providers (theme, etc.) here.
+// App-wide client providers. Add new global providers (theme, analytics, etc.) here.
 export function Providers({ children }: { children: React.ReactNode }) {
   const [client] = useState(
     () =>
@@ -11,5 +12,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
         defaultOptions: { queries: { staleTime: 60_000, refetchOnWindowFocus: false } },
       }),
   );
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  return (
+    <PostHogProvider>
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    </PostHogProvider>
+  );
 }

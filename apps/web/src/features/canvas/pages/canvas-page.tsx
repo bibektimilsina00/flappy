@@ -583,7 +583,6 @@ function CanvasWorkspace({
 							/>
 
 							<CanvasToolbar
-								projectId={projectId}
 								onAddNode={addNode}
 								onUploadMedia={handleUpload}
 								onAddSticker={handleAddSticker}
@@ -657,7 +656,7 @@ function CanvasWorkspace({
 							) : null}
 						</div>
 
-						{/* mode tabs: floating bar below the canvas card */}
+						{/* mode tabs: docked bottom bar below the canvas */}
 						<EditorModeTabs projectId={projectId ?? null} mode="canvas" className="shrink-0 overflow-hidden rounded-lg border border-border" />
 					</div>
 				</ExecutionStatusProvider>

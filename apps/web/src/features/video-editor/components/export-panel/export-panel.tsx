@@ -18,7 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/shared/components/select";
 import { cn } from "@/lib/cn";
 import type { VideoEditorDoc } from "../../types";
-import { useExportPanel } from "./use-export-panel";
+import { useExportPanel } from "./hooks/use-export-panel";
 
 const PRIVACY_LABEL: Record<string, string> = {
 	PUBLIC_TO_EVERYONE: "Public",

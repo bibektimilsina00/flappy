@@ -1,8 +1,8 @@
 "use client";
 
-import { changeDuration, moveClip, updateClip, updateTransform } from "../../lib/doc-ops";
-import { clipTimingSchema, clipTransformSchema } from "../../schemas/editor-schemas";
-import type { Clip, VideoEditorDoc } from "../../types";
+import { changeDuration, moveClip, updateClip, updateTransform } from "../../../lib/doc-ops";
+import { clipTimingSchema, clipTransformSchema } from "../../../schemas/editor-schemas";
+import type { Clip, VideoEditorDoc } from "../../../types";
 
 export function useInspector({
   clip,

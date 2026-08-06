@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Clip, Track, VideoEditorDoc } from "../../types";
+import type { Clip, Track, VideoEditorDoc } from "../../../types";
 
 const laneOf = (kind: string) => (kind === "audio" ? "audio" : kind === "text" ? "text" : "visual");
 

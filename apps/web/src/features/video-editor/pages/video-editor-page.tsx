@@ -10,13 +10,14 @@ import {
   Settings,
   Undo2,
 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
 import { ExportPanel } from "../components/export-panel/export-panel";
 import { Inspector } from "../components/inspector/inspector";
 import { CATEGORIES, LeftPanel, RailBtn } from "../components/left-panel/left-panel";
-import { AspectMenu, Preview } from "../components/preview/preview";
+import { resolveAspect } from "../components/preview/aspect-presets";
+import { AspectMenu, BackgroundMenu, Preview } from "../components/preview/preview";
 import { Timeline } from "../components/timeline/timeline";
 import { useTimeline } from "../hooks/use-timeline";
 import { useVideoEditorPage } from "../hooks/use-video-editor-page";
@@ -92,6 +93,9 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
     snap,
   } = timeline;
 
+  const [aspectKey, setAspectKey] = useState<string | null>(null);
+  const [showOverlay, setShowOverlay] = useState(true);
+
   // Keybindings listener setup
   useEffect(() => {
     return setupKeybindings(togglePlay, playhead);
@@ -99,13 +103,15 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
 
   if (!project || !doc) {
     return (
-      <div className="grid h-[calc(100vh-4rem)] place-items-center bg-background text-muted-foreground select-none">
+      <div className="grid h-full place-items-center bg-background text-muted-foreground select-none">
         <Loader2 className="size-6 animate-spin text-[#14b8a6]" />
       </div>
     );
   }
 
   const showLeftPanel = !railCollapsed || !!selectedClip;
+  // Which preset the canvas maps to — drives the trigger label + platform overlay.
+  const aspect = resolveAspect(aspectKey, doc.width / doc.height);
 
   const handleBeginClipDrag = (e: React.PointerEvent, clip: Clip, mode: "move" | "trim-start" | "trim-end") => {
     e.stopPropagation();
@@ -135,7 +141,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
   };
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] w-full flex-col overflow-hidden bg-background text-foreground select-none">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-background text-foreground select-none">
       {/* ── top bar ── */}
       <header className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-card px-4">
         <div className="flex items-center gap-3">
@@ -199,7 +205,8 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
       </header>
 
       {/* ── main editor layout ── */}
-      <div className="flex min-h-0 flex-1 gap-2 p-2">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 p-2 pb-2.5">
+        <div className="flex min-h-0 flex-1 gap-2">
         {/* left sidebar: rail navigation + category panel */}
         <aside className={cn(CARD, "flex min-h-0 shrink-0 overflow-hidden transition-[width] duration-200", showLeftPanel ? "w-80" : "w-16")}>
           <input
@@ -267,15 +274,21 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
           <div className="flex min-h-0 flex-1 gap-2">
             {/* center preview */}
             <main className={cn(CARD, "flex min-w-0 flex-1 flex-col gap-3 p-4")}>
-              <Preview doc={doc} urlOf={urlOf} playhead={playhead} playing={playing} />
+              <Preview doc={doc} urlOf={urlOf} playhead={playhead} playing={playing} overlay={!!(aspect?.overlay && showOverlay)} />
               <div className="flex shrink-0 items-center justify-center">
                 <div className="flex items-center gap-0.5 rounded-xl border border-border bg-card p-1">
-                  <AspectMenu doc={doc} setAspect={setAspect} />
+                  <AspectMenu
+                    doc={doc}
+                    selectedKey={aspectKey}
+                    onSelect={(key, w, h) => {
+                      setAspectKey(key);
+                      setAspect(w, h);
+                    }}
+                    showOverlay={showOverlay}
+                    onToggleOverlay={() => setShowOverlay((v) => !v)}
+                  />
                   <span className="mx-0.5 h-5 w-px bg-border" />
-                  <button type="button" className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm hover:bg-accent">
-                    <span className="size-4 rounded-full border border-border bg-foreground" />
-                    Background
-                  </button>
+                  <BackgroundMenu doc={doc} onChange={(color) => commit({ ...doc, background: color })} />
                   <button type="button" className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground">
                     <Settings className="size-4" />
                     Settings
@@ -339,8 +352,9 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
             importInputRef={importInput}
           />
         </div>
+        </div>
 
-        {/* mode tabs: floating, full-width */}
+        {/* mode tabs: docked bottom bar below the main content */}
         <EditorModeTabs projectId={projectId} mode="video" className="shrink-0 overflow-hidden rounded-lg border border-border" />
       </div>
 
@@ -381,10 +395,6 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
             );
           })()
         : null}
-
-      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center">
-        <EditorModeTabs projectId={projectId} mode="video" className="pointer-events-auto shadow-2xl backdrop-blur-xl bg-[#18181b]/95 border-white/10" />
-      </div>
     </div>
   );
 }

@@ -8,14 +8,14 @@ import {
 	type PublishResult,
 	tiktokCreatorInfo,
 } from "@/features/clips";
-import { publishPostSchema } from "../../schemas/editor-schemas";
+import { publishPostSchema } from "../../../schemas/editor-schemas";
 import {
 	publishEditorProject,
 	renderEditorProject,
 	shareEditorProject,
-} from "../../services/video-editor-api";
-import { buildCaptions } from "../../lib/captions";
-import type { VideoEditorDoc } from "../../types";
+} from "../../../services/video-editor-api";
+import { buildCaptions } from "../../../lib/captions";
+import type { VideoEditorDoc } from "../../../types";
 
 const TERMINAL = new Set(["posted", "failed"]);
 

@@ -3,7 +3,6 @@
 import { Folder, History, type LucideIcon, Shapes, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { cn } from "@/lib/cn";
-import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
 import { CREATE_NODE_KINDS, NODE_CONFIG, type NodeKind } from "../../lib/constants";
 import { GenerationsPanel } from "../panels/generations-panel";
 import { LibraryPanel } from "../panels/library-panel";
@@ -15,93 +14,95 @@ const CREATE_ITEMS = CREATE_NODE_KINDS.map((kind) => ({
   label: NODE_CONFIG[kind].title,
 }));
 
+type Panel = "stickers" | "library" | "generations";
+
 export function CanvasToolbar({
-  projectId,
   onAddNode,
   onUploadMedia,
   onAddSticker,
 }: {
-  projectId?: string | null;
   onAddNode: (kind: NodeKind) => void;
   onUploadMedia: (file: File) => void;
   onAddSticker: (variant: string) => void;
 }) {
-  const [activeTab, setActiveTab] = useState<"generations" | "library" | "stickers" | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const toggleTab = (tab: "generations" | "library" | "stickers") => {
-    setActiveTab((cur) => (cur === tab ? null : tab));
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      onUploadMedia(file);
-      e.target.value = "";
-    }
-  };
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [panel, setPanel] = useState<Panel | null>(null);
+  const toggle = (p: Panel) => setPanel((cur) => (cur === p ? null : p));
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center px-4">
-      <div className="pointer-events-auto relative flex items-center gap-1 rounded-2xl border border-white/10 bg-[#18181b]/90 p-1.5 shadow-2xl backdrop-blur-xl">
-        <input ref={fileInputRef} type="file" accept="image/*,video/*,audio/*" onChange={handleFileChange} className="hidden" />
+    <>
+      {panel ? <div className="fixed inset-0 z-30" onClick={() => setPanel(null)} /> : null}
 
-        <div className="flex items-center gap-1 pr-1.5 border-r border-white/10">
-          {CREATE_ITEMS.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.kind}
-                type="button"
-                onClick={() => onAddNode(item.kind)}
-                className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground transition-all hover:bg-white/10 hover:text-white active:scale-95"
-              >
-                <Icon className="size-4 text-teal-400" />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
+      <div className="absolute left-4 top-1/2 z-50 -translate-y-1/2">
+        <div className="relative flex flex-col items-center gap-1 rounded-xl border border-border bg-card p-2">
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/*,video/*,audio/*,text/plain,text/markdown,.txt,.md,.markdown"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) onUploadMedia(file);
+              e.target.value = ""; // allow re-uploading the same file
+            }}
+          />
+          {CREATE_ITEMS.map((item) => (
+            <ToolbarButton key={item.kind} icon={item.icon} label={item.label} onClick={() => onAddNode(item.kind)} />
+          ))}
+          <ToolbarButton icon={Upload} label="Upload files" onClick={() => fileInput.current?.click()} />
+          <ToolbarButton icon={Shapes} label="Stickers" active={panel === "stickers"} onClick={() => toggle("stickers")} />
+
+          <div className="my-1 h-px w-6 bg-border" />
+          <ToolbarButton icon={Folder} label="Library" active={panel === "library"} onClick={() => toggle("library")} />
+
+          <div className="my-1 h-px w-6 bg-border" />
+          <ToolbarButton icon={History} label="Generations" active={panel === "generations"} onClick={() => toggle("generations")} />
+
+          {panel === "stickers" ? (
+            <StickersPopup
+              onSelect={(variant) => {
+                onAddSticker(variant);
+                setPanel(null);
+              }}
+              onClose={() => setPanel(null)}
+            />
+          ) : null}
         </div>
-
-        <div className="flex items-center gap-1 pl-1.5 border-l border-white/10">
-          <EditorModeTabs projectId={projectId ?? null} mode="canvas" className="border-0 bg-transparent p-0" />
-          <span className="h-4 w-px bg-white/10 mx-0.5" />
-          <ToolButton icon={Upload} label="Upload" onClick={() => fileInputRef.current?.click()} />
-          <ToolButton icon={History} label="Generations" active={activeTab === "generations"} onClick={() => toggleTab("generations")} />
-          <ToolButton icon={Folder} label="Library" active={activeTab === "library"} onClick={() => toggleTab("library")} />
-          <ToolButton icon={Shapes} label="Stickers" active={activeTab === "stickers"} onClick={() => toggleTab("stickers")} />
-        </div>
-
-        {activeTab === "generations" ? <GenerationsPanel onClose={() => setActiveTab(null)} /> : null}
-        {activeTab === "library" ? <LibraryPanel onClose={() => setActiveTab(null)} /> : null}
-        {activeTab === "stickers" ? <StickersPopup onSelect={(variant) => { onAddSticker(variant); setActiveTab(null); }} onClose={() => setActiveTab(null)} /> : null}
       </div>
-    </div>
+
+      {panel === "library" ? <LibraryPanel onClose={() => setPanel(null)} /> : null}
+      {panel === "generations" ? <GenerationsPanel onClose={() => setPanel(null)} /> : null}
+    </>
   );
 }
 
-function ToolButton({
+function ToolbarButton({
   icon: Icon,
   label,
-  active,
   onClick,
+  active,
 }: {
   icon: LucideIcon;
   label: string;
+  onClick?: () => void;
   active?: boolean;
-  onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      title={label}
-      onClick={onClick}
-      className={cn(
-        "flex size-9 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-white/10 hover:text-white active:scale-95",
-        active && "bg-white/15 text-white shadow-inner",
-      )}
-    >
-      <Icon className="size-4" />
-    </button>
+    <div className="group/tt relative">
+      <button
+        type="button"
+        aria-label={label}
+        onClick={onClick}
+        className={cn(
+          "grid size-10 place-items-center rounded-lg transition-colors",
+          active ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground",
+        )}
+      >
+        <Icon className="size-5" />
+      </button>
+      <span className="pointer-events-none absolute left-full top-1/2 z-[60] ml-2 -translate-y-1/2 whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-xs text-foreground opacity-0 shadow-md transition-opacity group-hover/tt:opacity-100">
+        {label}
+      </span>
+    </div>
   );
 }

@@ -3,7 +3,7 @@
 import { ChevronDown } from "lucide-react";
 import type React from "react";
 import type { Clip, VideoEditorDoc } from "../../types";
-import { useInspector } from "./use-inspector";
+import { useInspector } from "./hooks/use-inspector";
 
 export function Inspector({
   clip,
