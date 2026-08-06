@@ -29,20 +29,18 @@ import {
   authDownload,
   bulkSchedule,
   cancelScheduledPost,
-  type ClipItem,
-  type ClipsJob,
   clipsToProject,
   createClipsJob,
   getClipDownloadUrl,
   getClipsJob,
   listSchedule,
-  type ScheduledPost,
-} from "./api";
+} from "../services/clips-api";
+import type { ClipItem, ClipsJob, CustomCaptionStyle, ScheduledPost } from "../types";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ClipEditModal } from "./clip-edit-modal";
-import { PublishPanel } from "./publish-panel";
-import { defaultSchedule, ScheduleModal } from "./schedule-modal";
-import { type CcState, ClipPlayer } from "./clip-player";
+import { ClipEditModal } from "../components/clip-edit-modal";
+import { PublishPanel } from "../components/publish-panel";
+import { defaultSchedule, ScheduleModal } from "../components/schedule-modal";
+import { type CcState, ClipPlayer } from "../components/clip-player";
 
 const PHASES = [
   {
@@ -889,7 +887,7 @@ function ClipRow({
             transcript={job.transcript ?? []}
             cc={cc}
             onCcChange={onCcChange}
-            customStyle={(job.params as { caption_custom?: import("./api").CustomCaptionStyle | null }).caption_custom ?? null}
+            customStyle={(job.params as { caption_custom?: CustomCaptionStyle | null }).caption_custom ?? null}
             headline={(job.params as { headline?: { enabled: boolean; bg: string; color: string; text?: string } }).headline ?? null}
           />
           {clip.status === "rendering" ? (

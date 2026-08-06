@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Clapperboard, Component, Scissors } from "lucide-react";
 import Link from "next/link";
-import { jobByWorkflow } from "@/features/clips/api";
+import { jobByWorkflow } from "@/features/clips";
 import { cn } from "@/lib/cn";
 
 const ACCENT = "#14b8a6";
@@ -18,7 +18,15 @@ const TABS = [
 ] as const;
 
 // projectId null = no project yet; the tabs still switch between the bare pages.
-export function EditorModeTabs({ projectId, mode }: { projectId: string | null; mode: "canvas" | "video" | "clips" }) {
+export function EditorModeTabs({
+  projectId,
+  mode,
+  className,
+}: {
+  projectId: string | null;
+  mode: "canvas" | "video" | "clips";
+  className?: string;
+}) {
   const { data: clipsLink } = useQuery({
     queryKey: ["clips-by-workflow", projectId],
     queryFn: () => jobByWorkflow(projectId as string).catch(() => null),
@@ -42,7 +50,7 @@ export function EditorModeTabs({ projectId, mode }: { projectId: string | null; 
   ];
 
   return (
-    <div className="flex w-full shrink-0 items-stretch bg-card text-[13px]">
+    <div className={cn("flex w-full shrink-0 items-stretch bg-card text-[13px]", className)}>
       {tabs.map(({ id, label, Icon, href }) => {
         const active = id === mode;
         return (

@@ -9,13 +9,11 @@ import {
   listSchedule,
   listSocialAccounts,
   publishClipNow,
-  type PublishResult,
-  type SocialAccount,
   socialConnectUrl,
   socialProviders,
-  type TikTokCreatorInfo,
   tiktokCreatorInfo,
-} from "./api";
+} from "../services/clips-api";
+import type { PublishResult, SocialAccount, TikTokCreatorInfo } from "../types";
 
 type GlyphProps = { className?: string };
 const Glyph = (d: string, viewBox = "0 0 24 24") =>

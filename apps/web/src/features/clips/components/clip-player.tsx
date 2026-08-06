@@ -3,7 +3,7 @@
 import { Captions, Check, Maximize, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
-import type { ClipItem, CustomCaptionStyle, TranscriptSegment } from "./api";
+import type { ClipItem, CustomCaptionStyle, TranscriptSegment } from "../types";
 import { captionCss, PRESET_META } from "./caption-templates";
 
 export interface CcState {

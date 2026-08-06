@@ -15,11 +15,10 @@ import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/cn";
 import {
   listSocialAccounts,
-  type ScheduleConfig,
-  type SocialAccount,
   socialConnectUrl,
   socialProviders,
-} from "./api";
+} from "../services/clips-api";
+import type { ScheduleConfig, SocialAccount } from "../types";
 import { PLATFORMS } from "./publish-panel";
 
 const HOURS = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, "0")}:00`);

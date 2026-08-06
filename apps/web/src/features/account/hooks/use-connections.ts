@@ -7,7 +7,7 @@ import {
   listSocialAccounts,
   socialConnectUrl,
   socialProviders,
-} from "@/features/clips/api";
+} from "@/features/clips";
 
 export function useConnections() {
   const qc = useQueryClient();

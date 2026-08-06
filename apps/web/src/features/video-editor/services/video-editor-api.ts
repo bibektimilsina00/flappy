@@ -48,7 +48,7 @@ export function publishEditorProject(
 		caption?: string;
 		tiktok_privacy?: string;
 	},
-): Promise<import("@/features/clips/api").PublishResult[]> {
+): Promise<import("@/features/clips").PublishResult[]> {
 	return api(`/video-editor/projects/${projectId}/publish`, {
 		method: "POST",
 		body: JSON.stringify(body),

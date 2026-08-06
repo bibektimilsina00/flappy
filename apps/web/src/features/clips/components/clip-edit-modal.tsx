@@ -3,7 +3,8 @@
 import { ChevronsLeft, ChevronsRight, Loader2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
-import { type ClipItem, type ClipsJob, rerenderClip } from "./api";
+import { rerenderClip } from "../services/clips-api";
+import type { ClipItem, ClipsJob } from "../types";
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}.${Math.floor((s % 1) * 10)}`;
 

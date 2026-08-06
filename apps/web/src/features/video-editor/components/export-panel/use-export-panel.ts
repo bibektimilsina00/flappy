@@ -7,7 +7,7 @@ import {
 	listSocialAccounts,
 	type PublishResult,
 	tiktokCreatorInfo,
-} from "@/features/clips/api";
+} from "@/features/clips";
 import { publishPostSchema } from "../../schemas/editor-schemas";
 import {
 	publishEditorProject,

@@ -20,7 +20,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/cn";
-import type { CustomCaptionStyle } from "./api";
+import type { CustomCaptionStyle } from "../types";
 
 // ── style definitions ────────────────────────────────────────────────────────
 

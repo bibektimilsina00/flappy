@@ -34,8 +34,6 @@ import { createWorkflow } from "@/features/projects/services/workflows-api";
 import { cn } from "@/lib/cn";
 import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
 import {
-	type ClipsJob,
-	type ClipsParams,
 	createClipsJob,
 	deleteClipsJob,
 	estimateClipsCost,
@@ -45,13 +43,13 @@ import {
 	probeClipsSource,
 	socialConnectUrl,
 	socialProviders,
-	type SocialAccount,
 	uploadClipsSource,
-} from "./api";
-import { CaptionStylePicker } from "./caption-templates";
-import { extractVideoMetadata } from "./local-video-meta";
-import { PLATFORMS as SOCIAL_PLATFORMS } from "./publish-panel";
-import { defaultSchedule, ScheduleModal } from "./schedule-modal";
+} from "../services/clips-api";
+import type { ClipsJob, ClipsParams, SocialAccount } from "../types";
+import { CaptionStylePicker } from "../components/caption-templates";
+import { extractVideoMetadata } from "../lib/local-video-meta";
+import { PLATFORMS as SOCIAL_PLATFORMS } from "../components/publish-panel";
+import { defaultSchedule, ScheduleModal } from "../components/schedule-modal";
 
 const DEFAULTS: ClipsParams = {
 	layout: "fill",
