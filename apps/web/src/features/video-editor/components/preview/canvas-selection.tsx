@@ -42,18 +42,19 @@ export function CanvasSelection({
 }) {
   const t = clip.transform;
 
-  // Text fills only its content, not the canvas — measure the rendered element so
-  // the box hugs the text instead of spanning the whole frame.
+  // A text clip is only a line or two tall, so a full-canvas-height box is huge.
+  // Hug the measured text height; keep the width wide (the text's container) so
+  // the frame reads like a text row, matching the editor reference.
   const isText = clip.kind === "text";
-  const [textBox, setTextBox] = useState<{ w: number; h: number } | null>(null);
+  const [textH, setTextH] = useState<number | null>(null);
   useLayoutEffect(() => {
-    if (!isText) return setTextBox(null);
+    if (!isText) return setTextH(null);
     const el = boxRef.current?.querySelector(`[data-clip="${clip.id}"]`) as HTMLElement | null;
-    if (el) setTextBox({ w: el.offsetWidth, h: el.offsetHeight });
-  }, [isText, clip.id, clip.text?.content, clip.text?.fontSize, clip.text?.letterSpacing, clip.text?.lineHeight, bw, boxRef]);
+    if (el) setTextH(el.offsetHeight);
+  }, [isText, clip.id, clip.text?.content, clip.text?.fontSize, clip.text?.lineHeight, bw, boxRef]);
 
-  const baseW = isText && textBox ? textBox.w : bw;
-  const baseH = isText && textBox ? textBox.h : bh;
+  const baseW = isText ? bw * 0.92 : bw;
+  const baseH = isText && textH ? textH : bh;
   const { onPointerDown, guides } = useCanvasSelection({ clip, doc, boxRef, baseW, baseH, startGesture, preview, endGesture });
   const w = baseW * t.scale;
   const h = baseH * t.scale;
