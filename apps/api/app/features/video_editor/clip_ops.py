@@ -21,6 +21,8 @@ _OPS = {
     "eye_contact": {"model_setting": "eye_contact_model", "field": "input_video", "ext": "mp4", "mime": "video/mp4", "kind": "video"},
     # Face touch-up — likewise operator-supplied (model must accept an `input_video` field).
     "face_filter": {"model_setting": "face_filter_model", "field": "input_video", "ext": "mp4", "mime": "video/mp4", "kind": "video"},
+    # Outpaint / expand the video frame — operator-supplied (model accepts `input_video`).
+    "background_expand": {"model_setting": "background_expand_model", "field": "input_video", "ext": "mp4", "mime": "video/mp4", "kind": "video"},
 }
 SUPPORTED_OPS = frozenset(_OPS)
 _TERMINAL = {"succeeded", "failed", "canceled"}

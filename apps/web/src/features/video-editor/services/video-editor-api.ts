@@ -201,7 +201,7 @@ export function magicCutClip(
 
 // Kick off a slow per-clip op (e.g. video background matting) on the worker.
 // Poll getExecution(execution_id), then read listExecutionAssets for the result.
-export function startClipOp(projectId: string, clipId: string, op: "remove_bg_video" | "eye_contact" | "face_filter"): Promise<{ execution_id: string; node_id: string }> {
+export function startClipOp(projectId: string, clipId: string, op: "remove_bg_video" | "eye_contact" | "face_filter" | "background_expand"): Promise<{ execution_id: string; node_id: string }> {
 	return api(`/video-editor/projects/${projectId}/clip-op`, {
 		method: "POST",
 		body: JSON.stringify({ clip_id: clipId, op }),

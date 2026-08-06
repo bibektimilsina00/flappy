@@ -85,7 +85,7 @@ export function Inspector({
   onClose: () => void;
   onDelete: () => void;
   onAddText?: () => void;
-  onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter") => Promise<void>;
+  onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter" | "background_expand") => Promise<void>;
   assets?: VideoEditorAsset[];
   onReplace?: (assetId: string) => void;
   onDetachAudio?: () => Promise<void>;
@@ -191,7 +191,7 @@ function fileName(url: string) {
 type Insp = ReturnType<typeof useInspector>;
 type GestureProps = { onPointerDown: () => void; onFocus: () => void; onBlur: () => void; onPointerUp: () => void };
 
-function VideoBody({ clip, insp, onDelete, replace, onDetachAudio, onEnhance }: { clip: Clip; insp: Insp; onDelete: () => void; replace?: React.ReactNode; onDetachAudio?: () => Promise<void>; onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter") => Promise<void> }) {
+function VideoBody({ clip, insp, onDelete, replace, onDetachAudio, onEnhance }: { clip: Clip; insp: Insp; onDelete: () => void; replace?: React.ReactNode; onDetachAudio?: () => Promise<void>; onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter" | "background_expand") => Promise<void> }) {
   const g = insp.gestureProps;
   const [fadeAudio, setFadeAudio] = useState(false);
   const [detaching, setDetaching] = useState(false);
@@ -261,6 +261,8 @@ function VideoBody({ clip, insp, onDelete, replace, onDetachAudio, onEnhance }: 
               <EnhanceRow key={t.title} icon={Eye} title="Eye Contact" desc="Redirect gaze to the camera (may take a minute)" onRun={() => onEnhance("eye_contact")} />
             ) : t.title === "Face Filter" && onEnhance ? (
               <EnhanceRow key={t.title} icon={Smile} title="Face Filter" desc="Touch-up face appearance (may take a minute)" onRun={() => onEnhance("face_filter")} />
+            ) : t.title === "AI Background Expand" && onEnhance ? (
+              <EnhanceRow key={t.title} icon={Maximize2} title="AI Background Expand" desc="Outpaint the frame to fill (may take a minute)" onRun={() => onEnhance("background_expand")} />
             ) : (t.title === "Remove Filler Words" || t.title === "Magic Cut") && onEnhance ? (
               <EnhanceRow key={t.title} icon={t.icon} title={t.title} desc="Cut ums, uhs & filler words" onRun={() => onEnhance("magic_cut")} />
             ) : (
@@ -359,7 +361,7 @@ function EnhanceRow({ icon: Icon, title, desc, onRun }: { icon: typeof Eye; titl
   );
 }
 
-function AudioBody({ clip, insp, onDelete, onEnhance, replace }: { clip: Clip; insp: Insp; onDelete: () => void; onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter") => Promise<void>; replace?: React.ReactNode }) {
+function AudioBody({ clip, insp, onDelete, onEnhance, replace }: { clip: Clip; insp: Insp; onDelete: () => void; onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter" | "background_expand") => Promise<void>; replace?: React.ReactNode }) {
   const g = insp.gestureProps;
   const [fade, setFade] = useState(false);
   const muted = clip.volume === 0;
@@ -601,7 +603,7 @@ function IconToggle({ active, onClick, title, children }: { active?: boolean; on
   );
 }
 
-function ImageBody({ clip, insp, onDelete, replace, onEnhance }: { clip: Clip; insp: Insp; onDelete: () => void; replace?: React.ReactNode; onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter") => Promise<void> }) {
+function ImageBody({ clip, insp, onDelete, replace, onEnhance }: { clip: Clip; insp: Insp; onDelete: () => void; replace?: React.ReactNode; onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter" | "background_expand") => Promise<void> }) {
   const g = insp.gestureProps;
 
   return (

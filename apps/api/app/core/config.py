@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     eye_contact_model: str = ""
     # Editor "Face Filter" face-touchup Replicate model ("owner/name"). Empty = off.
     face_filter_model: str = ""
+    # Editor "AI Background Expand" outpainting Replicate model ("owner/name"). Empty = off.
+    background_expand_model: str = ""
 
     # Spend guardrail (real provider USD). 0 disables the daily cap.
     daily_spend_cap_usd: float = 0.0

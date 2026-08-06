@@ -192,11 +192,12 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
       toast.error(e instanceof Error ? e.message : "Couldn't save template");
     }
   };
-  const enhanceSelected = async (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter") => {
+  const enhanceSelected = async (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter" | "background_expand") => {
     if (!selectedClip || !doc) return;
     try {
       // Slow ML video ops run async on the worker → dispatch, poll, then swap.
-      const asyncOp = op === "eye_contact" ? "eye_contact" : op === "face_filter" ? "face_filter" : op === "remove_bg" && selectedClip.kind === "video" ? "remove_bg_video" : null;
+      const asyncOp =
+        op === "eye_contact" ? "eye_contact" : op === "face_filter" ? "face_filter" : op === "background_expand" ? "background_expand" : op === "remove_bg" && selectedClip.kind === "video" ? "remove_bg_video" : null;
       if (asyncOp) {
         const { execution_id } = await startClipOp(projectId, selectedClip.id, asyncOp);
         const asset = await pollExecutionAsset(execution_id);
@@ -212,7 +213,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
             ? await magicCutClip(projectId, selectedClip.id)
             : op === "remove_bg"
               ? await removeClipBackground(projectId, selectedClip.id)
-              : op === "eye_contact" || op === "face_filter"
+              : op === "eye_contact" || op === "face_filter" || op === "background_expand"
                 ? null // unreachable: these always go through the async path above
                 : await enhanceClipAudio(projectId, selectedClip.id, op);
       if (!r) return;
