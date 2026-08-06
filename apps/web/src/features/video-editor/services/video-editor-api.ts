@@ -141,6 +141,23 @@ export function restoreVersion(projectId: string, versionId: string): Promise<{ 
 	return api(`/video-editor/projects/${projectId}/versions/${versionId}/restore`, { method: "POST" });
 }
 
+export type Template = { id: string; name: string; ts: string; clips: number };
+
+// Save the current project as a reusable template.
+export function saveTemplate(workflowId: string, name?: string): Promise<Template> {
+	return api("/video-editor/templates", { method: "POST", body: JSON.stringify({ workflow_id: workflowId, name: name ?? null }) });
+}
+export function listTemplates(): Promise<{ templates: Template[] }> {
+	return api("/video-editor/templates");
+}
+// Spin a template into a fresh workflow; returns its id (route param).
+export function useTemplate(templateId: string): Promise<{ workflow_id: string }> {
+	return api(`/video-editor/templates/${templateId}/use`, { method: "POST" });
+}
+export function deleteTemplate(templateId: string): Promise<{ ok: boolean }> {
+	return api(`/video-editor/templates/${templateId}`, { method: "DELETE" });
+}
+
 // Import a stock asset from an allow-listed CDN into the project pool.
 export function importUrl(projectId: string, url: string, kind: string): Promise<{ id: string; kind: string; url: string }> {
 	return api(`/video-editor/projects/${projectId}/import-url`, {

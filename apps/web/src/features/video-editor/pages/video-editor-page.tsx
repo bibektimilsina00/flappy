@@ -15,8 +15,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { toast } from "sonner";
 import { cn } from "@/lib/cn";
-import { addToBrandKit, chromaKeyClip, detachClipAudio, duplicateProject, enhanceClipAudio, importUrl, magicCutClip } from "../services/video-editor-api";
+import { addToBrandKit, chromaKeyClip, detachClipAudio, duplicateProject, enhanceClipAudio, importUrl, magicCutClip, saveTemplate } from "../services/video-editor-api";
 import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
 import { ExportPanel } from "../components/export-panel/export-panel";
 import { Inspector } from "../components/inspector/inspector";
@@ -51,7 +52,7 @@ const PROJECT_MENU = [
 ] as const;
 
 // Project "…" menu in the top bar.
-function ProjectMenu({ onDuplicate, onVersionHistory }: { onDuplicate: () => void; onVersionHistory: () => void }) {
+function ProjectMenu({ onDuplicate, onVersionHistory, onSaveTemplate }: { onDuplicate: () => void; onVersionHistory: () => void; onSaveTemplate: () => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -80,6 +81,7 @@ function ProjectMenu({ onDuplicate, onVersionHistory }: { onDuplicate: () => voi
                 setOpen(false);
                 if (label === "Duplicate Project") onDuplicate();
                 else if (label === "Version History") onVersionHistory();
+                else if (label === "Save as Template") onSaveTemplate();
               }}
               className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium text-white/80 transition-colors hover:bg-white/5 hover:text-white"
             >
@@ -163,6 +165,16 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
   const duplicate = async () => {
     const { workflow_id } = await duplicateProject(projectId);
     router.push(`/video-editor?project=${workflow_id}`);
+  };
+  const saveAsTemplate = async () => {
+    const name = window.prompt("Template name", project?.title || "Untitled")?.trim();
+    if (name === undefined) return;
+    try {
+      const t = await saveTemplate(projectId, name || undefined);
+      toast.success(`Saved "${t.name}" to Templates`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't save template");
+    }
   };
   const enhanceSelected = async (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut") => {
     if (!selectedClip || !doc) return;
@@ -274,7 +286,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
                 onChange={(e) => setTitle(e.target.value)}
                 className="w-40 min-w-0 rounded bg-transparent px-2 py-1 text-sm font-semibold text-white outline-none hover:bg-white/10 focus:bg-white/10"
               />
-              <ProjectMenu onDuplicate={duplicate} onVersionHistory={() => setVersionsOpen(true)} />
+              <ProjectMenu onDuplicate={duplicate} onVersionHistory={() => setVersionsOpen(true)} onSaveTemplate={saveAsTemplate} />
               <span className="mx-1 h-4 w-px shrink-0 bg-white/15" />
               <button
                 type="button"

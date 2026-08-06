@@ -822,6 +822,44 @@ def detach_audio(
     return {"asset_id": key, "kind": "audio", "url": storage.url(key), "duration": round(duration, 3)}
 
 
+def _flatten_project(session: Session, project, workflow) -> tuple[dict, list[dict]]:
+    """Return a self-contained (doc, media) where every clip's assetId is a stable
+    storage key and media is the list of {kind, key} those keys need — so the doc can
+    be rehydrated into a fresh workflow (used by both duplicate and templates)."""
+    # pool id -> {kind, key}. For generated assets id is a UUID, for uploads it is the key.
+    pool = {item["id"]: item for item in _workflow_media(session, workflow)}
+    doc = copy.deepcopy(project.doc or {})
+    used: dict[str, dict] = {}
+    for track in doc.get("tracks") or []:
+        for clip in track.get("clips") or []:
+            aid = clip.get("assetId")
+            item = pool.get(aid) if aid else None
+            if item is None:
+                continue
+            clip["assetId"] = item["key"]  # reference media by its stable key
+            used[item["key"]] = item
+    return doc, [{"kind": i["kind"], "key": i["key"]} for i in used.values()]
+
+
+def _create_project_from(session: Session, workspace_id: uuid.UUID, name: str, title: str, doc: dict, media: list[dict]) -> uuid.UUID:
+    """Rehydrate a flattened (doc, media) into a fresh workflow + editor project."""
+    nodes = [
+        {
+            "id": f"node-{uuid.uuid4()}",
+            "type": item["kind"],
+            "position": {"x": 240 + (i % 4) * 300, "y": 140 + i * 40},
+            "data": {"kind": item["kind"], "upload_key": item["key"], "label": "media"},
+        }
+        for i, item in enumerate(media)
+    ]
+    new_wf = workflows_repo.add(
+        session,
+        Workflow(workspace_id=workspace_id, name=name, graph={"nodes": nodes, "edges": []}),
+    )
+    repository.add(session, VideoEditorProject(workspace_id=workspace_id, workflow_id=new_wf.id, title=title, doc=doc))
+    return new_wf.id
+
+
 @router.post("/projects/{workflow_id}/duplicate")
 def duplicate_project(
     workflow_id: uuid.UUID,
@@ -836,45 +874,9 @@ def duplicate_project(
     workflow = workflows_repo.get(session, workspace_id, workflow_id)
     if project is None or workflow is None:
         raise HTTPException(status_code=404, detail="Project not found")
-
-    # pool id -> {kind, key}. For generated assets id is a UUID, for uploads it is the key.
-    pool = {item["id"]: item for item in _workflow_media(session, workflow)}
-
-    doc = copy.deepcopy(project.doc or {})
-    used: dict[str, dict] = {}
-    for track in doc.get("tracks") or []:
-        for clip in track.get("clips") or []:
-            aid = clip.get("assetId")
-            item = pool.get(aid) if aid else None
-            if item is None:
-                continue
-            clip["assetId"] = item["key"]  # clone references media by its stable key
-            used[item["key"]] = item
-
-    # Flatten every referenced asset into an upload node so the clone's pool resolves it.
-    new_nodes = [
-        {
-            "id": f"node-{uuid.uuid4()}",
-            "type": item["kind"],
-            "position": {"x": 240 + (i % 4) * 300, "y": 140 + i * 40},
-            "data": {"kind": item["kind"], "upload_key": item["key"], "label": "media"},
-        }
-        for i, item in enumerate(used.values())
-    ]
-    new_wf = workflows_repo.add(
-        session,
-        Workflow(workspace_id=workspace_id, name=f"{workflow.name} (copy)", graph={"nodes": new_nodes, "edges": []}),
-    )
-    repository.add(
-        session,
-        VideoEditorProject(
-            workspace_id=workspace_id,
-            workflow_id=new_wf.id,
-            title=f"{project.title} (copy)",
-            doc=doc,
-        ),
-    )
-    return {"workflow_id": str(new_wf.id)}
+    doc, media = _flatten_project(session, project, workflow)
+    new_id = _create_project_from(session, workspace_id, f"{workflow.name} (copy)", f"{project.title} (copy)", doc, media)
+    return {"workflow_id": str(new_id)}
 
 
 # ── Brand Kit (stored in workspace.preferences — no migration needed) ────────
@@ -1076,6 +1078,104 @@ def restore_version(
     if version is None:
         raise HTTPException(status_code=404, detail="Version not found")
     return {"doc": version["doc"]}
+
+
+# ── Templates (self-contained doc snapshots in workspace.preferences) ─────────
+
+_MAX_TEMPLATES = 50
+
+
+def _templates(ws: Workspace) -> list[dict]:
+    return list((ws.preferences or {}).get("templates") or [])
+
+
+def _save_templates(session: Session, ws: Workspace, items: list[dict]) -> None:
+    prefs = dict(ws.preferences or {})
+    prefs["templates"] = items
+    ws.preferences = prefs  # reassign so the JSON column is marked dirty
+    session.add(ws)
+    session.commit()
+
+
+def _template_out(t: dict) -> dict:
+    tracks = (t.get("doc") or {}).get("tracks") or []
+    return {"id": t["id"], "name": t["name"], "ts": t["ts"], "clips": sum(len(tr.get("clips") or []) for tr in tracks)}
+
+
+class SaveTemplateRequest(BaseModel):
+    workflow_id: uuid.UUID
+    name: str | None = None
+
+
+@router.post("/templates")
+def save_template(
+    body: SaveTemplateRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Snapshot a project as a reusable template — flattened to stable storage keys
+    (same media, no re-generation) so it can be spun into a fresh project anytime."""
+    ws = session.get(Workspace, workspace_id)
+    project = repository.get_by_workflow(session, workspace_id, body.workflow_id)
+    workflow = workflows_repo.get(session, workspace_id, body.workflow_id)
+    if ws is None or project is None or workflow is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    doc, media = _flatten_project(session, project, workflow)
+    tpl = {
+        "id": str(uuid.uuid4()),
+        "name": (body.name or project.title or "Untitled").strip() or "Untitled",
+        "ts": datetime.now(UTC).isoformat(),
+        "doc": doc,
+        "media": media,
+    }
+    _save_templates(session, ws, [tpl, *_templates(ws)][:_MAX_TEMPLATES])
+    return _template_out(tpl)
+
+
+@router.get("/templates")
+def list_templates(
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    ws = session.get(Workspace, workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    return {"templates": [_template_out(t) for t in _templates(ws)]}
+
+
+@router.post("/templates/{template_id}/use")
+def use_template(
+    template_id: str,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Spin a template into a fresh workflow + editor project; returns its workflow id."""
+    ws = session.get(Workspace, workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    tpl = next((t for t in _templates(ws) if t["id"] == template_id), None)
+    if tpl is None:
+        raise HTTPException(status_code=404, detail="Template not found")
+    doc = copy.deepcopy(tpl["doc"])
+    new_id = _create_project_from(session, workspace_id, tpl["name"], tpl["name"], doc, tpl.get("media") or [])
+    return {"workflow_id": str(new_id)}
+
+
+@router.delete("/templates/{template_id}")
+def remove_template(
+    template_id: str,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    ws = session.get(Workspace, workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    _save_templates(session, ws, [t for t in _templates(ws) if t["id"] != template_id])
+    return {"ok": True}
 
 
 class ProjectUpdate(BaseModel):

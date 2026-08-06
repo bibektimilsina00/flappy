@@ -110,7 +110,7 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 ### Top header (`pages/video-editor-page.tsx`)
 - [x] **Duplicate Project** — clones the workflow + doc (`POST .../duplicate`, media flattened to shared upload refs) and opens the copy
 - [x] **Version History** — snapshot the doc / restore any past version (`.../versions`, stored in `workspace.preferences`, no migration)
-- [ ] **Save as Template**
+- [x] **Save as Template** — snapshots the project (flattened to shared upload refs) into `workspace.preferences.templates` (`POST .../templates`); the `/templates` page lists them and **Use template** spins each into a fresh workflow+project
 - [x] Cloud save indicator, title edit, **Undo/Redo**, **Export & Publish**
 
 ---
@@ -126,4 +126,4 @@ Most stubs fall into a few buckets — implementing the bucket unlocks many rows
 5. **Transform extras** — DONE: Flip (H/V), Round Corners, Fit/Fill, and Order/z-index (via `transform.flipH/flipV/radius/fit/z`). Remaining: filters/effects.
 6. **Stock/asset providers** (stock video/image/music/SFX, stickers, shapes, GIFs, characters) -> Elements tab + all "Stock" sections.
 7. **Brand Kit** — DONE (save/list/remove assets + colours in `workspace.preferences`, add-to-project). Remaining: fonts, subtitle styles.
-8. **Project actions** — Duplicate + Version History DONE. Remaining: Save as Template (templates module is an empty scaffold).
+8. **Project actions** — Duplicate + Version History + Save as Template all DONE (templates stored in `workspace.preferences`, surfaced on the `/templates` page).
