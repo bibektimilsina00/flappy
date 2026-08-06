@@ -347,6 +347,8 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
                   }}
                   onAddText={() => addTextClip("Text", playhead)}
                   onEnhance={enhanceSelected}
+                  assets={assets}
+                  onReplace={(assetId) => commit(updateClip(doc, selectedClip.id, { assetId }))}
                 />
               )
             ) : (

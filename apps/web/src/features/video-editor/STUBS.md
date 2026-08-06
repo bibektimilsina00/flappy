@@ -60,17 +60,17 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 ## Clip inspector (`inspector/inspector.tsx`)
 
 ### Video clip
-- [ ] Edit with Script, **Replace**, **Animations** / **Adjust** tiles, **Fade Audio**, **Detach Audio**
+- [ ] Edit with Script, **Animations** / **Adjust** tiles, **Fade Audio**, **Detach Audio**
 - [ ] **AI Tools** list (11 items: Clean Audio, Eye Contact, Remove Background, Remove Silences, Remove Filler Words, AI Background Expand, Magic B-Roll, AI Transitions, Face Filter, Magic Cut, Green Screen)
-- [x] **Speed**, **Volume**, **Opacity**, **Rotation**, **Flip H/V**, **Round Corners**, **Start/End**, **Delete**
+- [x] **Speed**, **Volume**, **Opacity**, **Rotation**, **Flip H/V**, **Round Corners**, **Replace**, **Start/End**, **Delete**
 
 ### Audio clip
-- [ ] **Replace**, **Fade In/Out**, **Magic Cut** (needs AI)
-- [x] **Clean Audio** (ffmpeg denoise) & **Remove Silences** (ffmpeg silenceremove) via `POST /video-editor/projects/{id}/enhance` — swaps the clip to the processed asset; **Mute/Unmute**, **Speed**, **Volume**, **Start/End**, **Delete**
+- [ ] **Fade In/Out**, **Magic Cut** (needs AI)
+- [x] **Clean Audio** (ffmpeg denoise) & **Remove Silences** (ffmpeg silenceremove) via `POST /video-editor/projects/{id}/enhance` — swaps the clip to the processed asset; **Mute/Unmute**, **Speed**, **Volume**, **Replace**, **Start/End**, **Delete**
 
 ### Image clip
-- [ ] **Generate Video**, **Replace**, **Animations** / **Adjust** tiles
-- [x] **Opacity**, **Rotation**, **Flip H/V**, **Round Corners**, **Start/End**, **Delete**
+- [ ] **Generate Video**, **Animations** / **Adjust** tiles
+- [x] **Opacity**, **Rotation**, **Flip H/V**, **Round Corners**, **Replace**, **Start/End**, **Delete**
 
 ### Text clip
 - [ ] **Styles** presets, **Animations** tile, **Text Behind Person**

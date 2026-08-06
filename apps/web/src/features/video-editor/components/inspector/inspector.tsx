@@ -42,7 +42,7 @@ import {
 import type React from "react";
 import { useState } from "react";
 import { cn } from "@/lib/cn";
-import type { Clip, VideoEditorDoc } from "../../types";
+import type { Clip, VideoEditorAsset, VideoEditorDoc } from "../../types";
 import { useInspector } from "./hooks/use-inspector";
 
 const ACCENT = "#14b8a6";
@@ -73,6 +73,8 @@ export function Inspector({
   onDelete,
   onAddText,
   onEnhance,
+  assets,
+  onReplace,
 }: {
   clip: Clip;
   doc: VideoEditorDoc;
@@ -83,6 +85,8 @@ export function Inspector({
   onDelete: () => void;
   onAddText?: () => void;
   onEnhance?: (op: "denoise" | "remove_silences") => Promise<void>;
+  assets?: VideoEditorAsset[];
+  onReplace?: (assetId: string) => void;
 }) {
   const insp = useInspector({ clip, doc, startGesture, preview, endGesture });
 
@@ -96,11 +100,11 @@ export function Inspector({
       </div>
 
       {clip.kind === "video" ? (
-        <VideoBody clip={clip} insp={insp} onDelete={onDelete} />
+        <VideoBody clip={clip} insp={insp} onDelete={onDelete} replace={<ReplaceControl kind="video" assets={assets} onReplace={onReplace} />} />
       ) : clip.kind === "audio" ? (
-        <AudioBody clip={clip} insp={insp} onDelete={onDelete} onEnhance={onEnhance} />
+        <AudioBody clip={clip} insp={insp} onDelete={onDelete} onEnhance={onEnhance} replace={<ReplaceControl kind="audio" assets={assets} onReplace={onReplace} />} />
       ) : clip.kind === "image" ? (
-        <ImageBody clip={clip} insp={insp} onDelete={onDelete} />
+        <ImageBody clip={clip} insp={insp} onDelete={onDelete} replace={<ReplaceControl kind="image" assets={assets} onReplace={onReplace} />} />
       ) : clip.kind === "text" ? (
         <TextBody clip={clip} insp={insp} onDelete={onDelete} onAddText={onAddText} />
       ) : (
@@ -110,10 +114,82 @@ export function Inspector({
   );
 }
 
+// Replace a clip's media with another same-kind asset from the project pool.
+function ReplaceControl({ kind, assets, onReplace }: { kind: string; assets?: VideoEditorAsset[]; onReplace?: (assetId: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const pool = (assets ?? []).filter((a) => a.kind === kind);
+  return (
+    <div className="flex-1">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        disabled={!onReplace}
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-secondary py-2.5 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
+      >
+        <RefreshCw className="size-4" /> Replace <ChevronDown className={cn("size-3.5 transition-transform", open && "rotate-180")} />
+      </button>
+      {open ? (
+        <div className="mt-2 max-h-56 overflow-y-auto rounded-lg border border-border p-2 [scrollbar-width:thin]">
+          {pool.length === 0 ? (
+            <p className="py-4 text-center text-xs text-muted-foreground">No other {kind} in this project.</p>
+          ) : kind === "audio" ? (
+            <div className="space-y-1">
+              {pool.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => {
+                    onReplace?.(a.id);
+                    setOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2 truncate rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent"
+                >
+                  <AudioLines className="size-3.5 shrink-0 text-muted-foreground" /> <span className="truncate">{fileName(a.url)}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2">
+              {pool.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => {
+                    onReplace?.(a.id);
+                    setOpen(false);
+                  }}
+                  className="group relative aspect-video overflow-hidden rounded-md border border-border bg-secondary transition-colors hover:border-[#14b8a6]"
+                  title="Replace with this"
+                >
+                  {kind === "video" ? (
+                    // biome-ignore lint/a11y/useMediaCaption: thumbnail
+                    <video src={a.url} muted playsInline preload="metadata" className="size-full object-cover" />
+                  ) : (
+                    // biome-ignore lint/a11y/useAltText: thumbnail
+                    <img src={a.url} className="size-full object-cover" />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function fileName(url: string) {
+  try {
+    return decodeURIComponent((url.split("/").pop() ?? "audio").split("?")[0]) || "audio";
+  } catch {
+    return "audio";
+  }
+}
+
 type Insp = ReturnType<typeof useInspector>;
 type GestureProps = { onPointerDown: () => void; onFocus: () => void; onBlur: () => void; onPointerUp: () => void };
 
-function VideoBody({ clip, insp, onDelete }: { clip: Clip; insp: Insp; onDelete: () => void }) {
+function VideoBody({ clip, insp, onDelete, replace }: { clip: Clip; insp: Insp; onDelete: () => void; replace?: React.ReactNode }) {
   const g = insp.gestureProps;
   const [fadeAudio, setFadeAudio] = useState(false);
 
@@ -127,9 +203,7 @@ function VideoBody({ clip, insp, onDelete }: { clip: Clip; insp: Insp; onDelete:
         >
           <Wand2 className="size-4" /> Edit with Script
         </button>
-        <button type="button" className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-secondary py-2.5 text-sm font-medium transition-colors hover:bg-accent">
-          <RefreshCw className="size-4" /> Replace <ChevronDown className="size-3.5" />
-        </button>
+        {replace}
       </div>
 
       <div className="grid grid-cols-2 gap-2">
@@ -256,7 +330,7 @@ function EnhanceRow({ icon: Icon, title, desc, onRun }: { icon: typeof Eye; titl
   );
 }
 
-function AudioBody({ clip, insp, onDelete, onEnhance }: { clip: Clip; insp: Insp; onDelete: () => void; onEnhance?: (op: "denoise" | "remove_silences") => Promise<void> }) {
+function AudioBody({ clip, insp, onDelete, onEnhance, replace }: { clip: Clip; insp: Insp; onDelete: () => void; onEnhance?: (op: "denoise" | "remove_silences") => Promise<void>; replace?: React.ReactNode }) {
   const g = insp.gestureProps;
   const [fade, setFade] = useState(false);
   const muted = clip.volume === 0;
@@ -264,13 +338,7 @@ function AudioBody({ clip, insp, onDelete, onEnhance }: { clip: Clip; insp: Insp
   return (
     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3 [scrollbar-width:thin]">
       <div className="flex gap-2">
-        <button
-          type="button"
-          className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-          style={{ backgroundColor: ACCENT }}
-        >
-          <RefreshCw className="size-4" /> Replace
-        </button>
+        {replace}
         <button
           type="button"
           onClick={() => insp.updateVolume(muted ? 1 : 0)}
@@ -500,7 +568,7 @@ function IconToggle({ active, onClick, title, children }: { active?: boolean; on
   );
 }
 
-function ImageBody({ clip, insp, onDelete }: { clip: Clip; insp: Insp; onDelete: () => void }) {
+function ImageBody({ clip, insp, onDelete, replace }: { clip: Clip; insp: Insp; onDelete: () => void; replace?: React.ReactNode }) {
   const g = insp.gestureProps;
 
   return (
@@ -513,9 +581,7 @@ function ImageBody({ clip, insp, onDelete }: { clip: Clip; insp: Insp; onDelete:
         >
           <Film className="size-4" /> Generate Video
         </button>
-        <button type="button" className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-secondary py-2.5 text-sm font-medium transition-colors hover:bg-accent">
-          <RefreshCw className="size-4" /> Replace <ChevronDown className="size-3.5" />
-        </button>
+        {replace}
       </div>
 
       <div className="grid grid-cols-2 gap-2">
