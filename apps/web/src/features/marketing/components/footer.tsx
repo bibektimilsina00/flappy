@@ -3,6 +3,7 @@ import Link from "next/link";
 import { BRAND, FOOTER } from "../lib/content";
 import { Container } from "./ui";
 import { Wordmark } from "./wordmark";
+import { NewsletterForm } from "./newsletter-form";
 
 export function MarketingFooter() {
   return (
@@ -24,6 +25,9 @@ export function MarketingFooter() {
           <div className="flex flex-col items-start gap-4">
             <Wordmark />
             <p className="text-sm text-mk-muted">{BRAND.tagline}</p>
+            <div className="w-full pt-1">
+              <NewsletterForm />
+            </div>
             <button type="button" className="flex items-center gap-1.5 rounded-full border border-mk-border px-3 py-1.5 text-sm text-mk-muted hover:text-mk-fg">
               <Globe className="size-4" /> English <ChevronDown className="size-3.5 opacity-70" />
             </button>

@@ -1,3 +1,5 @@
+export { ContactForm } from "./components/contact-form";
+export { NewsletterForm } from "./components/newsletter-form";
 export { FaqList } from "./components/faq";
 export { FeatureTabs } from "./components/feature-tabs";
 export { MarketingFooter, MarketingFooter as Footer } from "./components/footer";
@@ -28,4 +30,5 @@ export {
 } from "./components/sections";
 export { Button, Card, Container, Section, SectionHeading } from "./components/ui";
 export { Logo, Wordmark } from "./components/wordmark";
+export * from "./schemas/marketing-schemas";
 export * from "./lib/content";

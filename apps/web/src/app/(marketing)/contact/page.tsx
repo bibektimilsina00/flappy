@@ -1,6 +1,6 @@
 import { Mail, MessageCircle, Users } from "lucide-react";
 import type { Metadata } from "next";
-import { BRAND, Button, Container, Section, SectionHeading } from "@/features/marketing";
+import { BRAND, ContactForm, Container, Section, SectionHeading } from "@/features/marketing";
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -12,18 +12,6 @@ const CHANNELS = [
   { icon: Users, title: "Studio & sales", desc: "For teams, seats, and volume credits.", href: `mailto:${BRAND.email}` },
   { icon: MessageCircle, title: "Community", desc: "Join the Discord for help and inspiration.", href: BRAND.social.discord },
 ];
-
-const inputCls =
-  "w-full rounded-lg border border-mk-border bg-mk-bg px-3 py-2.5 text-sm text-mk-fg outline-none transition-colors placeholder:text-mk-faint focus:border-mk-accent";
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-mk-fg">{label}</span>
-      {children}
-    </label>
-  );
-}
 
 export default function ContactPage() {
   return (
@@ -54,31 +42,7 @@ export default function ContactPage() {
             ))}
           </div>
 
-          {/* Static placeholder form — wire to your email/CRM. */}
-          <form className="rounded-2xl border border-mk-border bg-mk-surface/50 p-7">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Name">
-                <input className={inputCls} placeholder="Jane Doe" />
-              </Field>
-              <Field label="Email">
-                <input type="email" className={inputCls} placeholder="jane@studio.com" />
-              </Field>
-            </div>
-            <div className="mt-4">
-              <Field label="Company">
-                <input className={inputCls} placeholder="Optional" />
-              </Field>
-            </div>
-            <div className="mt-4">
-              <Field label="Message">
-                <textarea rows={5} className={`${inputCls} resize-none`} placeholder="Tell us what you're building…" />
-              </Field>
-            </div>
-            <Button href="#" className="mt-6 w-full">
-              Send message
-            </Button>
-            <p className="mt-3 text-center text-xs text-mk-faint">This form is a placeholder — connect it to your email or CRM.</p>
-          </form>
+          <ContactForm />
         </div>
       </Container>
     </Section>
