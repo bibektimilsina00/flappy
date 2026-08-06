@@ -510,6 +510,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
                 onAddStock={addStock}
                 onTalkingCharacter={generateTalkingCharacter}
                 onApplyFont={applyFont}
+                onSetBackground={(bg) => doc && commit({ ...doc, background: bg })}
                 projectId={projectId}
                 selectedClip={selectedClip}
                 onOpenPlayground={openPlayground}

@@ -11,16 +11,11 @@ const ACCENT = "#14b8a6";
 // live via Pexels (StockSearch). Thumbnails are external.
 const GIF_IDS = ["jGgC8JjZfLurTJSxQ8", "N8lzSpk8X4G9X6Wgca", "4H52NOaFk9oMlxdU0D", "apNr8LXrYCMsqpz5I2", "LR5GeZFCwDRcpG20PR", "3T7WB64PW315Z8zhRg"];
 const gifSrc = (id: string) => `https://media.giphy.com/media/${id}/100w.gif`;
-const BACKGROUNDS = [
-  "linear-gradient(135deg,#3b5b6b,#8fa8ab)",
-  "linear-gradient(135deg,#6b7bb0,#c7b8d6)",
-  "linear-gradient(135deg,#9fb07a,#e4e9d0)",
-  "linear-gradient(135deg,#8a5a3a,#c99b6e)",
-  "linear-gradient(135deg,#5a6b52,#a8b89a)",
-  "linear-gradient(135deg,#7a5a3a,#c4a06e)",
-];
+// Solid colours (render-safe — export honours a solid `background`; gradients
+// wouldn't burn into the MP4). Clicking sets the project background.
+const BACKGROUNDS = ["#000000", "#ffffff", "#14b8a6", "#1e293b", "#3b5b6b", "#8a5a3a", "#6b7bb0", "#9fb07a", "#c99b6e"];
 
-export function ImageTab({ images, onImport, importing, onGenerate, onAddStock }: { images: VideoEditorAsset[]; onImport: () => void; importing: boolean; onGenerate: () => void; onAddStock: (url: string, kind: string) => void }) {
+export function ImageTab({ images, onImport, importing, onGenerate, onAddStock, onSetBackground }: { images: VideoEditorAsset[]; onImport: () => void; importing: boolean; onGenerate: () => void; onAddStock: (url: string, kind: string) => void; onSetBackground: (bg: string) => void }) {
   return (
     <div className="space-y-8 px-3 pt-1">
       {/* generate + upload */}
@@ -79,7 +74,7 @@ export function ImageTab({ images, onImport, importing, onGenerate, onAddStock }
       <Section title="Backgrounds" viewAll>
         <div className="grid grid-cols-3 gap-2.5">
           {BACKGROUNDS.map((bg) => (
-            <button key={bg} type="button" className="aspect-video rounded-lg border border-border transition-opacity hover:opacity-90" style={{ background: bg }} title="Background" />
+            <button key={bg} type="button" onClick={() => onSetBackground(bg)} className="aspect-video rounded-lg border border-border transition-opacity hover:opacity-90" style={{ background: bg }} title="Set as background" />
           ))}
         </div>
       </Section>

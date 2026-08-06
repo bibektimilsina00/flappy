@@ -1,8 +1,9 @@
 "use client";
 
 import { Captions, ChevronDown, ChevronLeft, Gem, Info, Loader2, PenLine, Upload } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { cn } from "@/lib/cn";
+import { parseSubtitles } from "../../lib/subtitle-parse";
 import { type SubtitleSegment, generateSubtitles } from "../../services/video-editor-api";
 
 const ACCENT = "#14b8a6";
@@ -15,6 +16,19 @@ export function SubtitlesTab({ projectId, onAddSubtitles }: { projectId: string;
   const [manual, setManual] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const onFile = async (file?: File) => {
+    if (!file) return;
+    setError(null);
+    try {
+      const cues = parseSubtitles(await file.text());
+      if (!cues.length) setError("Couldn't read any subtitles from that file.");
+      else onAddSubtitles(cues);
+    } catch {
+      setError("Couldn't read that subtitle file.");
+    }
+  };
 
   const autoSubtitle = async () => {
     if (busy) return;
@@ -70,9 +84,23 @@ export function SubtitlesTab({ projectId, onAddSubtitles }: { projectId: string;
           >
             <PenLine className="size-4" /> Transcribe Manually
           </button>
-          <button type="button" className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-secondary text-sm font-medium transition-colors hover:bg-accent">
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-secondary text-sm font-medium transition-colors hover:bg-accent"
+          >
             <Upload className="size-4" /> Upload Subtitles File
           </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".srt,.vtt,text/vtt,application/x-subrip"
+            className="hidden"
+            onChange={(e) => {
+              onFile(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
         </div>
       </div>
     </div>

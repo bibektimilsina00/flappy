@@ -39,7 +39,7 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 - [ ] **Generate B-roll images** (upgrade)
 - [x] **Stock Images** — live Pexels search (`GET /video-editor/stock/search?kind=image`); click imports + adds to the timeline (needs `PEXELS_API_KEY`)
 - [x] **GIFs** — curated Giphy stickers, click imports (Giphy search would need its own key)
-- [ ] **Backgrounds** (placeholder gradients)
+- [x] **Backgrounds** — solid-colour presets that set the project background (render-safe; gradients dropped since export only burns a solid colour)
 - [x] **Generate** (opens playground), **Upload**, **Asset Library** tiles drag to timeline
 
 ### Text tab (`left-panel/text-tab.tsx`)
@@ -48,7 +48,8 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 
 ### Subtitles tab (`left-panel/subtitles-tab.tsx`)
 - [x] **Auto-subtitle** — transcribes the project audio via `POST /video-editor/projects/{id}/subtitles` (OpenRouter whisper) and drops timeline-mapped caption clips onto a "Subtitles" text track
-- [ ] Language / translation / Detect Speakers, **Upload Subtitles File**, **Transcribe Manually → Add Subtitles** — still visual (single-language auto only for now)
+- [x] **Upload Subtitles File** — parses `.srt`/`.vtt` client-side (`lib/subtitle-parse.ts`) and drops the cues onto the Subtitles track
+- [ ] Language / translation / Detect Speakers, **Transcribe Manually → Add Subtitles** — still visual (single-language auto only for now)
 
 ### Elements tab (`left-panel/elements-tab.tsx`)
 - [x] **Emoji** (text clip), **Shapes** (new `shape` clip kind, SVG), **Animated Stickers** (imported + added to timeline)

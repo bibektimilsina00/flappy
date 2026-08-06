@@ -51,6 +51,7 @@ export function LeftPanel({
   onAddStock,
   onTalkingCharacter,
   onApplyFont,
+  onSetBackground,
   projectId,
   selectedClip,
   onOpenPlayground,
@@ -66,6 +67,7 @@ export function LeftPanel({
   onAddStock: (url: string, kind: string) => void;
   onTalkingCharacter: (imageUrl: string) => void;
   onApplyFont: (family: string) => void;
+  onSetBackground: (bg: string) => void;
   projectId: string;
   selectedClip: Clip | null;
   onOpenPlayground: (mode: string) => void;
@@ -88,7 +90,7 @@ export function LeftPanel({
         ) : category === "audio" ? (
           <AudioTab audios={byKind("audio")} onImport={onImport} importing={importing} projectId={projectId} />
         ) : category === "image" ? (
-          <ImageTab images={byKind("image")} onImport={onImport} importing={importing} onGenerate={() => onOpenPlayground("text-to-image")} onAddStock={onAddStock} />
+          <ImageTab images={byKind("image")} onImport={onImport} importing={importing} onGenerate={() => onOpenPlayground("text-to-image")} onAddStock={onAddStock} onSetBackground={onSetBackground} />
         ) : category === "text" ? (
           <TextTab onAddText={onAddText} />
         ) : category === "subtitles" ? (
