@@ -473,7 +473,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
       <div className="flex min-h-0 flex-1 flex-col gap-2 p-2 pb-2.5">
         <div className="flex min-h-0 flex-1 gap-2">
         {/* left sidebar: rail navigation + category panel */}
-        <aside className={cn(CARD, "flex min-h-0 shrink-0 overflow-hidden transition-[width] duration-200", showLeftPanel ? "w-[30rem]" : "w-16")}>
+        <aside className={cn(CARD, "relative z-10 flex min-h-0 shrink-0 overflow-hidden transition-[width] duration-200", showLeftPanel ? "w-[30rem]" : "w-16")}>
           <input
             ref={importInput}
             type="file"
@@ -572,7 +572,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex min-h-0 flex-1 gap-2">
             {/* center preview */}
-            <main className={cn(CARD, "flex min-w-0 flex-1 flex-col gap-2 p-2")}>
+            <main className={cn(CARD, "relative z-0 flex min-w-0 flex-1 flex-col gap-2 p-2")}>
               <Preview
                 doc={doc}
                 urlOf={urlOf}

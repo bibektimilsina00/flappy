@@ -73,12 +73,10 @@ export function useCanvasSelection({
         for (const [v, line] of targets) if (Math.abs(val - v) <= SNAP) return { v, line };
         return { v: val, line: null as number | null };
       };
-      // keep the clip's centre on-canvas so it can never be dragged out of view
-      const clamp = (v: number, lim: number) => Math.max(-lim, Math.min(lim, v));
       const onMove = (ev: PointerEvent) => {
         const sx = snap(t0.x + (ev.clientX - x0), xTargets);
         const sy = snap(t0.y + (ev.clientY - y0), yTargets);
-        preview(updateTransform(docRef.current, clip.id, { x: clamp(sx.v, bw / 2), y: clamp(sy.v, bh / 2) }));
+        preview(updateTransform(docRef.current, clip.id, { x: sx.v, y: sy.v }));
         setGuides({ x: sx.line, y: sy.line });
       };
       const onUp = () => {
