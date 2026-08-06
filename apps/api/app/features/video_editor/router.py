@@ -1006,6 +1006,78 @@ def add_brand_kit_to_project(
     return {"id": key, "kind": kind, "url": get_storage().url(key)}
 
 
+# ── Version history (doc snapshots in workspace.preferences — no migration) ──
+
+_MAX_VERSIONS = 20
+
+
+def _versions(ws: Workspace, wid: uuid.UUID) -> list[dict]:
+    return list(((ws.preferences or {}).get("versions") or {}).get(str(wid)) or [])
+
+
+def _save_versions(session: Session, ws: Workspace, wid: uuid.UUID, vers: list[dict]) -> None:
+    prefs = dict(ws.preferences or {})
+    all_versions = dict(prefs.get("versions") or {})
+    all_versions[str(wid)] = vers
+    prefs["versions"] = all_versions
+    ws.preferences = prefs
+    session.add(ws)
+    session.commit()
+
+
+class SaveVersionRequest(BaseModel):
+    doc: dict
+    label: str | None = None
+
+
+@router.post("/projects/{workflow_id}/versions")
+def save_version(
+    workflow_id: uuid.UUID,
+    body: SaveVersionRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    ws = session.get(Workspace, workspace_id)
+    workflow = workflows_repo.get(session, workspace_id, workflow_id)
+    if ws is None or workflow is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    version = {"id": str(uuid.uuid4()), "ts": datetime.now(UTC).isoformat(), "label": body.label, "doc": body.doc}
+    vers = [version, *_versions(ws, workflow_id)][:_MAX_VERSIONS]
+    _save_versions(session, ws, workflow_id, vers)
+    return {"id": version["id"], "ts": version["ts"], "label": version["label"]}
+
+
+@router.get("/projects/{workflow_id}/versions")
+def list_versions(
+    workflow_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    ws = session.get(Workspace, workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    return {"versions": [{"id": v["id"], "ts": v["ts"], "label": v.get("label")} for v in _versions(ws, workflow_id)]}
+
+
+@router.post("/projects/{workflow_id}/versions/{version_id}/restore")
+def restore_version(
+    workflow_id: uuid.UUID,
+    version_id: str,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    ws = session.get(Workspace, workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    version = next((v for v in _versions(ws, workflow_id) if v["id"] == version_id), None)
+    if version is None:
+        raise HTTPException(status_code=404, detail="Version not found")
+    return {"doc": version["doc"]}
+
+
 class ProjectUpdate(BaseModel):
     title: str | None = None
     doc: dict | None = None

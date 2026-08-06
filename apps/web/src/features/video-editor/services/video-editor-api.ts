@@ -129,6 +129,18 @@ export function getExecution(
 
 export type SubtitleSegment = { start: number; end: number; text: string };
 
+export type ProjectVersion = { id: string; ts: string; label?: string | null };
+
+export function saveVersion(projectId: string, doc: unknown, label?: string): Promise<ProjectVersion> {
+	return api(`/video-editor/projects/${projectId}/versions`, { method: "POST", body: JSON.stringify({ doc, label: label ?? null }) });
+}
+export function listVersions(projectId: string): Promise<{ versions: ProjectVersion[] }> {
+	return api(`/video-editor/projects/${projectId}/versions`);
+}
+export function restoreVersion(projectId: string, versionId: string): Promise<{ doc: unknown }> {
+	return api(`/video-editor/projects/${projectId}/versions/${versionId}/restore`, { method: "POST" });
+}
+
 // Import a stock asset from an allow-listed CDN into the project pool.
 export function importUrl(projectId: string, url: string, kind: string): Promise<{ id: string; kind: string; url: string }> {
 	return api(`/video-editor/projects/${projectId}/import-url`, {

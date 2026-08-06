@@ -25,6 +25,7 @@ import { AiPlayground } from "../components/ai-playground/ai-playground";
 import { AnimationsPanel } from "../components/animations-panel/animations-panel";
 import { ClipToolbar } from "../components/clip-toolbar/clip-toolbar";
 import { TransitionsPanel } from "../components/transitions-panel/transitions-panel";
+import { VersionHistory } from "../components/version-history/version-history";
 import { resolveAspect } from "../components/preview/aspect-presets";
 import { AspectMenu, BackgroundMenu, Preview } from "../components/preview/preview";
 import { Timeline } from "../components/timeline/timeline";
@@ -50,7 +51,7 @@ const PROJECT_MENU = [
 ] as const;
 
 // Project "…" menu in the top bar.
-function ProjectMenu({ onDuplicate }: { onDuplicate: () => void }) {
+function ProjectMenu({ onDuplicate, onVersionHistory }: { onDuplicate: () => void; onVersionHistory: () => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -78,6 +79,7 @@ function ProjectMenu({ onDuplicate }: { onDuplicate: () => void }) {
               onClick={() => {
                 setOpen(false);
                 if (label === "Duplicate Project") onDuplicate();
+                else if (label === "Version History") onVersionHistory();
               }}
               className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium text-white/80 transition-colors hover:bg-white/5 hover:text-white"
             >
@@ -195,6 +197,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
   };
   const [playgroundOpen, setPlaygroundOpen] = useState(false);
   const [playgroundMode, setPlaygroundMode] = useState("text-to-video");
+  const [versionsOpen, setVersionsOpen] = useState(false);
   const openPlayground = (mode: string) => {
     setPlaygroundMode(mode);
     setPlaygroundOpen(true);
@@ -271,7 +274,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
                 onChange={(e) => setTitle(e.target.value)}
                 className="w-40 min-w-0 rounded bg-transparent px-2 py-1 text-sm font-semibold text-white outline-none hover:bg-white/10 focus:bg-white/10"
               />
-              <ProjectMenu onDuplicate={duplicate} />
+              <ProjectMenu onDuplicate={duplicate} onVersionHistory={() => setVersionsOpen(true)} />
               <span className="mx-1 h-4 w-px shrink-0 bg-white/15" />
               <button
                 type="button"
@@ -529,6 +532,8 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
 
       {/* ── AI generation playground ── */}
       <AiPlayground open={playgroundOpen} onClose={() => setPlaygroundOpen(false)} initialMode={playgroundMode} projectId={projectId} />
+
+      <VersionHistory open={versionsOpen} onClose={() => setVersionsOpen(false)} projectId={projectId} doc={doc} onRestore={(d) => commit(d)} />
 
       {/* dragged floating clip ghost */}
       {drag?.kind === "move" && drag.grab && dragPos
