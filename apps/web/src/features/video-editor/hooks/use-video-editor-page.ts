@@ -11,6 +11,7 @@ import {
   removeClips,
   splitClip,
   trackKindForClip,
+  updateClip,
 } from "../lib/doc-ops";
 import { useEditorStore } from "../stores/use-editor-store";
 import type { CategoryId, Clip } from "../types";
@@ -111,6 +112,36 @@ export function useVideoEditorPage(projectId: string) {
       nextDoc = addClip(nextDoc, track.id, clip);
     }
     commit(nextDoc);
+  };
+
+  // Mute the source video clip and drop the extracted audio as its own clip,
+  // aligned to the video's timeline position.
+  const detachAudioClip = (videoClipId: string, assetId: string) => {
+    if (!doc) return;
+    const src = doc.tracks.flatMap((t) => t.clips).find((c) => c.id === videoClipId);
+    if (!src) return;
+    let nextDoc = updateClip(doc, videoClipId, { volume: 0 });
+    let track = nextDoc.tracks.find((t) => t.kind === "audio");
+    if (!track) {
+      nextDoc = addTrack(nextDoc, "audio");
+      track = nextDoc.tracks.find((t) => t.kind === "audio")!;
+    }
+    const start = freeStart(nextDoc, track.id, src.start, src.duration);
+    const clip: Clip = {
+      id: `c-${crypto.randomUUID().slice(0, 8)}`,
+      assetId,
+      kind: "audio",
+      start,
+      duration: src.duration,
+      in: 0,
+      out: src.duration,
+      speed: 1,
+      volume: 1,
+      transform: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
+      keyframes: [],
+      effects: [],
+    };
+    commit(addClip(nextDoc, track.id, clip));
   };
 
   const addShapeClip = (shape: NonNullable<Clip["shape"]>, playhead: number) => {
@@ -226,6 +257,7 @@ export function useVideoEditorPage(projectId: string) {
     addTextClip,
     addShapeClip,
     addSubtitleClips,
+    detachAudioClip,
     doImport,
     dropAsset,
     setupKeybindings,

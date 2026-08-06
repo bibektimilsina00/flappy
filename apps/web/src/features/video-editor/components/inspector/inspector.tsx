@@ -75,6 +75,7 @@ export function Inspector({
   onEnhance,
   assets,
   onReplace,
+  onDetachAudio,
 }: {
   clip: Clip;
   doc: VideoEditorDoc;
@@ -87,6 +88,7 @@ export function Inspector({
   onEnhance?: (op: "denoise" | "remove_silences") => Promise<void>;
   assets?: VideoEditorAsset[];
   onReplace?: (assetId: string) => void;
+  onDetachAudio?: () => Promise<void>;
 }) {
   const insp = useInspector({ clip, doc, startGesture, preview, endGesture });
 
@@ -100,7 +102,7 @@ export function Inspector({
       </div>
 
       {clip.kind === "video" ? (
-        <VideoBody clip={clip} insp={insp} onDelete={onDelete} replace={<ReplaceControl kind="video" assets={assets} onReplace={onReplace} />} />
+        <VideoBody clip={clip} insp={insp} onDelete={onDelete} replace={<ReplaceControl kind="video" assets={assets} onReplace={onReplace} />} onDetachAudio={onDetachAudio} />
       ) : clip.kind === "audio" ? (
         <AudioBody clip={clip} insp={insp} onDelete={onDelete} onEnhance={onEnhance} replace={<ReplaceControl kind="audio" assets={assets} onReplace={onReplace} />} />
       ) : clip.kind === "image" ? (
@@ -189,9 +191,19 @@ function fileName(url: string) {
 type Insp = ReturnType<typeof useInspector>;
 type GestureProps = { onPointerDown: () => void; onFocus: () => void; onBlur: () => void; onPointerUp: () => void };
 
-function VideoBody({ clip, insp, onDelete, replace }: { clip: Clip; insp: Insp; onDelete: () => void; replace?: React.ReactNode }) {
+function VideoBody({ clip, insp, onDelete, replace, onDetachAudio }: { clip: Clip; insp: Insp; onDelete: () => void; replace?: React.ReactNode; onDetachAudio?: () => Promise<void> }) {
   const g = insp.gestureProps;
   const [fadeAudio, setFadeAudio] = useState(false);
+  const [detaching, setDetaching] = useState(false);
+  const detach = async () => {
+    if (!onDetachAudio || detaching) return;
+    setDetaching(true);
+    try {
+      await onDetachAudio();
+    } finally {
+      setDetaching(false);
+    }
+  };
 
   return (
     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3 [scrollbar-width:thin]">
@@ -281,8 +293,13 @@ function VideoBody({ clip, insp, onDelete, replace }: { clip: Clip; insp: Insp; 
         <TimeField label="End" value={clip.start + clip.duration} onInput={insp.updateEnd} g={g} iconRight />
       </div>
 
-      <button type="button" className="flex w-full items-center justify-center gap-2 rounded-lg bg-secondary py-2.5 text-sm font-medium transition-colors hover:bg-accent">
-        <Unlink className="size-4" /> Detach Audio
+      <button
+        type="button"
+        onClick={detach}
+        disabled={!onDetachAudio || detaching}
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-secondary py-2.5 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
+      >
+        {detaching ? <Loader2 className="size-4 animate-spin" /> : <Unlink className="size-4" />} {detaching ? "Detaching…" : "Detach Audio"}
       </button>
 
       <button

@@ -60,9 +60,9 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 ## Clip inspector (`inspector/inspector.tsx`)
 
 ### Video clip
-- [ ] Edit with Script, **Animations** / **Adjust** tiles, **Fade Audio**, **Detach Audio**
+- [ ] Edit with Script, **Animations** / **Adjust** tiles, **Fade Audio**
 - [ ] **AI Tools** list (11 items: Clean Audio, Eye Contact, Remove Background, Remove Silences, Remove Filler Words, AI Background Expand, Magic B-Roll, AI Transitions, Face Filter, Magic Cut, Green Screen)
-- [x] **Speed**, **Volume**, **Opacity**, **Rotation**, **Flip H/V**, **Round Corners**, **Replace**, **Start/End**, **Delete**
+- [x] **Speed**, **Volume**, **Opacity**, **Rotation**, **Flip H/V**, **Round Corners**, **Replace**, **Detach Audio** (ffmpeg extract → new audio clip, mutes the video), **Start/End**, **Delete**
 
 ### Audio clip
 - [ ] **Fade In/Out**, **Magic Cut** (needs AI)

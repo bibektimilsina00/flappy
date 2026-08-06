@@ -487,6 +487,80 @@ def enhance_clip_audio(
     return {"asset_id": key, "kind": "audio", "url": storage.url(key), "duration": round(duration, 3)}
 
 
+class DetachRequest(BaseModel):
+    clip_id: str
+
+
+@router.post("/projects/{project_id}/detach-audio")
+def detach_audio(
+    project_id: uuid.UUID,
+    body: DetachRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Extract a clip's audio track into a new pool asset (mp3), so the editor can
+    place it as its own audio clip. (Editor calls carry the workflow id.)"""
+    project = repository.get_by_workflow(session, workspace_id, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+
+    clip = next(
+        (
+            c
+            for t in (project.doc or {}).get("tracks", [])
+            for c in (t.get("clips") or [])
+            if c.get("id") == body.clip_id
+        ),
+        None,
+    )
+    if clip is None or not clip.get("assetId"):
+        raise HTTPException(status_code=404, detail="Clip not found")
+
+    workflow = workflows_repo.get(session, workspace_id, project.workflow_id)
+    refmap = {item["id"]: item for item in (_workflow_media(session, workflow) if workflow else [])}
+    item = refmap.get(clip["assetId"])
+    if item is None:
+        raise HTTPException(status_code=404, detail="Source media not found")
+
+    storage = get_storage()
+    exe = imageio_ffmpeg.get_ffmpeg_exe()
+    with tempfile.TemporaryDirectory() as d:
+        ext = os.path.splitext(item["key"])[1] or ".bin"
+        src = os.path.join(d, f"src{ext}")
+        with open(src, "wb") as f:
+            f.write(storage.get(item["key"]))
+        out = os.path.join(d, "out.mp3")
+        proc = subprocess.run(
+            [exe, "-y", "-i", src, "-vn", "-c:a", "libmp3lame", "-q:a", "4", out],
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode != 0 or not os.path.exists(out):
+            raise HTTPException(status_code=502, detail="No audio track found")
+        data = open(out, "rb").read()
+        duration = _media_duration(exe, out)
+
+    key = f"{workspace_id}/edits/{uuid.uuid4()}.mp3"
+    storage.put(key, data, "audio/mpeg")
+    graph = dict(workflow.graph or {}) if workflow else {}
+    nodes = list(graph.get("nodes") or [])
+    nodes.append(
+        {
+            "id": f"node-{uuid.uuid4()}",
+            "type": "audio",
+            "position": {"x": 40, "y": 40 + len(nodes) * 40},
+            "data": {"kind": "audio", "upload_key": key, "label": "detached audio"},
+        }
+    )
+    graph["nodes"] = nodes
+    if workflow:
+        workflow.graph = graph
+        workflows_repo.save(session, workflow)
+
+    return {"asset_id": key, "kind": "audio", "url": storage.url(key), "duration": round(duration, 3)}
+
+
 @router.post("/projects/{workflow_id}/duplicate")
 def duplicate_project(
     workflow_id: uuid.UUID,

@@ -129,6 +129,17 @@ export function getExecution(
 
 export type SubtitleSegment = { start: number; end: number; text: string };
 
+// Extract a video clip's audio into a new pool asset.
+export function detachClipAudio(
+	projectId: string,
+	clipId: string,
+): Promise<{ asset_id: string; kind: string; url: string; duration: number }> {
+	return api(`/video-editor/projects/${projectId}/detach-audio`, {
+		method: "POST",
+		body: JSON.stringify({ clip_id: clipId }),
+	});
+}
+
 // Clone the project into a fresh workflow; returns its id (route param).
 export function duplicateProject(workflowId: string): Promise<{ workflow_id: string }> {
 	return api(`/video-editor/projects/${workflowId}/duplicate`, { method: "POST" });
