@@ -369,6 +369,9 @@ export function ClipsPage() {
 
 	return (
 		<div className="flex h-full w-full flex-col gap-2 p-2">
+			<header className="flex h-10 shrink-0 items-center justify-between px-2">
+				<EditorModeTabs projectId={projectId} mode="clips" />
+			</header>
 			<div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-border">
 				<div className="relative mx-auto w-full max-w-4xl px-6 py-12">
 					{/* ambient glow */}

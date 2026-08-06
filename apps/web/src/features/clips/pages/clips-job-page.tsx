@@ -41,6 +41,7 @@ import { ClipEditModal } from "../components/clip-edit-modal";
 import { PublishPanel } from "../components/publish-panel";
 import { defaultSchedule, ScheduleModal } from "../components/schedule-modal";
 import { type CcState, ClipPlayer } from "../components/clip-player";
+import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
 
 const PHASES = [
   {
@@ -140,9 +141,12 @@ export function ClipsJobPage({ jobId }: { jobId: string }) {
   };
 
   return (
-    <div className="flex h-full w-full flex-col">
+    <div className="flex h-full w-full flex-col p-2">
+      <header className="flex h-10 shrink-0 items-center justify-between px-2">
+        <EditorModeTabs projectId={job?.workflow_id ?? null} mode="clips" />
+      </header>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-7xl px-6 py-8">
+        <div className="mx-auto w-full max-w-7xl px-6 py-4">
       <button
         type="button"
         onClick={() => router.push("/clips")}

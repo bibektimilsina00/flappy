@@ -165,6 +165,8 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
           </span>
         </div>
 
+        <EditorModeTabs projectId={projectId} mode="video" />
+
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-0.5 rounded-lg border border-border bg-secondary/50 p-0.5">
             <button

@@ -50,7 +50,7 @@ export function EditorModeTabs({
   ];
 
   return (
-    <div className={cn("flex w-full shrink-0 items-stretch bg-card text-[13px]", className)}>
+    <div className={cn("inline-flex items-center gap-1 rounded-lg border border-border bg-secondary/50 p-1 text-xs font-medium", className)}>
       {tabs.map(({ id, label, Icon, href }) => {
         const active = id === mode;
         return (
@@ -60,11 +60,13 @@ export function EditorModeTabs({
             prefetch
             aria-current={active ? "page" : undefined}
             className={cn(
-              "relative flex items-center gap-2 border-r border-border px-4 py-1.5 font-medium transition-colors last:border-r-0",
-              active ? "bg-background text-foreground" : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
+              "flex items-center gap-1.5 rounded-md px-3 py-1 transition-all duration-150",
+              active
+                ? "bg-background text-foreground font-semibold shadow-sm"
+                : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
             )}
           >
-            <Icon className="size-4 shrink-0" style={active ? { color: ACCENT } : undefined} />
+            <Icon className="size-3.5 shrink-0" style={active ? { color: ACCENT } : undefined} />
             {label}
           </Link>
         );

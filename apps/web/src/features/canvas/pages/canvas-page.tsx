@@ -540,6 +540,9 @@ function CanvasWorkspace({
 					}}
 				>
 					<div className="flex h-full w-full flex-col gap-2 p-2">
+						<header className="flex h-10 shrink-0 items-center justify-between px-2">
+							<EditorModeTabs projectId={projectId ?? null} mode="canvas" />
+						</header>
 						<div
 							className="relative min-h-0 flex-1 overflow-hidden rounded-lg border border-border"
 							onClickCapture={(e) => {
