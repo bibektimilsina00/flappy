@@ -9,7 +9,7 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 ## Left panel
 
 ### AI Tools (`left-panel/ai-tools-panel.tsx`)
-- [ ] Gen tiles: **AI Transitions**, **AI Voice**, **AI Dubbing** — marked "Soon", no action
+- [x] Gen tiles route to their working homes: **AI Voice** → audio/TTS tab, **AI Dubbing** → dubs the selected clip, **AI Transitions** → opens the Transitions panel (last two disabled with a hint until a clip is selected)
 - [ ] Enhance toggles (local state only, no effect): **Clean audio**, **Remove filler words**, **Remove silences**, **Eye contact**, **AI Background expand**, **Remove background**, **Face filter**, **Green screen**, **Subtitles**
 - [x] **AI Video / AI Image / B-roll / Characters** tiles — open AI Playground on the right generator
 - [x] **Generate with AI** — Assistant/GenPanel flow (uses `use-generation`; verify end-to-end)

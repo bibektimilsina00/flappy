@@ -28,8 +28,8 @@ import { AssistantPanel } from "./assistant-panel";
 
 type AiView = "Assistant" | "Image" | "Video";
 
-// Tiles with a `mode` open the AI Playground modal on that generator; the rest
-// are not wired yet.
+// Tiles with a `mode` open the AI Playground modal on that generator; the
+// per-clip ones (transitions / dubbing) route to where that feature lives.
 const GEN_TILES: { label: string; icon: typeof Type; mode?: string }[] = [
   { label: "AI Video", icon: Video, mode: "text-to-video" },
   { label: "AI Image", icon: ImageIcon, mode: "text-to-image" },
@@ -46,12 +46,16 @@ export function AiToolsPanel({
   selectedClip,
   setCategory,
   onOpenPlayground,
+  onDub,
+  onOpenTransitions,
 }: {
   projectId: string;
   assets: VideoEditorAsset[];
   selectedClip: Clip | null;
   setCategory: (c: CategoryId) => void;
   onOpenPlayground: (mode: string) => void;
+  onDub: () => void;
+  onOpenTransitions: () => void;
 }) {
   const [view, setView] = useState<AiView | null>(null);
 
@@ -97,9 +101,18 @@ export function AiToolsPanel({
           <ChevronDown className="ml-auto size-4 shrink-0 -rotate-90 text-muted-foreground" />
         </button>
         <div className="grid grid-cols-2 gap-2">
-          {GEN_TILES.map((t) => (
-            <GenTile key={t.label} icon={t.icon} label={t.label} soon={!t.mode} onClick={t.mode ? () => onOpenPlayground(t.mode ?? "text-to-video") : undefined} />
-          ))}
+          {GEN_TILES.map((t) => {
+            if (t.label === "AI Voice") return <GenTile key={t.label} icon={t.icon} label={t.label} onClick={() => setCategory("audio")} />;
+            if (t.label === "AI Dubbing") {
+              const ok = selectedClip?.kind === "video" || selectedClip?.kind === "audio";
+              return <GenTile key={t.label} icon={t.icon} label={t.label} onClick={ok ? onDub : undefined} title={ok ? undefined : "Select a video or audio clip first"} />;
+            }
+            if (t.label === "AI Transitions") {
+              const ok = !!selectedClip;
+              return <GenTile key={t.label} icon={t.icon} label={t.label} onClick={ok ? onOpenTransitions : undefined} title={ok ? undefined : "Select a clip first"} />;
+            }
+            return <GenTile key={t.label} icon={t.icon} label={t.label} onClick={t.mode ? () => onOpenPlayground(t.mode ?? "text-to-video") : undefined} />;
+          })}
         </div>
       </section>
 
@@ -173,17 +186,17 @@ function SectionLabel({ icon: Icon, children }: { icon?: typeof Type; children: 
   );
 }
 
-function GenTile({ icon: Icon, label, soon, onClick }: { icon: typeof Type; label: string; soon?: boolean; onClick?: () => void }) {
+function GenTile({ icon: Icon, label, onClick, title }: { icon: typeof Type; label: string; onClick?: () => void; title?: string }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={soon}
-      className="group relative flex flex-col items-start gap-2 rounded-lg border border-border p-3 text-left transition-colors hover:border-[#14b8a6] hover:bg-accent disabled:opacity-50"
+      disabled={!onClick}
+      title={title}
+      className="group relative flex flex-col items-start gap-2 rounded-lg border border-border p-3 text-left transition-colors hover:border-[#14b8a6] hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border disabled:hover:bg-transparent"
     >
       <Icon className="size-4 text-muted-foreground transition-colors group-hover:text-[#14b8a6]" />
       <span className="text-xs font-medium">{label}</span>
-      {soon ? <span className="absolute right-2 top-2 text-[9px] text-muted-foreground">Soon</span> : null}
     </button>
   );
 }

@@ -55,6 +55,8 @@ export function LeftPanel({
   projectId,
   selectedClip,
   onOpenPlayground,
+  onDub,
+  onOpenTransitions,
 }: {
   category: CategoryId;
   setCategory: (c: CategoryId) => void;
@@ -71,6 +73,8 @@ export function LeftPanel({
   projectId: string;
   selectedClip: Clip | null;
   onOpenPlayground: (mode: string) => void;
+  onDub: () => void;
+  onOpenTransitions: () => void;
 }) {
   const byKind = (k: string) => assets.filter((a) => a.kind === k);
   const title = CATEGORIES.find((c) => c.id === category)?.label ?? "";
@@ -84,7 +88,7 @@ export function LeftPanel({
       )}
       <div className="min-h-0 flex-1 overflow-y-auto pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {category === "ai-tools" ? (
-          <AiToolsPanel projectId={projectId} assets={assets} selectedClip={selectedClip} setCategory={setCategory} onOpenPlayground={onOpenPlayground} />
+          <AiToolsPanel projectId={projectId} assets={assets} selectedClip={selectedClip} setCategory={setCategory} onOpenPlayground={onOpenPlayground} onDub={onDub} onOpenTransitions={onOpenTransitions} />
         ) : category === "video" ? (
           <VideoTab videos={byKind("video")} onImport={onImport} importing={importing} onGenerate={() => onOpenPlayground("text-to-video")} onAddStock={onAddStock} onTalkingCharacter={onTalkingCharacter} />
         ) : category === "audio" ? (

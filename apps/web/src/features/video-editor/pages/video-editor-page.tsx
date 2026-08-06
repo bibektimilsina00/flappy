@@ -561,6 +561,8 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
                 projectId={projectId}
                 selectedClip={selectedClip}
                 onOpenPlayground={openPlayground}
+                onDub={() => enhanceSelected("dub")}
+                onOpenTransitions={() => setClipView("transitions")}
               />
             )
           ) : null}
