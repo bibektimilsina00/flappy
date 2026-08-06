@@ -1,4 +1,4 @@
-import { VideoEditorPage } from "@/features/video-editor";
+import { VideoEditorRouteClient } from "./video-editor-client";
 
 export default async function Page({
   searchParams,
@@ -6,12 +6,5 @@ export default async function Page({
   searchParams: Promise<{ project?: string }>;
 }) {
   const { project } = await searchParams;
-  if (!project) {
-    return (
-      <div className="grid h-full w-full place-items-center text-muted-foreground">
-        No project selected.
-      </div>
-    );
-  }
-  return <VideoEditorPage projectId={project} />;
+  return <VideoEditorRouteClient initialProjectId={project} />;
 }
