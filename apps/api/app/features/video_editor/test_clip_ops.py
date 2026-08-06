@@ -12,8 +12,27 @@ class _NoClient:
 def test_op_to_clip_kind():
     assert c.clip_kind_for_op("remove_bg_image") == "image"
     assert c.clip_kind_for_op("remove_bg_video") == "video"
+    assert c.clip_kind_for_op("eye_contact") == "video"
     assert c.clip_kind_for_op("nonsense") is None
-    assert {"remove_bg_image", "remove_bg_video"} <= set(c.SUPPORTED_OPS)
+    assert {"remove_bg_image", "remove_bg_video", "eye_contact"} <= set(c.SUPPORTED_OPS)
+
+
+def test_is_configured_gates_on_model_and_key():
+    from apps.api.app.core.config import settings
+
+    # eye_contact has no default model -> needs both the key and eye_contact_model set.
+    orig_key, orig_model = settings.replicate_api_key, settings.eye_contact_model
+    try:
+        settings.replicate_api_key = "k"
+        settings.eye_contact_model = ""
+        assert c.is_configured("eye_contact") is False  # model unset
+        assert c.is_configured("remove_bg_video") is True  # literal model
+        settings.eye_contact_model = "owner/gaze"
+        assert c.is_configured("eye_contact") is True
+        settings.replicate_api_key = ""
+        assert c.is_configured("remove_bg_video") is False  # no key
+    finally:
+        settings.replicate_api_key, settings.eye_contact_model = orig_key, orig_model
 
 
 def test_settle_already_succeeded_short_circuits():

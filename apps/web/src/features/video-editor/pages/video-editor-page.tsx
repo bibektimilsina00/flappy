@@ -192,12 +192,13 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
       toast.error(e instanceof Error ? e.message : "Couldn't save template");
     }
   };
-  const enhanceSelected = async (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg") => {
+  const enhanceSelected = async (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact") => {
     if (!selectedClip || !doc) return;
     try {
-      // Video background removal is a slow ML op → runs async on the worker; poll it.
-      if (op === "remove_bg" && selectedClip.kind === "video") {
-        const { execution_id } = await startClipOp(projectId, selectedClip.id, "remove_bg_video");
+      // Slow ML video ops run async on the worker → dispatch, poll, then swap.
+      const asyncOp = op === "eye_contact" ? "eye_contact" : op === "remove_bg" && selectedClip.kind === "video" ? "remove_bg_video" : null;
+      if (asyncOp) {
+        const { execution_id } = await startClipOp(projectId, selectedClip.id, asyncOp);
         const asset = await pollExecutionAsset(execution_id);
         await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
         const dur = selectedClip.duration;
@@ -211,7 +212,10 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
             ? await magicCutClip(projectId, selectedClip.id)
             : op === "remove_bg"
               ? await removeClipBackground(projectId, selectedClip.id)
-              : await enhanceClipAudio(projectId, selectedClip.id, op);
+              : op === "eye_contact"
+                ? null // unreachable: eye_contact always goes through the async path above
+                : await enhanceClipAudio(projectId, selectedClip.id, op);
+      if (!r) return;
       await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
       const dur = r.duration || selectedClip.duration;
       commit(updateClip(doc, selectedClip.id, { assetId: r.asset_id, in: 0, out: dur, duration: dur }));

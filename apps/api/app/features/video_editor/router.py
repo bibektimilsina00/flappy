@@ -820,8 +820,6 @@ def remove_bg(
     """Remove an image clip's background (Replicate matting) and store the cutout
     PNG as a new pool asset. Runs inline — image matting settles in seconds. Video
     goes through the async /clip-op path instead. Gated on REPLICATE_API_KEY."""
-    from apps.api.app.core.config import settings
-
     project = repository.get_by_workflow(session, workspace_id, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Editor project not found")
@@ -830,7 +828,7 @@ def remove_bg(
         raise HTTPException(status_code=404, detail="Clip not found")
     if clip.get("kind") != "image":
         raise HTTPException(status_code=422, detail="Use the async path for video — this endpoint handles images")
-    if not settings.replicate_api_key:
+    if not clip_ops.is_configured("remove_bg_image"):
         raise HTTPException(status_code=501, detail="Background removal is not configured")
 
     workflow = workflows_repo.get(session, workspace_id, project.workflow_id)
@@ -878,12 +876,10 @@ def clip_op(
     """Kick off a slow per-clip op (e.g. video background matting) on the worker.
     Creates an Execution and dispatches `run_clip_op`; the produced asset joins the
     pool via the execution. Poll GET /executions/{id}, then read its /assets."""
-    from apps.api.app.core.config import settings
-
     if body.op not in clip_ops.SUPPORTED_OPS:
         raise HTTPException(status_code=422, detail="Unknown operation")
-    if not settings.replicate_api_key:
-        raise HTTPException(status_code=501, detail="Background removal is not configured")
+    if not clip_ops.is_configured(body.op):
+        raise HTTPException(status_code=501, detail="This effect is not set up on this workspace yet")
 
     project = repository.get_by_workflow(session, workspace_id, project_id)
     if project is None:
