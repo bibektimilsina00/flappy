@@ -195,9 +195,13 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
     detachAudioClip(selectedClip.id, r.asset_id);
   };
   const addStock = async (url: string, kind: string) => {
-    const r = await importUrl(projectId, url, kind);
-    await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
-    addImportedClip(r.id, r.kind, playhead);
+    try {
+      const r = await importUrl(projectId, url, kind);
+      await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
+      addImportedClip(r.id, r.kind, playhead);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't add that clip");
+    }
   };
   const saveToBrandKit = async () => {
     const clip = selectedClip;

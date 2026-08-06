@@ -21,7 +21,7 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 
 ### Video tab (`left-panel/video-tab.tsx`)
 - [x] **Talking Characters** — click imports the image (allow-listed CDN via `POST .../import-url`) and adds it to the timeline
-- [ ] **Stock Videos** — only placeholder thumbnails in the UI data (no real video src to import); chips cosmetic
+- [x] **Stock Videos** — live Pexels search (`GET /video-editor/stock/search?kind=video`); clicking a result imports the mp4 + drops a clip. Needs `PEXELS_API_KEY` server-side (501 → "not set up" message when absent).
 - [ ] **View all** links
 - [x] **Generate** (opens playground), **Upload**, **Asset Library** tiles drag to timeline
 
@@ -37,8 +37,9 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 
 ### Image tab (`left-panel/image-tab.tsx`)
 - [ ] **Generate B-roll images** (upgrade)
-- [x] **Stock Images** & **GIFs** — click imports + adds to the timeline
-- [ ] **Backgrounds** (placeholder gradients); Stock chips cosmetic
+- [x] **Stock Images** — live Pexels search (`GET /video-editor/stock/search?kind=image`); click imports + adds to the timeline (needs `PEXELS_API_KEY`)
+- [x] **GIFs** — curated Giphy stickers, click imports (Giphy search would need its own key)
+- [ ] **Backgrounds** (placeholder gradients)
 - [x] **Generate** (opens playground), **Upload**, **Asset Library** tiles drag to timeline
 
 ### Text tab (`left-panel/text-tab.tsx`)
@@ -125,6 +126,6 @@ Most stubs fall into a few buckets — implementing the bucket unlocks many rows
 3. **Animation/Transition render engine** — Animations DONE (`lib/animation-engine.ts`). Remaining: transition render (boundary crossfades between adjacent clips).
 4. **Richer text renderer** — DONE in preview AND export: per-clip font-family/size/color/bold/italic/align/letter-spacing/opacity + position now burn into the MP4 via per-event ASS overrides (`render.py build_text_ass`; subtitle-track clips keep the bottom-center caption pill). Ceilings: libass only renders bundled fonts faithfully (Poppins/Anton/Bangers) — other families fall back via fontconfig; line-height and text effects/text-behind-person still unsupported in export.
 5. **Transform extras** — DONE: Flip (H/V), Round Corners, Fit/Fill, and Order/z-index (via `transform.flipH/flipV/radius/fit/z`). Remaining: filters/effects.
-6. **Stock/asset providers** (stock video/image/music/SFX, stickers, shapes, GIFs, characters) -> Elements tab + all "Stock" sections.
+6. **Stock/asset providers** — stock **video + image** DONE via Pexels search (`/video-editor/stock/search`, gated on `PEXELS_API_KEY`; imports through the existing `/import-url` allow-list). Remaining: music/SFX, animated stickers search, characters (each needs its own provider/key).
 7. **Brand Kit** — DONE (save/list/remove assets + colours + **fonts** in `workspace.preferences`; add-to-project; a saved font applies its family to the selected text clip, rendered in preview + best-effort export). Remaining: subtitle styles, custom uploaded font files (export can only bundle a few faces — see #4).
 8. **Project actions** — Duplicate + Version History + Save as Template all DONE (templates stored in `workspace.preferences`, surfaced on the `/templates` page).

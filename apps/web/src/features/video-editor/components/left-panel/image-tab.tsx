@@ -1,18 +1,14 @@
 "use client";
 
-import { ChevronRight, ImagePlus, MoreHorizontal, Plus, Upload, Gem } from "lucide-react";
-import { useState } from "react";
-import { cn } from "@/lib/cn";
+import { ChevronRight, ImagePlus, Plus, Upload, Gem } from "lucide-react";
 import type { VideoEditorAsset } from "../../types";
 import { MediaTileThumb } from "./media-grid";
+import { StockSearch } from "./stock-search";
 
 const ACCENT = "#14b8a6";
 
-// Placeholder stock content mirroring the reference — swap for real providers
-// when they exist. Thumbnails are external (Pexels / Giphy).
-const STOCK_TAGS = ["All", "Business", "Nature", "Travel"];
-const STOCK_IDS = ["1181717", "33144956", "746386", "705075", "1099680", "290595"];
-const stockSrc = (id: string) => `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&h=350`;
+// GIF stickers stay curated (Giphy needs its own key); stock images/videos are
+// live via Pexels (StockSearch). Thumbnails are external.
 const GIF_IDS = ["jGgC8JjZfLurTJSxQ8", "N8lzSpk8X4G9X6Wgca", "4H52NOaFk9oMlxdU0D", "apNr8LXrYCMsqpz5I2", "LR5GeZFCwDRcpG20PR", "3T7WB64PW315Z8zhRg"];
 const gifSrc = (id: string) => `https://media.giphy.com/media/${id}/100w.gif`;
 const BACKGROUNDS = [
@@ -25,8 +21,6 @@ const BACKGROUNDS = [
 ];
 
 export function ImageTab({ images, onImport, importing, onGenerate, onAddStock }: { images: VideoEditorAsset[]; onImport: () => void; importing: boolean; onGenerate: () => void; onAddStock: (url: string, kind: string) => void }) {
-  const [tag, setTag] = useState("All");
-
   return (
     <div className="space-y-8 px-3 pt-1">
       {/* generate + upload */}
@@ -77,30 +71,8 @@ export function ImageTab({ images, onImport, importing, onGenerate, onAddStock }
       ) : null}
 
       {/* stock images */}
-      <Section title="Stock Images" viewAll>
-        <div className="flex flex-wrap gap-2">
-          {STOCK_TAGS.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTag(t)}
-              className={cn("h-8 rounded-full px-3 text-xs font-semibold transition-colors", tag === t ? "bg-foreground text-background" : "bg-secondary text-muted-foreground hover:bg-accent")}
-            >
-              {t}
-            </button>
-          ))}
-          <button type="button" className="grid size-8 place-items-center rounded-full bg-secondary text-muted-foreground hover:bg-accent">
-            <MoreHorizontal className="size-4" />
-          </button>
-        </div>
-        <div className="mt-3 grid grid-cols-3 gap-2.5">
-          {STOCK_IDS.map((id) => (
-            <button key={id} type="button" onClick={() => onAddStock(stockSrc(id), "image")} className="group relative aspect-square overflow-hidden rounded-lg border border-border" title="Stock image">
-              {/* biome-ignore lint/performance/noImgElement: external placeholder thumbnail */}
-              <img src={stockSrc(id)} alt="" loading="lazy" className="size-full object-cover transition-transform group-hover:scale-105" />
-            </button>
-          ))}
-        </div>
+      <Section title="Stock Images">
+        <StockSearch kind="image" onAddStock={onAddStock} />
       </Section>
 
       {/* backgrounds */}

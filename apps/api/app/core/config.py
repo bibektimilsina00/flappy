@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     open_router_api_key: str = ""
     replicate_api_key: str = ""
 
+    # Stock media search (editor). Empty = stock search disabled (curated tiles only).
+    pexels_api_key: str = ""
+
     # Spend guardrail (real provider USD). 0 disables the daily cap.
     daily_spend_cap_usd: float = 0.0
 

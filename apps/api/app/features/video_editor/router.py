@@ -378,6 +378,54 @@ def import_url(
     return {"id": key, "kind": kind, "url": storage.url(key)}
 
 
+@router.get("/stock/search")
+def stock_search(
+    q: str,
+    kind: str = "image",
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Search Pexels for stock images/videos. Returns normalized results whose
+    `url` is an allow-listed Pexels CDN link — feed it to /import-url to add it."""
+    from apps.api.app.core.config import settings
+
+    if kind not in ("image", "video"):
+        raise HTTPException(status_code=422, detail="kind must be image or video")
+    if not settings.pexels_api_key:
+        raise HTTPException(status_code=501, detail="Stock search is not configured")
+    query = (q or "").strip()
+    if not query:
+        return {"results": []}
+
+    import httpx
+
+    base = "https://api.pexels.com/videos/search" if kind == "video" else "https://api.pexels.com/v1/search"
+    try:
+        with httpx.Client(timeout=15) as client:
+            res = client.get(base, params={"query": query, "per_page": 24}, headers={"Authorization": settings.pexels_api_key})
+            res.raise_for_status()
+            payload = res.json()
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail="Stock search failed") from exc
+
+    results: list[dict] = []
+    if kind == "video":
+        for v in payload.get("videos") or []:
+            files = sorted((f for f in v.get("video_files") or [] if f.get("link")), key=lambda f: f.get("height") or 0)
+            # smallest file that is at least 720p, else the largest available
+            pick = next((f for f in files if (f.get("height") or 0) >= 720), files[-1] if files else None)
+            if not pick:
+                continue
+            results.append({"id": str(v.get("id")), "thumb": v.get("image"), "url": pick["link"], "kind": "video", "duration": v.get("duration")})
+    else:
+        for p in payload.get("photos") or []:
+            src = p.get("src") or {}
+            url = src.get("large") or src.get("original") or src.get("medium")
+            if not url:
+                continue
+            results.append({"id": str(p.get("id")), "thumb": src.get("tiny") or src.get("small") or url, "url": url, "kind": "image"})
+    return {"results": results}
+
+
 class SubtitlesRequest(BaseModel):
     source_asset_id: str | None = None  # a pool asset; defaults to the first video/audio clip
 

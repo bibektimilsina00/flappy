@@ -158,6 +158,13 @@ export function deleteTemplate(templateId: string): Promise<{ ok: boolean }> {
 	return api(`/video-editor/templates/${templateId}`, { method: "DELETE" });
 }
 
+export type StockResult = { id: string; thumb?: string; url: string; kind: "image" | "video"; duration?: number };
+
+// Search Pixels/stock. Throws (with the server detail) on 503 when unconfigured.
+export function searchStock(q: string, kind: "image" | "video"): Promise<{ results: StockResult[] }> {
+	return api(`/video-editor/stock/search?q=${encodeURIComponent(q)}&kind=${kind}`);
+}
+
 // Import a stock asset from an allow-listed CDN into the project pool.
 export function importUrl(projectId: string, url: string, kind: string): Promise<{ id: string; kind: string; url: string }> {
 	return api(`/video-editor/projects/${projectId}/import-url`, {

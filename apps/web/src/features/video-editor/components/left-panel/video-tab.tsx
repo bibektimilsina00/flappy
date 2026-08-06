@@ -1,10 +1,9 @@
 "use client";
 
-import { ChevronRight, MoreHorizontal, Plus, Upload, Wand2 } from "lucide-react";
-import { useState } from "react";
-import { cn } from "@/lib/cn";
+import { ChevronRight, Plus, Upload, Wand2 } from "lucide-react";
 import type { VideoEditorAsset } from "../../types";
 import { MediaTileThumb } from "./media-grid";
+import { StockSearch } from "./stock-search";
 
 const ACCENT = "#14b8a6";
 
@@ -22,19 +21,7 @@ const CHARACTERS = [
 ];
 const characterSrc = (id: string) => `https://cdn-user.veed.io/cdn-cgi/image/width=400,format=png/image/${id}.png`;
 
-const STOCK_TAGS = ["All", "Aerials", "Business", "Nature"] as const;
-const STOCK = [
-  { dur: "0:18", src: "https://images.pexels.com/videos/3248997/free-video-3248997.jpg?auto=compress&cs=tinysrgb&fit=crop&h=630&w=1200" },
-  { dur: "1:10", src: "https://images.pexels.com/videos/5646564/aerial-air-beach-calm-5646564.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=630&w=1200" },
-  { dur: "0:10", src: "https://images.pexels.com/videos/26898089/4k-video-above-clouds-aerial-aerial-footage-26898089.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=630&w=1200" },
-  { dur: "0:40", src: "https://images.pexels.com/videos/4069480/aerial-photo-aerial-photography-ariel-beach-resort-4069480.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=630&w=1200" },
-  { dur: "0:21", src: "https://images.pexels.com/videos/4052999/pexels-photo-4052999.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=630&w=1200" },
-  { dur: "0:19", src: "https://images.pexels.com/videos/3018542/free-video-3018542.jpg?auto=compress&cs=tinysrgb&fit=crop&h=630&w=1200" },
-];
-
 export function VideoTab({ videos, onImport, importing, onGenerate, onAddStock }: { videos: VideoEditorAsset[]; onImport: () => void; importing: boolean; onGenerate: () => void; onAddStock: (url: string, kind: string) => void }) {
-  const [tag, setTag] = useState<string>("All");
-
   return (
     <div className="space-y-8 px-3">
       {/* generate + upload */}
@@ -89,34 +76,8 @@ export function VideoTab({ videos, onImport, importing, onGenerate, onAddStock }
       </Section>
 
       {/* stock videos */}
-      <Section title="Stock Videos" viewAll>
-        <div className="flex flex-wrap gap-2">
-          {STOCK_TAGS.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTag(t)}
-              className={cn(
-                "h-7 rounded-full px-3 text-xs font-semibold transition-colors",
-                tag === t ? "bg-foreground text-background" : "bg-secondary text-muted-foreground hover:bg-accent",
-              )}
-            >
-              {t}
-            </button>
-          ))}
-          <button type="button" className="grid size-7 place-items-center rounded-full bg-secondary text-muted-foreground hover:bg-accent">
-            <MoreHorizontal className="size-4" />
-          </button>
-        </div>
-        <div className="mt-3 grid grid-cols-2 gap-2.5">
-          {STOCK.map((s) => (
-            <button key={s.src} type="button" className="group relative aspect-video overflow-hidden rounded-lg border border-border" title="Stock video">
-              {/* biome-ignore lint/performance/noImgElement: external placeholder thumbnail */}
-              <img src={s.src} alt="" loading="lazy" className="size-full object-cover transition-transform group-hover:scale-105" />
-              <span className="absolute bottom-1.5 left-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[11px] tabular-nums text-white backdrop-blur-sm">{s.dur}</span>
-            </button>
-          ))}
-        </div>
+      <Section title="Stock Videos">
+        <StockSearch kind="video" onAddStock={onAddStock} />
       </Section>
     </div>
   );
