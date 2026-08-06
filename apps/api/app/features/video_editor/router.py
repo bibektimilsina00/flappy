@@ -4,6 +4,7 @@ The editor doc is the declarative EditorDoc (VIDEO-EDITOR-PLAN.md §4). On first
 open for a workflow we seed a basic timeline from the workflow's assets.
 """
 
+import copy
 import os
 import subprocess
 import tempfile
@@ -28,6 +29,7 @@ from apps.api.app.features.video_editor.models import (
 )
 from apps.api.app.features.video_editor.render import build_render_args, build_text_ass
 from apps.api.app.features.workflows import repository as workflows_repo
+from apps.api.app.features.workflows.models import Workflow
 from apps.api.app.storage.factory import get_storage
 
 router = APIRouter(prefix="/video-editor", tags=["video-editor"])
@@ -324,7 +326,8 @@ def generate_subtitles(
     segment's media time onto the timeline (honouring the clip's trim + speed)."""
     from apps.api.app.features.clips.pipeline import _transcribe
 
-    project = repository.get(session, workspace_id, project_id)
+    # editor calls carry the workflow id (like /generate), one project per workflow
+    project = repository.get_by_workflow(session, workspace_id, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Editor project not found")
 
@@ -425,7 +428,8 @@ def enhance_clip_audio(
     if body.op not in _ENHANCE_FILTERS:
         raise HTTPException(status_code=422, detail="Unknown enhancement")
 
-    project = repository.get(session, workspace_id, project_id)
+    # editor calls carry the workflow id (like /generate), one project per workflow
+    project = repository.get_by_workflow(session, workspace_id, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Editor project not found")
 
@@ -481,6 +485,61 @@ def enhance_clip_audio(
         workflows_repo.save(session, workflow)
 
     return {"asset_id": key, "kind": "audio", "url": storage.url(key), "duration": round(duration, 3)}
+
+
+@router.post("/projects/{workflow_id}/duplicate")
+def duplicate_project(
+    workflow_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Clone the project into a fresh workflow. The media pool is flattened to
+    upload references (same storage keys — no re-generation), and the doc's clip
+    asset ids are remapped onto those keys so every clip still resolves."""
+    project = repository.get_by_workflow(session, workspace_id, workflow_id)
+    workflow = workflows_repo.get(session, workspace_id, workflow_id)
+    if project is None or workflow is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # pool id -> {kind, key}. For generated assets id is a UUID, for uploads it is the key.
+    pool = {item["id"]: item for item in _workflow_media(session, workflow)}
+
+    doc = copy.deepcopy(project.doc or {})
+    used: dict[str, dict] = {}
+    for track in doc.get("tracks") or []:
+        for clip in track.get("clips") or []:
+            aid = clip.get("assetId")
+            item = pool.get(aid) if aid else None
+            if item is None:
+                continue
+            clip["assetId"] = item["key"]  # clone references media by its stable key
+            used[item["key"]] = item
+
+    # Flatten every referenced asset into an upload node so the clone's pool resolves it.
+    new_nodes = [
+        {
+            "id": f"node-{uuid.uuid4()}",
+            "type": item["kind"],
+            "position": {"x": 240 + (i % 4) * 300, "y": 140 + i * 40},
+            "data": {"kind": item["kind"], "upload_key": item["key"], "label": "media"},
+        }
+        for i, item in enumerate(used.values())
+    ]
+    new_wf = workflows_repo.add(
+        session,
+        Workflow(workspace_id=workspace_id, name=f"{workflow.name} (copy)", graph={"nodes": new_nodes, "edges": []}),
+    )
+    repository.add(
+        session,
+        VideoEditorProject(
+            workspace_id=workspace_id,
+            workflow_id=new_wf.id,
+            title=f"{project.title} (copy)",
+            doc=doc,
+        ),
+    )
+    return {"workflow_id": str(new_wf.id)}
 
 
 class ProjectUpdate(BaseModel):

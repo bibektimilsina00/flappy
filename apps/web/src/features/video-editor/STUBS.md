@@ -108,7 +108,8 @@ Legend: `[ ]` stub to implement · `[x]` functional today.
 - [x] **Aspect ratio** picker (+ platform overlays), **Background color** picker, on-canvas move/resize/snap
 
 ### Top header (`pages/video-editor-page.tsx`)
-- [ ] Project menu: **Duplicate Project**, **Save as Template**, **Version History**
+- [x] **Duplicate Project** — clones the workflow + doc (`POST .../duplicate`, media flattened to shared upload refs) and opens the copy
+- [ ] **Save as Template**, **Version History**
 - [x] Cloud save indicator, title edit, **Undo/Redo**, **Export & Publish**
 
 ---

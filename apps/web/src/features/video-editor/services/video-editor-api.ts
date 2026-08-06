@@ -129,6 +129,11 @@ export function getExecution(
 
 export type SubtitleSegment = { start: number; end: number; text: string };
 
+// Clone the project into a fresh workflow; returns its id (route param).
+export function duplicateProject(workflowId: string): Promise<{ workflow_id: string }> {
+	return api(`/video-editor/projects/${workflowId}/duplicate`, { method: "POST" });
+}
+
 // Run an ffmpeg audio enhancement on a clip; returns a new pool asset.
 export function enhanceClipAudio(
 	projectId: string,
