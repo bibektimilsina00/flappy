@@ -17,7 +17,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { cn } from "@/lib/cn";
-import { addToBrandKit, chromaKeyClip, detachClipAudio, duplicateProject, enhanceClipAudio, getExecution, importUrl, listExecutionAssets, magicBroll, magicCutClip, removeClipBackground, saveTemplate, startClipOp, startTransitionMorph } from "../services/video-editor-api";
+import { addToBrandKit, chromaKeyClip, detachClipAudio, duplicateProject, enhanceClipAudio, getExecution, importUrl, listExecutionAssets, magicBroll, magicCutClip, removeClipBackground, saveTemplate, startClipOp, startDub, startTransitionMorph } from "../services/video-editor-api";
 import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
 import { ExportPanel } from "../components/export-panel/export-panel";
 import { Inspector } from "../components/inspector/inspector";
@@ -146,6 +146,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
     addImportedClip,
     addBrollClips,
     addMorphClip,
+    addDubClip,
     detachAudioClip,
     doImport,
     dropAsset,
@@ -194,9 +195,20 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
       toast.error(e instanceof Error ? e.message : "Couldn't save template");
     }
   };
-  const enhanceSelected = async (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter" | "background_expand" | "magic_broll") => {
+  const enhanceSelected = async (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter" | "background_expand" | "magic_broll" | "dub") => {
     if (!selectedClip || !doc) return;
     try {
+      // AI Dubbing: transcribe → translate → TTS (async), then place audio + mute original.
+      if (op === "dub") {
+        const lang = window.prompt("Dub to which language?", "Spanish")?.trim();
+        if (!lang) return;
+        const { execution_id, source_clip_id, start, duration } = await startDub(projectId, selectedClip.id, lang);
+        const asset = await pollExecutionAsset(execution_id);
+        await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
+        addDubClip(asset.id, start, duration, source_clip_id);
+        toast.success(`Dubbed to ${lang}`);
+        return;
+      }
       // Magic B-Roll transcribes → fetches stock photos → inserts NEW overlay clips.
       if (op === "magic_broll") {
         const { items } = await magicBroll(projectId, selectedClip.id);

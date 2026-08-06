@@ -19,6 +19,7 @@ import {
   Frame,
   Image as ImageIcon,
   Italic,
+  Languages,
   Loader2,
   Maximize2,
   Orbit,
@@ -85,7 +86,7 @@ export function Inspector({
   onClose: () => void;
   onDelete: () => void;
   onAddText?: () => void;
-  onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter" | "background_expand" | "magic_broll") => Promise<void>;
+  onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter" | "background_expand" | "magic_broll" | "dub") => Promise<void>;
   assets?: VideoEditorAsset[];
   onReplace?: (assetId: string) => void;
   onDetachAudio?: () => Promise<void>;
@@ -191,7 +192,7 @@ function fileName(url: string) {
 type Insp = ReturnType<typeof useInspector>;
 type GestureProps = { onPointerDown: () => void; onFocus: () => void; onBlur: () => void; onPointerUp: () => void };
 
-function VideoBody({ clip, insp, onDelete, replace, onDetachAudio, onEnhance }: { clip: Clip; insp: Insp; onDelete: () => void; replace?: React.ReactNode; onDetachAudio?: () => Promise<void>; onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter" | "background_expand" | "magic_broll") => Promise<void> }) {
+function VideoBody({ clip, insp, onDelete, replace, onDetachAudio, onEnhance }: { clip: Clip; insp: Insp; onDelete: () => void; replace?: React.ReactNode; onDetachAudio?: () => Promise<void>; onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter" | "background_expand" | "magic_broll" | "dub") => Promise<void> }) {
   const g = insp.gestureProps;
   const [fadeAudio, setFadeAudio] = useState(false);
   const [detaching, setDetaching] = useState(false);
@@ -271,6 +272,7 @@ function VideoBody({ clip, insp, onDelete, replace, onDetachAudio, onEnhance }: 
               <AiToolRow key={t.title} tool={t} />
             ),
           )}
+          {onEnhance ? <EnhanceRow icon={Languages} title="AI Dubbing" desc="Translate & re-voice into another language" onRun={() => onEnhance("dub")} /> : null}
         </div>
       </div>
 
@@ -363,7 +365,7 @@ function EnhanceRow({ icon: Icon, title, desc, onRun }: { icon: typeof Eye; titl
   );
 }
 
-function AudioBody({ clip, insp, onDelete, onEnhance, replace }: { clip: Clip; insp: Insp; onDelete: () => void; onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter" | "background_expand" | "magic_broll") => Promise<void>; replace?: React.ReactNode }) {
+function AudioBody({ clip, insp, onDelete, onEnhance, replace }: { clip: Clip; insp: Insp; onDelete: () => void; onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter" | "background_expand" | "magic_broll" | "dub") => Promise<void>; replace?: React.ReactNode }) {
   const g = insp.gestureProps;
   const [fade, setFade] = useState(false);
   const muted = clip.volume === 0;
@@ -414,6 +416,7 @@ function AudioBody({ clip, insp, onDelete, onEnhance, replace }: { clip: Clip; i
           ) : (
             <AiToolRow tool={{ icon: Scissors, title: "Magic Cut", desc: "Remove ums, ahs and bad takes" }} />
           )}
+          {onEnhance ? <EnhanceRow icon={Languages} title="AI Dubbing" desc="Translate & re-voice into another language" onRun={() => onEnhance("dub")} /> : null}
         </div>
       </div>
 
@@ -605,7 +608,7 @@ function IconToggle({ active, onClick, title, children }: { active?: boolean; on
   );
 }
 
-function ImageBody({ clip, insp, onDelete, replace, onEnhance }: { clip: Clip; insp: Insp; onDelete: () => void; replace?: React.ReactNode; onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter" | "background_expand" | "magic_broll") => Promise<void> }) {
+function ImageBody({ clip, insp, onDelete, replace, onEnhance }: { clip: Clip; insp: Insp; onDelete: () => void; replace?: React.ReactNode; onEnhance?: (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter" | "background_expand" | "magic_broll" | "dub") => Promise<void> }) {
   const g = insp.gestureProps;
 
   return (

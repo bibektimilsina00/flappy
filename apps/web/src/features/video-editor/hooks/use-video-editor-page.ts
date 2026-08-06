@@ -142,6 +142,35 @@ export function useVideoEditorPage(projectId: string) {
     commit(addClip(nextDoc, track.id, clip));
   };
 
+  // Place a dubbed audio track and mute the original clip's audio.
+  const addDubClip = (assetId: string, start: number, duration: number, sourceClipId: string) => {
+    if (!doc) return;
+    let nextDoc = updateClip(doc, sourceClipId, { volume: 0 });
+    let track = nextDoc.tracks.find((t) => t.kind === "audio" && t.name === "Dub");
+    if (!track) {
+      nextDoc = addTrack(nextDoc, "audio");
+      track = nextDoc.tracks[0];
+      nextDoc = { ...nextDoc, tracks: nextDoc.tracks.map((t) => (t.id === track!.id ? { ...t, name: "Dub" } : t)) };
+      track = nextDoc.tracks.find((t) => t.id === track!.id)!;
+    }
+    const dur = Math.max(0.3, duration);
+    const clip: Clip = {
+      id: `c-${crypto.randomUUID().slice(0, 8)}`,
+      assetId,
+      kind: "audio",
+      start: Math.max(0, start),
+      duration: dur,
+      in: 0,
+      out: dur,
+      speed: 1,
+      volume: 1,
+      transform: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
+      keyframes: [],
+      effects: [],
+    };
+    commit(addClip(nextDoc, track.id, clip));
+  };
+
   const addSubtitleClips = (segments: { start: number; end: number; text: string }[]) => {
     if (!doc || !segments.length) return;
     // dedicated subtitle track (reuse if present), styled bottom-center captions
@@ -334,6 +363,7 @@ export function useVideoEditorPage(projectId: string) {
     addSubtitleClips,
     addBrollClips,
     addMorphClip,
+    addDubClip,
     addImportedClip,
     detachAudioClip,
     doImport,

@@ -167,6 +167,15 @@ export function startTransitionMorph(projectId: string, fromClipId: string, toCl
 	});
 }
 
+// Dub a clip into another language: transcribe → translate → TTS (async). Poll the
+// execution, then place the dubbed audio and mute the original.
+export function startDub(projectId: string, clipId: string, targetLanguage: string, voice?: string): Promise<{ execution_id: string; node_id: string; source_clip_id: string; start: number; duration: number }> {
+	return api(`/video-editor/projects/${projectId}/dub`, {
+		method: "POST",
+		body: JSON.stringify({ clip_id: clipId, target_language: targetLanguage, voice: voice ?? null }),
+	});
+}
+
 export type BrollItem = { asset_id: string; kind: string; url: string; start: number; duration: number; query: string };
 
 // Transcribe the clip → topic windows → a stock photo per topic. The client

@@ -664,6 +664,123 @@ def magic_broll(
     return {"items": items}
 
 
+# ── AI Dubbing (transcribe → translate → TTS a new audio clip) ───────────────
+
+
+def _translate(text: str, target_language: str) -> str:
+    """Translate a transcript into `target_language` via OpenRouter chat. Raises."""
+    from apps.api.app.core.config import settings
+
+    if not settings.open_router_api_key:
+        raise HTTPException(status_code=501, detail="Translation is not configured")
+    import httpx
+
+    model = settings.assistant_model or "openrouter/free"
+    prompt = (
+        f"Translate the transcript below into {target_language}. Output ONLY the "
+        "translated text — no notes, no quotes, no preamble. Keep it natural and "
+        f"speakable.\n\nTranscript:\n{text}"
+    )
+    try:
+        with httpx.Client(timeout=90) as client:
+            r = client.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={"Authorization": f"Bearer {settings.open_router_api_key}"},
+                json={"model": model, "messages": [{"role": "user", "content": prompt}]},
+            )
+            r.raise_for_status()
+            return (r.json()["choices"][0]["message"]["content"] or "").strip()
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail="Translation failed") from exc
+
+
+class DubRequest(BaseModel):
+    clip_id: str | None = None  # source; defaults to the first video/audio clip
+    target_language: str
+    voice: str | None = None
+
+
+@router.post("/projects/{project_id}/dub")
+def dub(
+    project_id: uuid.UUID,
+    body: DubRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Dub a clip: transcribe it, translate to the target language, then generate a
+    TTS voice track (async, via the generation execution). The client places the
+    dubbed audio and mutes the original. All OpenRouter — no extra provider key."""
+    from apps.api.app.features.clips.pipeline import _transcribe
+
+    if not (body.target_language or "").strip():
+        raise HTTPException(status_code=422, detail="A target language is required")
+
+    project = repository.get_by_workflow(session, workspace_id, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+    clips = [c for t in (project.doc or {}).get("tracks") or [] for c in (t.get("clips") or []) if c.get("assetId")]
+    clip = None
+    if body.clip_id:
+        clip = next((c for c in clips if c.get("id") == body.clip_id), None)
+    if clip is None:
+        clip = next((c for c in clips if c.get("kind") in ("video", "audio")), None)
+    if clip is None:
+        raise HTTPException(status_code=422, detail="No video or audio clip to dub")
+
+    workflow = workflows_repo.get(session, workspace_id, project.workflow_id)
+    refmap = {item["id"]: item for item in (_workflow_media(session, workflow) if workflow else [])}
+    item = refmap.get(clip["assetId"])
+    if item is None or workflow is None:
+        raise HTTPException(status_code=404, detail="Source media not found")
+
+    storage = get_storage()
+    with tempfile.TemporaryDirectory() as d:
+        ext = os.path.splitext(item["key"])[1] or ".bin"
+        path = os.path.join(d, f"src{ext}")
+        with open(path, "wb") as f:
+            f.write(storage.get(item["key"]))
+        try:
+            segs, _dur = _transcribe(path)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    text = " ".join((s.get("text") or "").strip() for s in segs).strip()
+    if not text:
+        raise HTTPException(status_code=422, detail="Nothing to dub — no speech found")
+    translated = _translate(text, body.target_language.strip())
+    if not translated:
+        raise HTTPException(status_code=502, detail="Translation returned nothing")
+
+    # Append a TTS audio-generation node and run it through the execution engine.
+    graph = dict(workflow.graph or {})
+    nodes = list(graph.get("nodes") or [])
+    n = len(nodes)
+    gen_id = f"dub-{uuid.uuid4()}"
+    nodes.append(
+        {
+            "id": gen_id,
+            "type": "audio",
+            "position": {"x": 240 + (n % 4) * 320, "y": 640 + n * 40},
+            "data": {"kind": "audio", "prompt": translated, "model": None, "params": {"voice": body.voice or "nova"}, "label": f"dub · {body.target_language}"[:40]},
+        }
+    )
+    graph["nodes"] = nodes
+    workflow.graph = graph
+    workflows_repo.save(session, workflow)
+
+    execution = executions_service.create_execution(session, workspace_id, project.workflow_id, node_id=gen_id)
+    return {
+        "execution_id": str(execution.id),
+        "node_id": gen_id,
+        "source_clip_id": clip["id"],
+        "start": round(float(clip.get("start") or 0), 3),
+        "duration": round(float(clip.get("duration") or 0), 3),
+    }
+
+
 _ENHANCE_FILTERS = {
     "denoise": "afftdn=nf=-25",
     "remove_silences": (
