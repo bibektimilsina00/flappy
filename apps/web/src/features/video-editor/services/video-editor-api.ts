@@ -176,6 +176,15 @@ export function startDub(projectId: string, clipId: string, targetLanguage: stri
 	});
 }
 
+// Animate a character portrait to speak a script (async talking-head video).
+// Poll the execution, then insert the result as a clip.
+export function startTalkingCharacter(projectId: string, imageUrl: string, script: string): Promise<{ execution_id: string; node_id: string }> {
+	return api(`/video-editor/projects/${projectId}/talking-character`, {
+		method: "POST",
+		body: JSON.stringify({ image_url: imageUrl, script }),
+	});
+}
+
 export type BrollItem = { asset_id: string; kind: string; url: string; start: number; duration: number; query: string };
 
 // Transcribe the clip → topic windows → a stock photo per topic. The client

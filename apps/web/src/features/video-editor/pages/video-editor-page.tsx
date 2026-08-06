@@ -17,7 +17,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { cn } from "@/lib/cn";
-import { addToBrandKit, chromaKeyClip, detachClipAudio, duplicateProject, enhanceClipAudio, getExecution, importUrl, listExecutionAssets, magicBroll, magicCutClip, removeClipBackground, saveTemplate, startClipOp, startDub, startTransitionMorph } from "../services/video-editor-api";
+import { addToBrandKit, chromaKeyClip, detachClipAudio, duplicateProject, enhanceClipAudio, getExecution, importUrl, listExecutionAssets, magicBroll, magicCutClip, removeClipBackground, saveTemplate, startClipOp, startDub, startTalkingCharacter, startTransitionMorph } from "../services/video-editor-api";
 import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
 import { ExportPanel } from "../components/export-panel/export-panel";
 import { Inspector } from "../components/inspector/inspector";
@@ -265,6 +265,20 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
       toast.error(e instanceof Error ? e.message : "Couldn't add that clip");
     }
   };
+  // Talking character: portrait + script → talking-head video, dropped at the playhead.
+  const generateTalkingCharacter = async (imageUrl: string) => {
+    const script = window.prompt("What should the character say?")?.trim();
+    if (!script) return;
+    try {
+      const { execution_id } = await startTalkingCharacter(projectId, imageUrl, script);
+      const asset = await pollExecutionAsset(execution_id);
+      await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
+      addImportedClip(asset.id, "video", playhead);
+      toast.success("Talking character added");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't generate the character");
+    }
+  };
   // AI transition morph: generate between two clips, poll, then drop at the boundary.
   const generateMorph = async (fromId: string, toId: string, prompt: string) => {
     const { execution_id, start } = await startTransitionMorph(projectId, fromId, toId, prompt);
@@ -494,6 +508,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
                 onAddShape={(type, color) => addShapeClip({ type, color }, playhead)}
                 onAddSubtitles={addSubtitleClips}
                 onAddStock={addStock}
+                onTalkingCharacter={generateTalkingCharacter}
                 onApplyFont={applyFont}
                 projectId={projectId}
                 selectedClip={selectedClip}

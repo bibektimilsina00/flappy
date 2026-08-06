@@ -1266,6 +1266,60 @@ def transition_morph(
     return {"execution_id": str(execution.id), "node_id": node_id, "start": boundary}
 
 
+class TalkingCharacterRequest(BaseModel):
+    image_url: str  # a portrait on an allow-listed host (the character tiles)
+    script: str
+
+
+@router.post("/projects/{project_id}/talking-character")
+def talking_character(
+    project_id: uuid.UUID,
+    body: TalkingCharacterRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Animate a character portrait to speak a script — a talking-head video generated
+    async on the worker, then inserted as a clip. Gated on TALKING_CHARACTER_MODEL."""
+    if not clip_ops.talking_configured():
+        raise HTTPException(status_code=501, detail="Talking characters are not set up on this workspace yet")
+    if not (body.script or "").strip():
+        raise HTTPException(status_code=422, detail="Write a script for the character to say")
+
+    project = repository.get_by_workflow(session, workspace_id, project_id)
+    workflow = workflows_repo.get(session, workspace_id, project.workflow_id) if project else None
+    if project is None or workflow is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+
+    host = (urllib.parse.urlparse(body.image_url).hostname or "").lower()
+    if not any(host == h.lstrip(".") or host.endswith(h) for h in _STOCK_HOSTS):
+        raise HTTPException(status_code=422, detail="Portrait host is not allowed")
+
+    import httpx
+
+    try:
+        with httpx.Client(timeout=30, follow_redirects=True) as client:
+            res = client.get(body.image_url)
+            res.raise_for_status()
+            data = res.content
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail="Couldn't fetch the portrait") from exc
+
+    storage = get_storage()
+    ctype = res.headers.get("content-type", "").split(";")[0].strip() or "image/png"
+    ext = _EXT_BY_MIME.get(ctype) or "png"
+    image_key = f"{workspace_id}/edits/{uuid.uuid4()}.{ext}"
+    storage.put(image_key, data, ctype)
+
+    execution = executions_repo.add(session, Execution(workspace_id=workspace_id, workflow_id=project.workflow_id, status="pending"))
+    node_id = f"talk-{uuid.uuid4()}"
+    celery_app.send_task(
+        "run_talking_character",
+        args=[str(execution.id), str(workspace_id), str(project.workflow_id), node_id, image_key, body.script.strip()],
+    )
+    return {"execution_id": str(execution.id), "node_id": node_id}
+
+
 class DetachRequest(BaseModel):
     clip_id: str
 

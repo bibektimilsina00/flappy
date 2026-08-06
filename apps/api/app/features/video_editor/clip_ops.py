@@ -124,3 +124,22 @@ def run_morph(storage, from_key: str, to_key: str, prompt: str, workspace_id, ti
     key = f"{workspace_id}/edits/{uuid.uuid4()}.mp4"
     storage.put(key, out_bytes, "video/mp4")
     return key, "video"
+
+
+def talking_configured() -> bool:
+    """Talking-character generation is runnable (Replicate key + a model set)."""
+    from apps.api.app.core.config import settings
+
+    return bool(settings.replicate_api_key) and bool(settings.talking_character_model)
+
+
+def run_talking(storage, image_key: str, script: str, workspace_id, timeout_s: float = 8 * 60) -> tuple[str, str]:
+    """Animate a portrait (image) to speak `script` (image + text -> talking-head
+    video). `image_key` is a stored portrait. Returns (key, kind)."""
+    from apps.api.app.core.config import settings
+
+    payload = {"image": _data_uri(storage, image_key, "image/png"), "text": script}
+    out_bytes = _run_prediction(settings.talking_character_model, payload, timeout_s)
+    key = f"{workspace_id}/edits/{uuid.uuid4()}.mp4"
+    storage.put(key, out_bytes, "video/mp4")
+    return key, "video"

@@ -49,6 +49,7 @@ export function LeftPanel({
   onAddShape,
   onAddSubtitles,
   onAddStock,
+  onTalkingCharacter,
   onApplyFont,
   projectId,
   selectedClip,
@@ -63,6 +64,7 @@ export function LeftPanel({
   onAddShape: (type: "rect" | "rounded" | "ellipse" | "triangle" | "star", color: string) => void;
   onAddSubtitles: (segments: { start: number; end: number; text: string }[]) => void;
   onAddStock: (url: string, kind: string) => void;
+  onTalkingCharacter: (imageUrl: string) => void;
   onApplyFont: (family: string) => void;
   projectId: string;
   selectedClip: Clip | null;
@@ -82,7 +84,7 @@ export function LeftPanel({
         {category === "ai-tools" ? (
           <AiToolsPanel projectId={projectId} assets={assets} selectedClip={selectedClip} setCategory={setCategory} onOpenPlayground={onOpenPlayground} />
         ) : category === "video" ? (
-          <VideoTab videos={byKind("video")} onImport={onImport} importing={importing} onGenerate={() => onOpenPlayground("text-to-video")} onAddStock={onAddStock} />
+          <VideoTab videos={byKind("video")} onImport={onImport} importing={importing} onGenerate={() => onOpenPlayground("text-to-video")} onAddStock={onAddStock} onTalkingCharacter={onTalkingCharacter} />
         ) : category === "audio" ? (
           <AudioTab audios={byKind("audio")} onImport={onImport} importing={importing} projectId={projectId} />
         ) : category === "image" ? (

@@ -21,7 +21,7 @@ const CHARACTERS = [
 ];
 const characterSrc = (id: string) => `https://cdn-user.veed.io/cdn-cgi/image/width=400,format=png/image/${id}.png`;
 
-export function VideoTab({ videos, onImport, importing, onGenerate, onAddStock }: { videos: VideoEditorAsset[]; onImport: () => void; importing: boolean; onGenerate: () => void; onAddStock: (url: string, kind: string) => void }) {
+export function VideoTab({ videos, onImport, importing, onGenerate, onAddStock, onTalkingCharacter }: { videos: VideoEditorAsset[]; onImport: () => void; importing: boolean; onGenerate: () => void; onAddStock: (url: string, kind: string) => void; onTalkingCharacter: (imageUrl: string) => void }) {
   return (
     <div className="space-y-8 px-3">
       {/* generate + upload */}
@@ -67,7 +67,7 @@ export function VideoTab({ videos, onImport, importing, onGenerate, onAddStock }
       <Section title="Talking Characters" viewAll>
         <div className="grid grid-cols-3 gap-2.5">
           {CHARACTERS.map((c) => (
-            <button key={c.id} type="button" onClick={() => onAddStock(characterSrc(c.id), "image")} className="overflow-hidden rounded-lg border border-border transition-opacity hover:opacity-90" title={c.name}>
+            <button key={c.id} type="button" onClick={() => onTalkingCharacter(characterSrc(c.id))} className="overflow-hidden rounded-lg border border-border transition-opacity hover:opacity-90" title={`Make ${c.name} talk`}>
               {/* biome-ignore lint/performance/noImgElement: external placeholder thumbnail */}
               <img src={characterSrc(c.id)} alt={c.name} loading="lazy" className="aspect-square w-full object-cover object-top" />
             </button>

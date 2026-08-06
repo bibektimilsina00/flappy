@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     # Editor "AI Transition" morph model ("owner/name"); must accept image_1/image_2
     # (+ optional prompt) and output a video. Empty = the feature stays disabled.
     transition_morph_model: str = ""
+    # Editor "Talking Characters" model ("owner/name"); must accept image + text and
+    # output a talking-head video. Empty = the feature stays disabled.
+    talking_character_model: str = ""
 
     # Spend guardrail (real provider USD). 0 disables the daily cap.
     daily_spend_cap_usd: float = 0.0

@@ -52,6 +52,21 @@ def test_morph_configured_needs_key_and_model():
         settings.replicate_api_key, settings.transition_morph_model = orig_key, orig_model
 
 
+def test_talking_configured_needs_key_and_model():
+    from apps.api.app.core.config import settings
+
+    orig_key, orig_model = settings.replicate_api_key, settings.talking_character_model
+    try:
+        settings.replicate_api_key, settings.talking_character_model = "k", ""
+        assert c.talking_configured() is False  # model unset
+        settings.talking_character_model = "owner/avatar"
+        assert c.talking_configured() is True
+        settings.replicate_api_key = ""
+        assert c.talking_configured() is False  # no key
+    finally:
+        settings.replicate_api_key, settings.talking_character_model = orig_key, orig_model
+
+
 def test_settle_already_succeeded_short_circuits():
     pred = {"status": "succeeded", "output": "https://x/out.mp4"}
     assert c.settle_prediction(_NoClient(), {}, pred) is pred
