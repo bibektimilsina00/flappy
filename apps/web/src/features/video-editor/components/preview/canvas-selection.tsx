@@ -42,19 +42,19 @@ export function CanvasSelection({
 }) {
   const t = clip.transform;
 
-  // A text clip is only a line or two tall, so a full-canvas-height box is huge.
-  // Hug the measured text height; keep the width wide (the text's container) so
-  // the frame reads like a text row, matching the editor reference.
+  // A text clip only fills its content, not the canvas. Measure the rendered text
+  // and hug it with a little breathing room so the frame sits just off the glyphs.
   const isText = clip.kind === "text";
-  const [textH, setTextH] = useState<number | null>(null);
+  const [textBox, setTextBox] = useState<{ w: number; h: number } | null>(null);
   useLayoutEffect(() => {
-    if (!isText) return setTextH(null);
+    if (!isText) return setTextBox(null);
     const el = boxRef.current?.querySelector(`[data-clip="${clip.id}"]`) as HTMLElement | null;
-    if (el) setTextH(el.offsetHeight);
-  }, [isText, clip.id, clip.text?.content, clip.text?.fontSize, clip.text?.lineHeight, bw, boxRef]);
+    if (el) setTextBox({ w: el.offsetWidth, h: el.offsetHeight });
+  }, [isText, clip.id, clip.text?.content, clip.text?.fontSize, clip.text?.letterSpacing, clip.text?.lineHeight, bw, boxRef]);
 
-  const baseW = isText ? bw * 0.92 : bw;
-  const baseH = isText && textH ? textH : bh;
+  const PAD = 16; // preview px of breathing room around the text
+  const baseW = isText && textBox ? textBox.w + PAD * 2 : bw;
+  const baseH = isText && textBox ? textBox.h + PAD : bh;
   const { onPointerDown, guides } = useCanvasSelection({ clip, doc, boxRef, baseW, baseH, startGesture, preview, endGesture });
   const w = baseW * t.scale;
   const h = baseH * t.scale;
