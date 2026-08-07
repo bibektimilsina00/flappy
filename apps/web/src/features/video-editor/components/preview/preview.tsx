@@ -33,6 +33,7 @@ export function Preview({
   startGesture,
   preview,
   endGesture,
+  onSelect,
 }: {
   doc: VideoEditorDoc;
   urlOf: (id?: string) => string | undefined;
@@ -43,7 +44,17 @@ export function Preview({
   startGesture?: () => void;
   preview?: (d: VideoEditorDoc) => void;
   endGesture?: (changed?: boolean) => void;
+  onSelect?: (id: string) => void;
 }) {
+  // Click a clip on the canvas to select it. Only unselected clips are clickable —
+  // the selected clip stays pointer-transparent so its drag overlay catches events.
+  const selId = selectedClip?.id;
+  const clickable = (id: string) => !!onSelect && id !== selId;
+  const peClass = (id: string) => (clickable(id) ? "pointer-events-auto cursor-pointer" : "pointer-events-none");
+  const onPick = (id: string) => (e: React.PointerEvent) => {
+    e.stopPropagation();
+    onSelect?.(id);
+  };
   const { fitCb, bw, bh, layers, textLayers, setRef } = usePreview(doc, playhead, playing);
   const boxRef = useRef<HTMLDivElement>(null);
   const editable = selectedClip && selectedClip.kind !== "audio" && startGesture && preview && endGesture;
@@ -76,7 +87,8 @@ export function Preview({
                 return (
                   <div
                     key={clip.id}
-                    className="pointer-events-none absolute left-1/2 top-1/2"
+                    onPointerDown={clickable(clip.id) ? onPick(clip.id) : undefined}
+                    className={cn(peClass(clip.id), "absolute left-1/2 top-1/2")}
                     style={{
                       zIndex: t.z ?? z,
                       opacity: t.opacity * a.opacity * txFade(clip, playhead),
@@ -101,12 +113,12 @@ export function Preview({
               if (clip.kind === "video" && url) {
                 return (
                   // biome-ignore lint/a11y/useMediaCaption: editor preview
-                  <video key={clip.id} ref={setRef(clip.id)} src={url} muted={clip.volume === 0} playsInline preload="auto" className={cn("absolute inset-0 size-full", fitCls)} style={style} />
+                  <video key={clip.id} ref={setRef(clip.id)} src={url} muted={clip.volume === 0} playsInline preload="auto" onPointerDown={clickable(clip.id) ? onPick(clip.id) : undefined} className={cn("absolute inset-0 size-full", fitCls, peClass(clip.id))} style={style} />
                 );
               }
               return url ? (
                 // biome-ignore lint/a11y/useAltText: editor preview
-                <img key={clip.id} src={url} className={cn("absolute inset-0 size-full", fitCls)} style={style} />
+                <img key={clip.id} src={url} onPointerDown={clickable(clip.id) ? onPick(clip.id) : undefined} className={cn("absolute inset-0 size-full", fitCls, peClass(clip.id))} style={style} />
               ) : null;
             })
         )}
@@ -123,7 +135,8 @@ export function Preview({
                 <div
                   key={clip.id}
                   data-clip={clip.id}
-                  className="pointer-events-none absolute left-1/2 top-1/2 max-w-[92%] whitespace-pre-wrap break-words"
+                  onPointerDown={clickable(clip.id) ? onPick(clip.id) : undefined}
+                  className={cn(peClass(clip.id), "absolute left-1/2 top-1/2 max-w-[92%] whitespace-pre-wrap break-words")}
                   style={{
                     zIndex: (t.z ?? z) + 40,
                     opacity: t.opacity * a.opacity * txFade(clip, playhead),

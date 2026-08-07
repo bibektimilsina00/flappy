@@ -583,6 +583,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
                 startGesture={startGesture}
                 preview={preview}
                 endGesture={endGesture}
+                onSelect={(id) => setSelection(new Set([id]))}
               />
               <div className="flex shrink-0 items-center justify-center">
                 {selectedClip ? (
