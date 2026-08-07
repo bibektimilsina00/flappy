@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { BLOG, FEATURE_PAGES } from "@/features/marketing";
 
 const BASE = "https://riocut.com";
 
@@ -14,9 +15,21 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ["/terms", 0.2],
     ["/data-deletion", 0.2],
   ];
-  return pages.map(([path, priority]) => ({
+  const staticPages: MetadataRoute.Sitemap = pages.map(([path, priority]) => ({
     url: `${BASE}${path}`,
     changeFrequency: "weekly",
     priority,
   }));
+  const posts: MetadataRoute.Sitemap = BLOG.map((p) => ({
+    url: `${BASE}/blog/${p.slug}`,
+    lastModified: p.iso,
+    changeFrequency: "monthly",
+    priority: 0.5,
+  }));
+  const featurePages: MetadataRoute.Sitemap = FEATURE_PAGES.map((f) => ({
+    url: `${BASE}/features/${f.slug}`,
+    changeFrequency: "monthly",
+    priority: 0.7,
+  }));
+  return [...staticPages, ...posts, ...featurePages];
 }

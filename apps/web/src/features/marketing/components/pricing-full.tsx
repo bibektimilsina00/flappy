@@ -2,17 +2,27 @@
 
 import { Check } from "lucide-react";
 import { useState } from "react";
-import { type Plan, PLANS, STUDIO_SIZES, UpgradeCta } from "@/features/billing";
+import {
+  type BillingPeriod,
+  BillingPeriodToggle,
+  type Plan,
+  planPricing,
+  PLANS,
+  STUDIO_SIZES,
+  tierId,
+  UpgradeCta,
+} from "@/features/billing";
 import { cn } from "@/lib/cn";
 import { BRAND } from "../lib/content";
 
-// Marketing-themed render of the shared PLANS ladder. Monthly billing only.
+// Marketing-themed render of the shared PLANS ladder, monthly or yearly.
 export function MarketingPricing() {
   const [studioSize, setStudioSize] = useState(0);
+  const [period, setPeriod] = useState<BillingPeriod>("monthly");
 
   return (
     <div>
-      <div className="mb-10">
+      <div className="mb-8">
         <p className="text-sm font-semibold text-mk-accent">Pricing</p>
         <h1 className="mt-3 text-4xl font-bold tracking-tight text-mk-fg md:text-5xl">Plans built for AI creators</h1>
         <p className="mt-3 max-w-2xl text-mk-muted">
@@ -20,9 +30,13 @@ export function MarketingPricing() {
         </p>
       </div>
 
+      <div className="mb-8">
+        <BillingPeriodToggle value={period} onChange={setPeriod} />
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {PLANS.map((plan) => (
-          <PlanCard key={plan.id} plan={plan} studioSize={studioSize} onStudioSize={setStudioSize} />
+          <PlanCard key={plan.id} plan={plan} period={period} studioSize={studioSize} onStudioSize={setStudioSize} />
         ))}
       </div>
       <p className="mt-6 text-sm text-mk-muted">
@@ -35,11 +49,11 @@ export function MarketingPricing() {
   );
 }
 
-function PlanCard({ plan, studioSize, onStudioSize }: { plan: Plan; studioSize: number; onStudioSize: (i: number) => void }) {
+function PlanCard({ plan, period, studioSize, onStudioSize }: { plan: Plan; period: BillingPeriod; studioSize: number; onStudioSize: (i: number) => void }) {
   const isStudio = plan.id === "studio";
-  const mult = isStudio ? STUDIO_SIZES[studioSize].mult : 1;
-  const price = plan.monthly * mult;
-  const credits = plan.credits * mult;
+  const size = STUDIO_SIZES[studioSize];
+  const mult = isStudio ? size.mult : 1;
+  const { perMonth: price, yearlyTotal, credits } = planPricing(plan, period, mult);
 
   return (
     <div className={cn("flex flex-col rounded-2xl bg-mk-surface p-6", plan.popular ? "border-2 border-mk-accent" : "border border-mk-border")}>
@@ -53,7 +67,9 @@ function PlanCard({ plan, studioSize, onStudioSize }: { plan: Plan; studioSize: 
         <span className="text-4xl font-bold text-mk-fg">${price.toLocaleString()}</span>
         <span className="text-mk-muted">/month</span>
       </div>
-      <p className="text-sm text-mk-muted">Billed monthly · cancel anytime</p>
+      <p className="text-sm text-mk-muted">
+        {period === "yearly" ? `$${yearlyTotal.toLocaleString()} billed yearly · cancel anytime` : "Billed monthly · cancel anytime"}
+      </p>
 
       {isStudio ? (
         <div className="mt-5 flex items-center gap-1 rounded-full border border-mk-border bg-mk-bg p-1">
@@ -74,7 +90,7 @@ function PlanCard({ plan, studioSize, onStudioSize }: { plan: Plan; studioSize: 
       ) : null}
 
       <UpgradeCta
-        tier={isStudio ? `studio_${STUDIO_SIZES[studioSize].label.toLowerCase()}` : plan.id}
+        tier={tierId(plan, period, size.label)}
         className={cn(
           "mt-5 flex w-full items-center justify-center rounded-lg py-2.5 text-center text-sm font-semibold transition-opacity hover:opacity-90",
           plan.popular ? "bg-mk-accent text-mk-accentfg" : "bg-mk-surface2 text-mk-fg",

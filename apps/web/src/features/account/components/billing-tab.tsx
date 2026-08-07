@@ -26,7 +26,7 @@ export function BillingTab() {
           {!isPaid ? (
             <a
               href="/pricing"
-              className="ml-3 rounded-lg bg-teal-400 px-3.5 py-1.5 text-xs font-semibold text-black transition-colors hover:bg-teal-300"
+              className="ml-3 rounded-lg bg-teal-400 px-3.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-teal-300"
             >
               Upgrade
             </a>

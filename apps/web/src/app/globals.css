@@ -99,7 +99,7 @@
   --color-mk-muted: #a1a1a8;
   --color-mk-faint: #6b6b72;
   --color-mk-accent: #14b8a6;
-  --color-mk-accentfg: #04110f;
+  --color-mk-accentfg: #ffffff;
 }
 
 @layer utilities {

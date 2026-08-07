@@ -12,10 +12,14 @@ export interface Plan {
   name: string;
   tagline: string;
   monthly: number;
+  // Yearly total (billed once/year). 2 months free → monthly * 10.
+  yearly: number;
   credits: number;
   popular?: boolean;
   features: string[];
 }
+
+export type BillingPeriod = "monthly" | "yearly";
 
 export interface StudioSize {
   label: string;

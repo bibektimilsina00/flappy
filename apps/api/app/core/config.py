@@ -70,6 +70,15 @@ class Settings(BaseSettings):
     dodo_product_studio_l: str = ""
     dodo_product_studio_xl: str = ""
     dodo_product_studio_max: str = ""
+    # Yearly (annual) products — leave blank to disable a tier's yearly option.
+    dodo_product_plus_yearly: str = ""
+    dodo_product_pro_yearly: str = ""
+    dodo_product_ultra_yearly: str = ""
+    dodo_product_studio_s_yearly: str = ""
+    dodo_product_studio_m_yearly: str = ""
+    dodo_product_studio_l_yearly: str = ""
+    dodo_product_studio_xl_yearly: str = ""
+    dodo_product_studio_max_yearly: str = ""
     free_monthly_credits: float = 100.0  # free plan tops up to this monthly
 
     # Assistant model (empty -> openrouter/free, which works on the free tier).

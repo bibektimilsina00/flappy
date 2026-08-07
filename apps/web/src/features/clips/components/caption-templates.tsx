@@ -27,12 +27,85 @@ import type { CustomCaptionStyle } from "../types";
 // Base caption styles (id → ASS/CSS preset). Used by the player's caption menu.
 export const PRESET_META: { id: string; name: string; bg: string }[] = [
 	{ id: "clean", name: "Clean", bg: "from-slate-700 to-slate-900" },
+	{ id: "phantom", name: "Phantom", bg: "from-violet-800 to-slate-900" },
 	{ id: "bold", name: "Bold", bg: "from-indigo-800 to-slate-900" },
 	{ id: "highlight", name: "Highlight", bg: "from-teal-900 to-slate-900" },
+	{ id: "lime", name: "Lime", bg: "from-lime-800 to-slate-900" },
 	{ id: "beast", name: "Beast", bg: "from-amber-800 to-stone-900" },
+	{ id: "gold", name: "Gold", bg: "from-yellow-800 to-stone-900" },
 	{ id: "neon", name: "Neon", bg: "from-cyan-950 to-slate-900" },
+	{ id: "glow", name: "Glow", bg: "from-zinc-700 to-zinc-900" },
+	{ id: "slay", name: "Slay", bg: "from-rose-900 to-slate-900" },
+	{ id: "bubble", name: "Bubble", bg: "from-pink-800 to-slate-900" },
+	{ id: "candy", name: "Candy", bg: "from-fuchsia-800 to-slate-900" },
+	{ id: "boba", name: "Boba", bg: "from-amber-700 to-stone-900" },
+	{ id: "ocean", name: "Ocean", bg: "from-blue-800 to-slate-900" },
+	{ id: "royal", name: "Royal", bg: "from-purple-800 to-slate-900" },
+	{ id: "forest", name: "Forest", bg: "from-green-800 to-slate-900" },
+	{ id: "fire", name: "Fire", bg: "from-orange-800 to-red-950" },
+	{ id: "sunny", name: "Sunny", bg: "from-amber-600 to-orange-900" },
+	{ id: "retro", name: "Retro", bg: "from-yellow-700 to-red-950" },
+	{ id: "snugle", name: "Snugle", bg: "from-slate-600 to-slate-900" },
+	{ id: "ink", name: "Ink", bg: "from-neutral-300 to-neutral-500" },
 	{ id: "mono", name: "Minimal", bg: "from-neutral-800 to-neutral-900" },
 ];
+
+// Data-driven catalog for the extra caption styles (keeps captionCss compact).
+type ExtraStyle = {
+	color: string;
+	size: number;
+	weight: number;
+	upper?: boolean;
+	italic?: boolean;
+	shadow?: string;
+	strokeColor?: string;
+	strokeW?: number;
+	boxColor?: string; // whole-caption box background
+	activeColor?: string; // highlighted (current) word text
+	activeBg?: string; // highlighted word background chip
+};
+
+const EXTRA_STYLES: Record<string, ExtraStyle> = {
+	phantom: { color: "#fff", size: 12, weight: 700, activeColor: "#fff", activeBg: "#6d28d9" },
+	lime: { color: "#fff", size: 12, weight: 800, upper: true, activeColor: "#111", activeBg: "#a3e635" },
+	gold: { color: "#fff", size: 13, weight: 800, upper: true, activeColor: "#FFD700" },
+	glow: { color: "#fff", size: 12, weight: 700, shadow: "0 0 8px #fff, 0 0 16px rgba(255,255,255,0.6)" },
+	slay: { color: "#fff", size: 12, weight: 800, upper: true, italic: true, shadow: "0 2px 4px rgba(0,0,0,0.9)" },
+	bubble: { color: "#fff", size: 12, weight: 800, activeColor: "#fff", activeBg: "#ec4899" },
+	candy: { color: "#fff", size: 12, weight: 800, activeColor: "#fff", activeBg: "#db2777" },
+	boba: { color: "#3b2416", size: 12, weight: 800, upper: true, boxColor: "#fde68a", activeColor: "#fff", activeBg: "#b45309" },
+	ocean: { color: "#fff", size: 12, weight: 700, activeColor: "#fff", activeBg: "#2563eb" },
+	royal: { color: "#fff", size: 12, weight: 700, activeColor: "#c4b5fd" },
+	forest: { color: "#fff", size: 12, weight: 700, activeColor: "#fff", activeBg: "#16a34a" },
+	fire: { color: "#fff", size: 13, weight: 800, upper: true, activeColor: "#f97316" },
+	sunny: { color: "#facc15", size: 13, weight: 800, upper: true, strokeColor: "#000", strokeW: 1 },
+	retro: { color: "#fde047", size: 13, weight: 800, upper: true, strokeColor: "#7c2d12", strokeW: 1 },
+	snugle: { color: "#fff", size: 12, weight: 800, upper: true, shadow: "0 2px 4px rgba(0,0,0,0.9)" },
+	ink: { color: "#111", size: 11, weight: 700, boxColor: "#fff" },
+};
+
+function buildExtra(s: ExtraStyle, px: (n: number) => string): ResolvedCaptionCss {
+	return {
+		base: {
+			color: s.color,
+			fontSize: px(s.size),
+			fontWeight: s.weight,
+			fontStyle: s.italic ? "italic" : "normal",
+			textTransform: s.upper ? "uppercase" : "none",
+			textShadow: s.shadow ?? (s.boxColor ? undefined : "0 1px 3px rgba(0,0,0,0.9)"),
+			WebkitTextStroke: s.strokeW ? `${s.strokeW * 0.35}px ${s.strokeColor ?? "#000"}` : undefined,
+			background: s.boxColor,
+		},
+		active: s.activeBg
+			? { color: s.activeColor ?? "#fff", background: s.activeBg, borderRadius: px(4), padding: `0 ${px(4)}` }
+			: s.activeColor
+				? { color: s.activeColor }
+				: {},
+		className: "",
+		boxed: Boolean(s.boxColor),
+		middle: false,
+	};
+}
 
 // Featured templates in the picker: each pairs a caption style with a layout,
 // a poster image, and a looping preview clip. The (style, layout) pair is the
@@ -198,6 +271,8 @@ export function captionCss(
 			middle: custom.position === "middle",
 		};
 	}
+	const extra = EXTRA_STYLES[style];
+	if (extra) return buildExtra(extra, px);
 	switch (style) {
 		case "bold":
 			return {
@@ -1392,7 +1467,7 @@ function TemplateEditor({
 								def: { ...def, name: def.name.trim() },
 							})
 						}
-						className="rounded-lg bg-teal-400 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-50"
+						className="rounded-lg bg-teal-400 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-teal-300 disabled:opacity-50"
 					>
 						Save & use
 					</button>

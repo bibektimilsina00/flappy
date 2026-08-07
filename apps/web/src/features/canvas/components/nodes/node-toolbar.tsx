@@ -122,7 +122,7 @@ export function NodeToolbar({
   const actions = ACTIONS[kind];
 
   return (
-    <div className="nodrag flex items-center gap-0.5 rounded-xl border border-white/10 bg-[#1e1e1e] px-1.5 py-1 shadow-2xl">
+    <div className="nodrag flex items-center gap-1 rounded-2xl border border-white/10 bg-[#242832]/95 px-2 py-1.5 shadow-xl shadow-black/40 backdrop-blur-xl">
       {kind === "text" ? (
         <>
           <Btn icon={Bold} label="Bold" onClick={() => applyFormat?.("bold")} />
@@ -150,12 +150,12 @@ export function NodeToolbar({
           <button
             type="button"
             onClick={() => setMenuOpen((o) => !o)}
-            className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-white/10 hover:text-white"
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-[#14b8a6]/15 hover:text-[#2dd4bf]"
           >
             Actions <ChevronDown className="size-3" />
           </button>
           {menuOpen ? (
-            <div className="absolute top-full left-0 z-50 mt-1.5 w-48 rounded-xl border border-white/10 bg-[#1e1e1e] p-1 shadow-2xl">
+            <div className="absolute top-full left-0 z-50 mt-1.5 w-48 rounded-xl border border-white/10 bg-[#242832]/95 p-1 shadow-2xl backdrop-blur-xl">
               {actions.map((act) => (
                 <button
                   key={act}
@@ -165,7 +165,7 @@ export function NodeToolbar({
                     if (kind === "image") setImageAction(act as ImageAction);
                     else if (kind === "video") setVideoAction(act as VideoAction);
                   }}
-                  className="flex w-full items-center rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-white/10 hover:text-white"
+                  className="flex w-full items-center rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-[#14b8a6]/15 hover:text-[#2dd4bf]"
                 >
                   {act}
                 </button>
@@ -203,15 +203,15 @@ function Btn({ icon: Icon, label, onClick }: { icon: LucideIcon; label: string; 
       type="button"
       title={label}
       onClick={onClick}
-      className="grid size-7 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-white"
+      className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-[#14b8a6]/15 hover:text-[#2dd4bf]"
     >
-      <Icon className="size-3.5" />
+      <Icon className="size-4" />
     </button>
   );
 }
 
 function Divider() {
-  return <div className="mx-1 h-3.5 w-px bg-white/10" />;
+  return <div className="mx-1 h-4 w-px bg-white/10" />;
 }
 
 function ExpandOverlay({ kind, content, onClose }: { kind: NodeKind; content: string; onClose: () => void }) {

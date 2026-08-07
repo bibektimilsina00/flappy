@@ -13,6 +13,13 @@ export interface CanvasActions {
   insertNodeOnEdge: (edgeId: string, kind: NodeKind, position: { x: number; y: number }) => void;
   setNodeData: (id: string, patch: Record<string, unknown>) => void;
   addConnectedNode: (sourceId: string, kind: NodeKind) => void;
+  // Connect an existing node's output to a target node (used by the @ picker).
+  connectNodes: (
+    source: string,
+    sourceHandle: string | null,
+    target: string,
+    targetHandle?: string | null,
+  ) => void;
   // Create a node feeding a target's input handle (e.g. an upload → image input).
   addInputNode: (
     targetId: string,

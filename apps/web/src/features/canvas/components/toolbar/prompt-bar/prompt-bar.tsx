@@ -1,10 +1,13 @@
 "use client";
 
 import { ArrowUp, Paperclip, Plus, SlidersHorizontal, X } from "lucide-react";
-import { ModelSelector, ParamPanel, paramSummary } from "@/features/models";
+import { useEffect, useState } from "react";
+import { ModelSelector, ParamPanel, paramSummary, useModels } from "@/features/models";
 import { useCanvasActions } from "../../canvas-actions";
+import { useUpstreamImages, useUpstreamInputs } from "../../../hooks/use-upstream-inputs";
 import { popupRegistry } from "../../../lib/popup-registry";
-import { usePromptBar } from "./hooks/use-prompt-bar";
+import { AddFromCanvas } from "./add-from-canvas";
+import { MentionPicker } from "./mention-picker";
 
 interface PromptBarProps {
   nodeId: string;
@@ -14,139 +17,202 @@ interface PromptBarProps {
   prompt?: string;
 }
 
-const SUGGESTED: Record<string, string[]> = {
-  image: [
-    "Cyberpunk neon street rainy night 8k",
-    "Studio character portrait soft lighting",
-    "Watercolor landscape misty mountain",
-  ],
-  video: [
-    "Slow pan cinematic camera motion",
-    "Time lapse sunset over skyline",
-    "Drone shot ocean waves crash cliff",
-  ],
-  audio: [
-    "Upbeat synthwave driving beat 120bpm",
-    "Calm piano ambient background track",
-    "Dramatic cinematic orchestral swell",
-  ],
-};
+function modeLabel(kind: string, hasImage: boolean): string | null {
+  if (kind === "image") return hasImage ? "Reference image to image" : "Text to image";
+  if (kind === "video") return hasImage ? "Image to video" : "Text to video";
+  return null;
+}
 
-export function PromptBar({ nodeId, kind, model, params = {}, prompt: initialPrompt = "" }: PromptBarProps) {
-  const { setNodeData } = useCanvasActions();
-  const {
-    models,
-    prompt,
-    setPrompt,
-    paramOpen,
-    setParamOpen,
-    upstreamInputs,
-    upstreamImages,
-  } = usePromptBar(nodeId, kind, initialPrompt);
+export function PromptBar({ nodeId, kind, model, params, prompt }: PromptBarProps) {
+  const { data: models } = useModels(kind);
+  const { setNodeData, removeEdge, runNode, connectNodes } = useCanvasActions();
+  const inputs = useUpstreamInputs(nodeId);
+  const images = useUpstreamImages(nodeId);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
 
-  const activeModel = models.find((m) => m.id === model) ?? models[0];
+  useEffect(() => {
+    if (!panelOpen) return;
+    return popupRegistry.register(() => setPanelOpen(false));
+  }, [panelOpen]);
 
-  const handleRun = () => {
-    if (!prompt.trim()) return;
-    setNodeData(nodeId, { status: "running" });
-  };
+  useEffect(() => {
+    if (!addOpen) return;
+    return popupRegistry.register(() => setAddOpen(false));
+  }, [addOpen]);
 
-  const suggestions = SUGGESTED[kind] ?? [];
+  useEffect(() => {
+    if (!mentionOpen) return;
+    return popupRegistry.register(() => setMentionOpen(false));
+  }, [mentionOpen]);
+
+  const list = models ?? [];
+  // Default a fresh node to the first row of the selector: the top free model,
+  // else the first one. Keeps the header selection and the run model in sync.
+  const selectedId = model ?? (list.find((m) => m.free !== false) ?? list[0])?.id ?? "";
+  const selected = list.find((m) => m.id === selectedId);
+  const paramValues = params ?? {};
+  const mode = modeLabel(kind, images.length > 0);
+  // Something to generate from → surface the credit cost on the run button.
+  const hasContent = Boolean(prompt?.trim()) || images.length > 0 || inputs.length > 0;
 
   return (
-    <div className="flex flex-col gap-2 border-t border-border/60 bg-muted/20 p-2.5">
-      {/* Upstream context pills */}
-      {upstreamInputs.length || upstreamImages.length ? (
-        <div className="flex flex-wrap items-center gap-1.5 px-1">
-          {upstreamInputs.map((inp) => (
-            <span
-              key={inp.edgeId}
-              className="flex items-center gap-1 rounded-md border border-border bg-card px-2 py-0.5 text-[10px] text-muted-foreground"
-            >
-              <Paperclip className="size-3" />
-              <span className="max-w-[100px] truncate">{inp.text}</span>
-            </span>
-          ))}
-          {upstreamImages.map((img) => (
-            <span
-              key={img.edgeId}
-              className="flex items-center gap-1 rounded-md border border-border bg-card p-0.5 pr-1.5 text-[10px] text-muted-foreground"
-            >
-              <img src={img.url} alt="" className="size-4 rounded object-cover" />
-              <span>Image input</span>
-            </span>
-          ))}
-        </div>
-      ) : null}
-
-      {/* Suggested prompts */}
-      {!prompt && suggestions.length ? (
-        <div className="flex flex-wrap gap-1 px-1">
-          {suggestions.map((s) => (
+    <div className="rounded-xl border border-border bg-card p-4 shadow-xl">
+      <div className="flex items-center gap-2">
+        {/* Connected image references (same size as the + box) */}
+        {images.map((img) => (
+          <div key={img.edgeId} className="group/ref relative size-12 shrink-0">
+            {/* biome-ignore lint/a11y/useAltText: reference thumbnail */}
+            <img src={img.url} className="size-12 rounded-lg border border-border object-cover" />
             <button
-              key={s}
               type="button"
-              onClick={() => setPrompt(s)}
-              className="rounded-md border border-border/60 bg-card/40 px-2 py-0.5 text-[10px] text-muted-foreground hover:border-foreground/30 hover:bg-accent hover:text-foreground"
+              aria-label="Remove image reference"
+              onClick={() => removeEdge(img.edgeId)}
+              className="absolute -right-1.5 -top-1.5 hidden size-4 place-items-center rounded-full bg-black text-white shadow group-hover/ref:grid"
             >
-              + {s}
+              <X className="size-3" />
             </button>
-          ))}
+          </div>
+        ))}
+
+        <div className="relative">
+          <button
+            type="button"
+            aria-label="Add media"
+            onClick={() => setAddOpen((v) => !v)}
+            className="grid size-12 shrink-0 place-items-center rounded-lg border border-dashed border-border text-muted-foreground transition-colors hover:bg-accent/40"
+          >
+            <Plus className="size-4" />
+          </button>
+          {addOpen ? (
+            <div data-popup className="absolute bottom-full left-0 z-[100] mb-2">
+              <AddFromCanvas nodeId={nodeId} onClose={() => setAddOpen(false)} />
+            </div>
+          ) : null}
         </div>
-      ) : null}
-
-      {/* Main prompt input */}
-      <div className="relative flex items-center rounded-xl border border-border bg-card shadow-inner focus-within:border-foreground/40">
-        <textarea
-          rows={1}
-          value={prompt}
-          placeholder={`Describe ${kind} generation...`}
-          onChange={(e) => setPrompt(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleRun();
-            }
-          }}
-          className="w-full resize-none bg-transparent px-3 py-2 text-xs outline-none placeholder:text-muted-foreground/60"
-        />
-
-        <button
-          type="button"
-          disabled={!prompt.trim()}
-          onClick={handleRun}
-          className="mr-1.5 grid size-7 place-items-center rounded-lg bg-teal-400 text-black transition-transform hover:scale-105 disabled:opacity-40"
-        >
-          <ArrowUp className="size-4 stroke-[2.5]" />
-        </button>
       </div>
 
-      {/* Model & Param Selector bar */}
-      <div className="flex items-center justify-between px-1 text-xs">
-        {activeModel ? (
-          <ModelSelector
-            models={models}
-            value={activeModel.id}
-            onChange={(m) => setNodeData(nodeId, { model: m })}
-          />
-        ) : <div />}
+      {inputs.length > 0 ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {inputs.map((input) => (
+            <span
+              key={input.edgeId}
+              className="relative flex items-center rounded-md bg-[#2a2a2a] py-1.5 pl-4 pr-3 text-sm text-foreground"
+            >
+              <span className="absolute bottom-1.5 left-1.5 top-1.5 w-[3px] rounded-full bg-teal-400" />
+              <span className="line-clamp-1 max-w-[280px]">{input.text}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
 
-        <button
-          type="button"
-          onClick={() => setParamOpen((p) => !p)}
-          className="flex items-center gap-1 rounded-lg px-2 py-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          <SlidersHorizontal className="size-3" />
-          <span className="text-[10px]">{paramSummary(activeModel?.params ?? [], params)}</span>
-        </button>
-
-        {paramOpen && activeModel ? (
-          <ParamPanel
-            params={activeModel.params}
-            values={params}
-            onChange={(key, value) => setNodeData(nodeId, { params: { ...params, [key]: value } })}
+      <div className="relative">
+        {mentionOpen ? (
+          <MentionPicker
+            nodeId={nodeId}
+            kind={kind}
+            onPick={(sourceId, handle) => {
+              connectNodes(sourceId, null, nodeId, handle);
+              // drop the "@" that triggered the picker
+              setNodeData(nodeId, { prompt: (prompt ?? "").replace(/@(?=[^@]*$)/, "") });
+              setMentionOpen(false);
+            }}
           />
         ) : null}
+        <p className="mt-3 text-sm text-muted-foreground">Use @ to reference resources in your prompt</p>
+        <textarea
+          value={prompt ?? ""}
+          onChange={(e) => {
+            const val = e.target.value;
+            setNodeData(nodeId, { prompt: val });
+            const caret = e.target.selectionStart ?? val.length;
+            setMentionOpen(val[caret - 1] === "@");
+          }}
+          onKeyDown={(e) => {
+          // Backspace at the very start removes the last connected-input chip.
+          if (
+            e.key === "Backspace" &&
+            e.currentTarget.selectionStart === 0 &&
+            e.currentTarget.selectionEnd === 0 &&
+            inputs.length > 0
+          ) {
+            e.preventDefault();
+            removeEdge(inputs[inputs.length - 1].edgeId);
+          }
+        }}
+          placeholder="Enter prompt"
+          className="mt-1 min-h-16 w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+        />
+      </div>
+
+      <div className="mt-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <ModelSelector
+            models={list}
+            value={selectedId}
+            // Params are model-specific (voices, ratios…) — reset on switch so a
+            // stale value from the old model is never shown or sent.
+            onChange={(id) => setNodeData(nodeId, { model: id, params: {} })}
+          />
+
+          {selected && (selected.params.length > 0 || mode) ? (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setPanelOpen((v) => !v)}
+                className="flex items-center gap-2 rounded-lg bg-secondary/40 px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-secondary/70"
+              >
+                <SlidersHorizontal className="size-4 text-muted-foreground" />
+                <span className="truncate">
+                  {[mode, paramSummary(selected.params, paramValues)].filter(Boolean).join(" / ")}
+                </span>
+              </button>
+
+              {panelOpen ? (
+                <div data-popup className="absolute bottom-full left-0 z-[100] mb-2">
+                  <ParamPanel
+                    params={selected.params}
+                    values={paramValues}
+                    onChange={(key, value) =>
+                      setNodeData(nodeId, { params: { ...paramValues, [key]: value } })
+                    }
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            aria-label="Attach"
+            className="rounded p-1 text-muted-foreground hover:text-foreground"
+          >
+            <Paperclip className="size-4" />
+          </button>
+          {hasContent && selected ? (
+            // Once there's something to run, show what it costs right on the button.
+            <button
+              type="button"
+              aria-label={`Generate · ${selected.cost} credits`}
+              onClick={() => runNode(nodeId)}
+              className="flex items-center gap-1.5 rounded-full bg-gradient-to-b from-[#fde68a] to-[#f5c518] py-2 pr-2.5 pl-3.5 text-sm font-bold text-black shadow-lg shadow-yellow-500/20 transition-opacity hover:opacity-90"
+            >
+              <span className="tabular-nums">{selected.cost}</span>
+              <ArrowUp className="size-4" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              aria-label="Generate"
+              onClick={() => runNode(nodeId)}
+              className="flex size-9 items-center justify-center rounded-full bg-[#14b8a6] text-white transition-opacity hover:opacity-90"
+            >
+              <ArrowUp className="size-4" />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

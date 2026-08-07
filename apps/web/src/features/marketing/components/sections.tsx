@@ -1,35 +1,23 @@
 import { ArrowRight, Check, Play, Scissors, Star, X } from "lucide-react";
-import type { ReactNode } from "react";
 import { COMPARE, FEATURE_ROWS, FEATURES, HERO, LOGOS, MODELS, STATS, STEPS, TESTIMONIALS, USE_CASES } from "../lib/content";
-import { cn } from "@/lib/cn";
+import { ClipsFanAnimation } from "@/shared/components/clips-fan-animation";
 import { FaqList } from "./faq";
 import { Icon } from "./icon";
-import { Poster, toneAt, unsplash } from "./media";
+import { media, Poster, toneAt } from "./media";
 import { Visual } from "./menu-visuals";
 import { PricingCards } from "./pricing-cards";
 import { ProductMock } from "./product-mock";
 import { Button, Card, Container, Section, SectionHeading } from "./ui";
-
-function Accented({ text, accent }: { text: string; accent?: string }): ReactNode {
-  if (!accent) return text;
-  const i = text.indexOf(accent);
-  if (i < 0) return text;
-  return (
-    <>
-      {text.slice(0, i)}
-      <span className="text-mk-accent">{accent}</span>
-      {text.slice(i + accent.length)}
-    </>
-  );
-}
 
 export function Hero() {
   return (
     <Section className="pt-16 sm:pt-24">
       <Container>
         <div className="flex flex-col items-center text-center">
-          <h1 className="mk-in max-w-4xl text-balance text-5xl font-bold leading-[1.02] tracking-tight text-mk-fg sm:text-7xl md:text-[5rem]">
-            <Accented text={HERO.title} accent={HERO.accent} />
+          <h1 className="mk-in max-w-4xl text-left text-5xl font-bold leading-[1.02] tracking-tight text-mk-fg sm:text-7xl md:text-[5rem]">
+            The all-in-one <span className="text-mk-accent">AI video</span>
+            <br />
+            studio
           </h1>
           <p className="mk-in mt-6 max-w-xl text-pretty text-base leading-relaxed text-mk-muted sm:text-lg" style={{ animationDelay: "160ms" }}>
             {HERO.subtitle}
@@ -47,11 +35,9 @@ export function Hero() {
           </p>
         </div>
 
-        <div className="mk-in relative mx-auto mt-16 max-w-6xl" style={{ animationDelay: "360ms" }}>
-          {/* generated-clip thumbnails peeking from behind, gently floating (wide screens) */}
-          <Poster src={unsplash("1470225620780-dba8ba36b745", 400)} ratio="9 / 16" style={{ "--mk-r": "-8deg" } as React.CSSProperties} className="mk-float pointer-events-none absolute -left-20 top-4 hidden w-24 shadow-2xl 2xl:block" />
-          <Poster src={unsplash("1492691527719-9d1e07e534b4", 400)} ratio="9 / 16" style={{ "--mk-r": "8deg", animationDelay: "1.2s" } as React.CSSProperties} className="mk-float pointer-events-none absolute -right-20 top-10 hidden w-24 shadow-2xl 2xl:block" />
-          <ProductMock className="relative z-10 shadow-2xl shadow-black/40" />
+        <div className="mk-in relative mx-auto mt-16 max-w-5xl" style={{ animationDelay: "360ms" }}>
+          {/* self-playing, ghost-cursor-driven product demo */}
+          <ProductMock autopilot className="relative z-10 shadow-2xl shadow-black/40" />
         </div>
       </Container>
     </Section>
@@ -84,7 +70,7 @@ export function FeatureRows() {
                 </div>
               </div>
               <div className={row.reverse ? "lg:order-1" : undefined}>
-                {row.media === "mock" ? <ProductMock /> : <Poster src={unsplash(row.media.img, 900)} label={row.media.label} play={row.media.play} ratio="16 / 10" />}
+                {row.media === "mock" ? <ProductMock /> : <Poster src={media(row.media.img, 900)} label={row.media.label} play={row.media.play} ratio="16 / 10" />}
               </div>
             </div>
           ))}
@@ -214,16 +200,16 @@ export function HowItWorks() {
 }
 
 const GALLERY = [
-  { label: "Product ad", views: "873K", img: "1523275335684-37898b6baf30" },
-  { label: "Music video", views: "934K", img: "1493225457124-a3eb161ffa5f" },
-  { label: "Explainer", views: "293K", img: "1531482615713-2afd69097998" },
-  { label: "Short film", views: "129K", img: "1485846234645-a62644f84728" },
-  { label: "Social clip", views: "243K", img: "1611262588024-d12430b98920" },
-  { label: "Fashion promo", views: "512K", img: "1483985988355-763728e1935b" },
+  { label: "Product ad", views: "873K", img: "https://images.pexels.com/photos/36339051/pexels-photo-36339051.jpeg" },
+  { label: "Music video", views: "934K", img: "https://images.pexels.com/photos/426976/pexels-photo-426976.jpeg" },
+  { label: "Explainer", views: "293K", img: "https://images.pexels.com/photos/29612586/pexels-photo-29612586.jpeg" },
+  { label: "Short film", views: "129K", img: "https://images.pexels.com/photos/35879877/pexels-photo-35879877.jpeg" },
+  { label: "Social clip", views: "243K", img: "https://images.pexels.com/photos/57690/pexels-photo-57690.jpeg" },
+  { label: "Fashion promo", views: "512K", img: "https://images.pexels.com/photos/26732199/pexels-photo-26732199.png" },
   { label: "Travel reel", views: "418K", img: "1476514525535-07fb3b4ae5f1" },
-  { label: "Recap", views: "187K", img: "1495020689067-958852a7765e" },
-  { label: "Trailer", views: "356K", img: "1489599849927-2ee91cede3ba" },
-  { label: "Tutorial", views: "204K", img: "1501504905252-473c47e087f8" },
+  { label: "Recap", views: "187K", img: "https://images.pexels.com/photos/29115158/pexels-photo-29115158.jpeg" },
+  { label: "Trailer", views: "356K", img: "https://images.pexels.com/photos/12317469/pexels-photo-12317469.jpeg" },
+  { label: "Tutorial", views: "204K", img: "https://images.pexels.com/photos/28962928/pexels-photo-28962928.jpeg" },
 ];
 
 export function Gallery() {
@@ -241,7 +227,7 @@ export function Gallery() {
             <Poster
               key={g.label}
               tone={toneAt(i)}
-              src={unsplash(g.img, 600)}
+              src={media(g.img, 600)}
               ratio="3 / 4"
               play
               label={g.label}
@@ -283,7 +269,7 @@ export function UseCases() {
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {USE_CASES.map((u, i) => (
             <div key={u.title} className="group overflow-hidden rounded-2xl border border-mk-border bg-mk-surface transition-colors hover:border-mk-borders">
-              <Poster src={unsplash(u.img, 800)} ratio="16 / 9" play className="rounded-none border-0 border-b border-mk-border" />
+              <Poster src={media(u.img, 800)} ratio="16 / 9" play className="rounded-none border-0 border-b border-mk-border" />
               <div className="flex items-start gap-3 p-5">
                 <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-mk-accent/10 text-mk-accent">
                   <Icon name={u.icon} className="size-4" />
@@ -398,11 +384,6 @@ export function CTA() {
 
 // ── AI Clips showcase: the repurposing pipeline, illustrated ──
 export function ClipsShowcase() {
-  const cards = [
-    { img: "1571019613454-1cb2f99b2d8b", score: 92, caption: ["the", "wild", "part", "is…"], r: "-7deg", lift: "" },
-    { img: "1504674900247-0877df9cc836", score: 88, caption: ["nobody", "talks", "about"], r: "0deg", lift: "-translate-y-4" },
-    { img: "1611162617213-7d7a39e9b1d7", score: 81, caption: ["here's", "the", "secret"], r: "7deg", lift: "" },
-  ];
   return (
     <Section id="clips" className="border-y border-mk-border bg-mk-surface/40">
       <Container>
@@ -412,52 +393,8 @@ export function ClipsShowcase() {
           sub="Paste a link. Riocut transcribes every word, scores the strongest moments, and hands back captioned vertical clips — scheduled and ready to post."
         />
         <div>
-          <div className="mt-14 grid items-center gap-10 md:grid-cols-[1fr_auto_1.2fr]">
-            {/* source */}
-            <div className="mx-auto w-full max-w-[340px]">
-              <div className="relative overflow-hidden rounded-2xl border border-mk-border shadow-2xl" style={{ aspectRatio: "16 / 9" }}>
-                <Poster src={unsplash("1478737270239-2f02b77fc618", 700)} ratio="16 / 9" className="absolute inset-0 w-full" />
-                <div className="absolute inset-0 grid place-items-center">
-                  <span className="grid size-12 place-items-center rounded-full bg-white/10 backdrop-blur">
-                    <Play className="ml-0.5 size-5 fill-white text-white" />
-                  </span>
-                </div>
-                <div className="absolute inset-x-4 bottom-3 h-1 overflow-hidden rounded-full bg-white/20">
-                  <div className="h-full w-1/3 rounded-full bg-mk-accent" />
-                </div>
-              </div>
-              <p className="mt-3 text-center text-sm text-mk-muted">Your 25-minute episode</p>
-            </div>
-
-            {/* arrow */}
-            <div className="mx-auto flex flex-col items-center gap-1 text-mk-accent">
-              <ArrowRight className="hidden size-6 md:block" />
-              <p className="w-28 text-center text-xs leading-tight text-mk-muted">AI finds the moments</p>
-            </div>
-
-            {/* clip fan */}
-            <div className="flex items-end justify-center gap-4">
-              {cards.map((c, i) => (
-                <div
-                  key={c.score}
-                  className={cn("mk-float relative h-56 w-32 overflow-hidden rounded-2xl border border-mk-border shadow-2xl", c.lift)}
-                  style={{ "--mk-r": c.r, animationDelay: `${i * 0.6}s` } as React.CSSProperties}
-                >
-                  <Poster src={unsplash(c.img, 400)} ratio="9 / 16" className="absolute inset-0 w-full" />
-                  <span className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold text-white">
-                    🔥 {c.score}
-                  </span>
-                  <span className="absolute inset-x-2 bottom-3 rounded-lg bg-black/60 px-2 py-1.5 text-center text-[10px] font-semibold leading-tight text-white">
-                    {c.caption.map((w, j) => (
-                      <span key={w} className={j === 1 ? "text-mk-accent" : ""}>
-                        {w}{" "}
-                      </span>
-                    ))}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
+          {/* Same looping animation as the in-app clips screen. */}
+          <ClipsFanAnimation className="mt-10" />
 
           <div className="mx-auto mt-12 flex max-w-3xl flex-wrap items-center justify-center gap-x-8 gap-y-3">
             {["AI moment selection", "Word-by-word captions", "Vertical reframing", "Virality scores", "Auto-schedule"].map((f) => (

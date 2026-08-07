@@ -40,6 +40,14 @@ def _products() -> dict[str, str]:
             "studio_l": settings.dodo_product_studio_l,
             "studio_xl": settings.dodo_product_studio_xl,
             "studio_max": settings.dodo_product_studio_max,
+            "plus_yearly": settings.dodo_product_plus_yearly,
+            "pro_yearly": settings.dodo_product_pro_yearly,
+            "ultra_yearly": settings.dodo_product_ultra_yearly,
+            "studio_s_yearly": settings.dodo_product_studio_s_yearly,
+            "studio_m_yearly": settings.dodo_product_studio_m_yearly,
+            "studio_l_yearly": settings.dodo_product_studio_l_yearly,
+            "studio_xl_yearly": settings.dodo_product_studio_xl_yearly,
+            "studio_max_yearly": settings.dodo_product_studio_max_yearly,
         }.items()
         if pid
     }
@@ -146,21 +154,22 @@ def handle_event(session: Session, event: dict, webhook_id: str) -> None:
     if ws is None:
         return
     if etype in ("subscription.active", "subscription.renewed"):
-        from apps.api.app.features.billing.plans import monthly_credits
+        from apps.api.app.features.billing.plans import base_tier, credits_for
 
         # Tier from our checkout metadata; fall back to matching the product id.
         tier = (data.get("metadata") or {}).get("tier")
         if tier not in _products():
             pid = data.get("product_id") or ""
             tier = next((t for t, p in _products().items() if p == pid), "pro")
-        ws.plan = tier
+        # Plan stores the base name (yearly is a billing interval, not a tier).
+        ws.plan = base_tier(tier)
         if data.get("subscription_id"):
             ws.subscription_id = data["subscription_id"]  # powers self-serve cancel
         session.add(ws)
-        grant = monthly_credits(tier)
+        grant = credits_for(tier)
         repository.add_credits(session, ws_id, grant)
         session.commit()
-        log.info("workspace %s -> %s (%s), +%s credits", ws_id, tier, etype, grant)
+        log.info("workspace %s -> %s (%s), +%s credits", ws_id, ws.plan, etype, grant)
     elif etype in (
         "subscription.on_hold",
         "subscription.failed",

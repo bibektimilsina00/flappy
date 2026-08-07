@@ -4,7 +4,7 @@ import { Check, Minus, Plus } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/cn";
 import { TOOL_TABS } from "../lib/content";
-import { Poster, unsplash } from "./media";
+import { media, Poster } from "./media";
 import { Button, Container, Section, SectionHeading } from "./ui";
 
 export function FeatureTabs() {
@@ -49,7 +49,7 @@ export function FeatureTabs() {
                         ))}
                       </ul>
                     </div>
-                    <Poster src={unsplash(t.img, 800)} label={t.media} ratio="4 / 3" play />
+                    <Poster src={media(t.img, 800)} label={t.media} ratio="4 / 3" play />
                   </div>
                 ) : null}
               </div>

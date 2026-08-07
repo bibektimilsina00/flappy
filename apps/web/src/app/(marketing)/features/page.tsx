@@ -1,10 +1,19 @@
 import { ArrowRight, Check } from "lucide-react";
 import type { Metadata } from "next";
-import { CTA, FEATURES, MODES, Icon, Poster, ProductMock, Button, Container, Section, SectionHeading } from "@/features/marketing";
+import Link from "next/link";
+import { Button, Container, CTA, FEATURE_PAGES, Icon, media, MODES, Poster, ProductMock, Section, SectionHeading } from "@/features/marketing";
 
 export const metadata: Metadata = {
   title: "Features",
-  description: "The node canvas, the magnetic timeline, and every AI model in one place.",
+  description: "The node canvas, the magnetic timeline, AI Clips, and every AI model in one place — prompt to finished video without switching apps.",
+  keywords: ["ai video editor", "node canvas", "magnetic timeline", "ai clips", "text to video", "image to video", "ai video studio"],
+  alternates: { canonical: "/features" },
+  openGraph: {
+    type: "website",
+    title: "Features · Riocut",
+    description: "A generation studio and an editor, fused — the node canvas, magnetic timeline, AI Clips, and every model in one place.",
+    url: "/features",
+  },
 };
 
 function Split({
@@ -78,7 +87,7 @@ export default function FeaturesPage() {
               "Connected captions, audio, and overlays",
               "Instant preview and clean MP4 export",
             ]}
-            media={<Poster tone="slate" label="Timeline editor" ratio="16 / 10" play />}
+            media={<Poster tone="slate" src={media("https://images.pexels.com/photos/1188751/pexels-photo-1188751.jpeg", 900)} label="Timeline editor" ratio="16 / 10" play />}
           />
         </Container>
       </Section>
@@ -100,16 +109,23 @@ export default function FeaturesPage() {
 
       <Section>
         <Container>
-          <SectionHeading eyebrow="And more" title="Details that add up." />
+          <SectionHeading eyebrow="Explore" title="Every feature, in depth." />
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map((f) => (
-              <div key={f.title} className="rounded-2xl border border-mk-border bg-mk-surface/50 p-6">
+            {FEATURE_PAGES.map((f) => (
+              <Link
+                key={f.slug}
+                href={`/features/${f.slug}`}
+                className="group rounded-2xl border border-mk-border bg-mk-surface/50 p-6 transition-colors hover:border-mk-borders"
+              >
                 <div className="mb-4 grid size-11 place-items-center rounded-xl border border-mk-border bg-mk-bg text-mk-accent">
                   <Icon name={f.icon} className="size-5" />
                 </div>
                 <h3 className="font-semibold text-mk-fg">{f.title}</h3>
-                <p className="mt-2 text-sm text-mk-muted">{f.desc}</p>
-              </div>
+                <p className="mt-2 text-sm text-mk-muted">{f.tagline}</p>
+                <span className="mt-4 flex items-center gap-1.5 text-sm font-medium text-mk-accent">
+                  Learn more <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+                </span>
+              </Link>
             ))}
           </div>
           <div className="mt-12 flex justify-center">

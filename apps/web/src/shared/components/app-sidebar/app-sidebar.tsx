@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Building2, CreditCard, Link2, SlidersHorizontal, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { cloneElement, isValidElement } from "react";
 import { getWorkspace } from "@/features/account";
 import { cn } from "@/lib/cn";
 import { FOOTER_NAV, LIBRARY_NAV, PRIMARY_NAV } from "@/shared/constants/navigation";
@@ -93,7 +94,9 @@ export function AppSidebar({
           ))}
         </NavSection>
 
-        {collapsed ? null : recentSlot}
+        {isValidElement<{ collapsed?: boolean }>(recentSlot)
+          ? cloneElement(recentSlot, { collapsed })
+          : recentSlot}
       </nav>
 
       <div className="space-y-0.5 px-2 py-3">
