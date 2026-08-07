@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { generateInProject, getExecution } from "../services/video-editor-api";
 
 export type GenBody = {
-  kind: "image" | "video";
+  kind: "image" | "video" | "audio";
   prompt: string;
   model?: string | null;
   params?: Record<string, unknown>;

@@ -15,6 +15,10 @@ def get_by_email(session: Session, email: str) -> User | None:
     return session.exec(select(User).where(User.email == email)).first()
 
 
+def get_by_clerk_id(session: Session, clerk_id: str) -> User | None:
+    return session.exec(select(User).where(User.clerk_id == clerk_id)).first()
+
+
 def add(session: Session, user: User) -> User:
     session.add(user)
     session.commit()

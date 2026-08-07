@@ -1,21 +1,32 @@
 "use client";
 
 import {
-  ArrowLeft,
-  Check,
   Cloud,
+  Copy,
   Download,
+  History,
   Loader2,
+  MoreHorizontal,
   Redo2,
   Settings,
   Undo2,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { toast } from "sonner";
 import { cn } from "@/lib/cn";
+import { addToBrandKit, chromaKeyClip, detachClipAudio, duplicateProject, enhanceClipAudio, getExecution, importUrl, listExecutionAssets, magicBroll, magicCutClip, removeClipBackground, saveTemplate, startClipOp, startDub, startTalkingCharacter, startTransitionMorph } from "../services/video-editor-api";
 import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
 import { ExportPanel } from "../components/export-panel/export-panel";
 import { Inspector } from "../components/inspector/inspector";
 import { CATEGORIES, LeftPanel, RailBtn } from "../components/left-panel/left-panel";
+import { AiPlayground } from "../components/ai-playground/ai-playground";
+import { AnimationsPanel } from "../components/animations-panel/animations-panel";
+import { ClipToolbar } from "../components/clip-toolbar/clip-toolbar";
+import { TransitionsPanel } from "../components/transitions-panel/transitions-panel";
+import { VersionHistory } from "../components/version-history/version-history";
 import { resolveAspect } from "../components/preview/aspect-presets";
 import { AspectMenu, BackgroundMenu, Preview } from "../components/preview/preview";
 import { Timeline } from "../components/timeline/timeline";
@@ -26,12 +37,125 @@ import {
   removeClips,
   removeTrack,
   splitClip,
+  updateClip,
   updateTrack,
 } from "../lib/doc-ops";
 import type { Clip, Track } from "../types";
 
 const ACCENT = "#14b8a6";
 const CARD = "rounded-xl border border-border bg-card shadow-sm";
+
+// Poll an async clip-op execution to completion, then return its produced asset.
+// (Slow ML ops — e.g. video matting — can take minutes; cap the wait.)
+async function pollExecutionAsset(executionId: string) {
+  for (let i = 0; i < 200; i++) {
+    const ex = await getExecution(executionId);
+    if (ex.status === "completed") {
+      const assets = await listExecutionAssets(executionId);
+      if (!assets.length) throw new Error("The job finished but produced no output");
+      return assets[0];
+    }
+    if (ex.status === "failed") throw new Error(ex.error || "Background removal failed");
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+  throw new Error("Timed out — try again");
+}
+
+const PROJECT_MENU = [
+  { label: "Duplicate Project", icon: Copy },
+  { label: "Save as Template", icon: Download },
+  { label: "Version History", icon: History },
+] as const;
+
+// Project "…" menu in the top bar.
+function ProjectMenu({ onDuplicate, onVersionHistory, onSaveTemplate }: { onDuplicate: () => void; onVersionHistory: () => void; onSaveTemplate: () => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="grid size-7 place-items-center rounded text-white hover:bg-white/10"
+        title="Project options"
+      >
+        <MoreHorizontal className="size-4" />
+      </button>
+      {open ? (
+        <div className="absolute left-0 top-full z-50 mt-1.5 w-52 rounded-xl border border-white/10 bg-[#161824] p-1.5 shadow-2xl">
+          {PROJECT_MENU.map(({ label, icon: Icon }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                if (label === "Duplicate Project") onDuplicate();
+                else if (label === "Version History") onVersionHistory();
+                else if (label === "Save as Template") onSaveTemplate();
+              }}
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium text-white/80 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              <Icon className="size-4" /> {label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+const FPS_OPTIONS = [24, 30, 60];
+
+// Project settings popover (bottom bar) — currently just frame rate, which
+// nothing else exposes. Opens upward since it lives at the canvas footer.
+function SettingsMenu({ fps, onFps }: { fps: number; onFps: (v: number) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+      >
+        <Settings className="size-4" />
+        Settings
+      </button>
+      {open ? (
+        <div className="absolute bottom-full right-0 z-50 mb-1.5 w-44 rounded-xl border border-border bg-card p-2 shadow-2xl">
+          <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Frame rate</p>
+          <div className="flex gap-1">
+            {FPS_OPTIONS.map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => {
+                  onFps(f);
+                  setOpen(false);
+                }}
+                className={cn("flex-1 rounded-md py-1.5 text-xs font-medium transition-colors", fps === f ? "bg-[#14b8a6] text-white" : "bg-secondary text-muted-foreground hover:bg-accent")}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export function VideoEditorPage({ projectId }: { projectId: string }) {
   const page = useVideoEditorPage(projectId);
@@ -64,6 +188,13 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
     setAspect,
     splitSelected,
     addTextClip,
+    addShapeClip,
+    addSubtitleClips,
+    addImportedClip,
+    addBrollClips,
+    addMorphClip,
+    addDubClip,
+    detachAudioClip,
     doImport,
     dropAsset,
     setupKeybindings,
@@ -95,6 +226,146 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
 
   const [aspectKey, setAspectKey] = useState<string | null>(null);
   const [showOverlay, setShowOverlay] = useState(true);
+  const qc = useQueryClient();
+  const router = useRouter();
+  const duplicate = async () => {
+    const { workflow_id } = await duplicateProject(projectId);
+    router.push(`/video-editor?project=${workflow_id}`);
+  };
+  const saveAsTemplate = async () => {
+    const name = window.prompt("Template name", project?.title || "Untitled")?.trim();
+    if (name === undefined) return;
+    try {
+      const t = await saveTemplate(projectId, name || undefined);
+      toast.success(`Saved "${t.name}" to Templates`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't save template");
+    }
+  };
+  const enhanceSelected = async (op: "denoise" | "remove_silences" | "chroma_key" | "magic_cut" | "remove_bg" | "eye_contact" | "face_filter" | "background_expand" | "magic_broll" | "dub") => {
+    if (!selectedClip || !doc) return;
+    try {
+      // AI Dubbing: transcribe → translate → TTS (async), then place audio + mute original.
+      if (op === "dub") {
+        const lang = window.prompt("Dub to which language?", "Spanish")?.trim();
+        if (!lang) return;
+        const { execution_id, source_clip_id, start, duration } = await startDub(projectId, selectedClip.id, lang);
+        const asset = await pollExecutionAsset(execution_id);
+        await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
+        addDubClip(asset.id, start, duration, source_clip_id);
+        toast.success(`Dubbed to ${lang}`);
+        return;
+      }
+      // Magic B-Roll transcribes → fetches stock photos → inserts NEW overlay clips.
+      if (op === "magic_broll") {
+        const { items } = await magicBroll(projectId, selectedClip.id);
+        await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
+        if (!items.length) {
+          toast.error("Couldn't find b-roll for this clip");
+          return;
+        }
+        addBrollClips(items.map((i) => ({ assetId: i.asset_id, start: i.start, duration: i.duration })));
+        toast.success(`Added ${items.length} b-roll clip${items.length > 1 ? "s" : ""}`);
+        return;
+      }
+      // Slow ML video ops run async on the worker → dispatch, poll, then swap.
+      const asyncOp =
+        op === "eye_contact" ? "eye_contact" : op === "face_filter" ? "face_filter" : op === "background_expand" ? "background_expand" : op === "remove_bg" && selectedClip.kind === "video" ? "remove_bg_video" : null;
+      if (asyncOp) {
+        const { execution_id } = await startClipOp(projectId, selectedClip.id, asyncOp);
+        const asset = await pollExecutionAsset(execution_id);
+        await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
+        const dur = selectedClip.duration;
+        commit(updateClip(doc, selectedClip.id, { assetId: asset.id, in: 0, out: dur, duration: dur }));
+        return;
+      }
+      const r =
+        op === "chroma_key"
+          ? await chromaKeyClip(projectId, selectedClip.id)
+          : op === "magic_cut"
+            ? await magicCutClip(projectId, selectedClip.id)
+            : op === "remove_bg"
+              ? await removeClipBackground(projectId, selectedClip.id)
+              : op === "eye_contact" || op === "face_filter" || op === "background_expand"
+                ? null // unreachable: these always go through the async path above
+                : await enhanceClipAudio(projectId, selectedClip.id, op);
+      if (!r) return;
+      await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
+      const dur = r.duration || selectedClip.duration;
+      commit(updateClip(doc, selectedClip.id, { assetId: r.asset_id, in: 0, out: dur, duration: dur }));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "That didn't work — try again");
+    }
+  };
+  const detachSelected = async () => {
+    if (!selectedClip) return;
+    const r = await detachClipAudio(projectId, selectedClip.id);
+    await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
+    detachAudioClip(selectedClip.id, r.asset_id);
+  };
+  const addStock = async (url: string, kind: string) => {
+    try {
+      const r = await importUrl(projectId, url, kind);
+      await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
+      addImportedClip(r.id, r.kind, playhead);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't add that clip");
+    }
+  };
+  // Talking character: portrait + script → talking-head video, dropped at the playhead.
+  // Throws on failure so the composer can surface the error; toasts on success.
+  const generateTalkingCharacter = async (imageUrl: string, script: string, voice: string) => {
+    const { execution_id } = await startTalkingCharacter(projectId, imageUrl, script, voice);
+    const asset = await pollExecutionAsset(execution_id);
+    await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
+    addImportedClip(asset.id, "video", playhead);
+    toast.success("Talking character added");
+  };
+  // AI transition morph: generate between two clips, poll, then drop at the boundary.
+  const generateMorph = async (fromId: string, toId: string, prompt: string) => {
+    const { execution_id, start } = await startTransitionMorph(projectId, fromId, toId, prompt);
+    const asset = await pollExecutionAsset(execution_id);
+    await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
+    addMorphClip(asset.id, start);
+    toast.success("Transition added");
+  };
+  const videoClips = useMemo(() => {
+    const vids = (doc?.tracks.flatMap((t) => t.clips) ?? []).filter((c) => c.kind === "video");
+    vids.sort((a, b) => a.start - b.start);
+    return vids.map((c, i) => ({ id: c.id, label: `Clip ${i + 1}` }));
+  }, [doc]);
+  const saveToBrandKit = async () => {
+    const clip = selectedClip;
+    if (!clip) return;
+    if (clip.assetId) await addToBrandKit({ kind: clip.kind, workflow_id: projectId, asset_id: clip.assetId });
+    else if (clip.kind === "text" && clip.text?.fontFamily) await addToBrandKit({ kind: "font", font: clip.text.fontFamily });
+    else if (clip.kind === "text" && clip.text?.color) await addToBrandKit({ kind: "color", color: clip.text.color });
+    else return;
+    qc.invalidateQueries({ queryKey: ["brand-kit"] });
+    toast.success("Saved to Brand Kit");
+  };
+  const applyFont = (family: string) => {
+    if (!doc || !selectedClip || selectedClip.kind !== "text") {
+      toast.error("Select a text clip first");
+      return;
+    }
+    commit(updateClip(doc, selectedClip.id, { text: { ...(selectedClip.text ?? { content: "" }), fontFamily: family } }));
+  };
+  const [playgroundOpen, setPlaygroundOpen] = useState(false);
+  const [playgroundMode, setPlaygroundMode] = useState("text-to-video");
+  const [versionsOpen, setVersionsOpen] = useState(false);
+  const openPlayground = (mode: string) => {
+    setPlaygroundMode(mode);
+    setPlaygroundOpen(true);
+  };
+  // which clip sub-panel the left rail shows: the full inspector, or the
+  // animations / transitions pickers opened from the floating toolbar.
+  const [clipView, setClipView] = useState<"inspector" | "animations" | "transitions">("inspector");
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset the sub-view when a different clip is picked
+  useEffect(() => setClipView("inspector"), [selectedClip?.id]);
+  // Editor actions live in the global top bar (portaled), so the editor itself is taller.
+  const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => setHeaderSlot(document.getElementById("app-header-slot")), []);
 
   // Keybindings listener setup
   useEffect(() => {
@@ -142,73 +413,62 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-background text-foreground select-none">
-      {/* ── top bar ── */}
-      <header className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-card px-4">
-        <div className="flex items-center gap-3">
-          <a
-            href="/dashboard"
-            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            <ArrowLeft className="size-4" /> Exit
-          </a>
-          <span className="h-4 w-px bg-border" />
-          <input
-            type="text"
-            value={project.title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="rounded px-2 py-1 text-sm font-semibold bg-transparent outline-none hover:bg-accent focus:bg-accent"
-          />
-          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-            {saveState === "saving" ? (
-              <>
-                <Cloud className="size-3 animate-pulse text-[#14b8a6]" /> Saving…
-              </>
-            ) : saveState === "saved" ? (
-              <>
-                <Check className="size-3 text-[#14b8a6]" /> Saved
-              </>
-            ) : null}
-          </span>
-        </div>
+      {/* Editor actions portaled into the global top bar (no separate editor header). */}
+      {headerSlot &&
+        createPortal(
+          <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <Cloud
+                className={cn(
+                  "size-4 shrink-0",
+                  saveState === "saving" ? "animate-pulse text-[#14b8a6]" : saveState === "saved" ? "text-[#14b8a6]" : "text-muted-foreground",
+                )}
+              />
+              <input
+                type="text"
+                value={project.title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-40 min-w-0 rounded bg-transparent px-2 py-1 text-sm font-semibold text-white outline-none hover:bg-white/10 focus:bg-white/10"
+              />
+              <ProjectMenu onDuplicate={duplicate} onVersionHistory={() => setVersionsOpen(true)} onSaveTemplate={saveAsTemplate} />
+              <span className="mx-1 h-4 w-px shrink-0 bg-white/15" />
+              <button
+                type="button"
+                onClick={undo}
+                disabled={!canUndo}
+                className="grid size-7 shrink-0 place-items-center rounded text-white hover:bg-white/10 disabled:opacity-30"
+                title="Undo (Cmd+Z)"
+              >
+                <Undo2 className="size-4" />
+              </button>
+              <button
+                type="button"
+                onClick={redo}
+                disabled={!canRedo}
+                className="grid size-7 shrink-0 place-items-center rounded text-white hover:bg-white/10 disabled:opacity-30"
+                title="Redo (Cmd+Shift+Z)"
+              >
+                <Redo2 className="size-4" />
+              </button>
+            </div>
 
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-0.5 rounded-lg border border-border bg-secondary/50 p-0.5">
             <button
               type="button"
-              onClick={undo}
-              disabled={!canUndo}
-              className="grid size-7 place-items-center rounded hover:bg-accent disabled:opacity-30"
-              title="Undo (Cmd+Z)"
+              onClick={() => setExporting(true)}
+              className="flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+              style={{ backgroundColor: ACCENT }}
             >
-              <Undo2 className="size-3.5" />
+              <Download className="size-3.5" /> Export & Publish
             </button>
-            <button
-              type="button"
-              onClick={redo}
-              disabled={!canRedo}
-              className="grid size-7 place-items-center rounded hover:bg-accent disabled:opacity-30"
-              title="Redo (Cmd+Shift+Z)"
-            >
-              <Redo2 className="size-3.5" />
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setExporting(true)}
-            className="flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
-            style={{ backgroundColor: ACCENT }}
-          >
-            <Download className="size-3.5" /> Export & Publish
-          </button>
-        </div>
-      </header>
+          </div>,
+          headerSlot,
+        )}
 
       {/* ── main editor layout ── */}
       <div className="flex min-h-0 flex-1 flex-col gap-2 p-2 pb-2.5">
         <div className="flex min-h-0 flex-1 gap-2">
         {/* left sidebar: rail navigation + category panel */}
-        <aside className={cn(CARD, "flex min-h-0 shrink-0 overflow-hidden transition-[width] duration-200", showLeftPanel ? "w-80" : "w-16")}>
+        <aside className={cn(CARD, "relative z-10 flex min-h-0 shrink-0 overflow-hidden transition-[width] duration-200", showLeftPanel ? "w-[30rem]" : "w-16")}>
           <input
             ref={importInput}
             type="file"
@@ -245,15 +505,40 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
           {/* content — clip inspector when something's selected, else category panel */}
           {showLeftPanel ? (
             selectedClip ? (
-              <Inspector
-                key={selectedClip.id}
-                clip={selectedClip}
-                doc={doc}
-                startGesture={startGesture}
-                preview={preview}
-                endGesture={endGesture}
-                onClose={() => setSelection(new Set())}
-              />
+              clipView === "animations" ? (
+                <AnimationsPanel
+                  clip={selectedClip}
+                  onApply={(tab, preset) => commit(updateClip(doc, selectedClip.id, { animations: { ...selectedClip.animations, [tab]: preset } }))}
+                  onBack={() => setClipView("inspector")}
+                />
+              ) : clipView === "transitions" ? (
+                <TransitionsPanel
+                  clip={selectedClip}
+                  onApply={(preset) => commit(updateClip(doc, selectedClip.id, { transition: preset }))}
+                  onBack={() => setClipView("inspector")}
+                  videoClips={videoClips}
+                  onGenerateMorph={generateMorph}
+                />
+              ) : (
+                <Inspector
+                  key={selectedClip.id}
+                  clip={selectedClip}
+                  doc={doc}
+                  startGesture={startGesture}
+                  preview={preview}
+                  endGesture={endGesture}
+                  onClose={() => setSelection(new Set())}
+                  onDelete={() => {
+                    commit(removeClips(doc, new Set([selectedClip.id])));
+                    setSelection(new Set());
+                  }}
+                  onAddText={() => addTextClip("Text", playhead)}
+                  onEnhance={enhanceSelected}
+                  assets={assets}
+                  onReplace={(assetId) => commit(updateClip(doc, selectedClip.id, { assetId }))}
+                  onDetachAudio={detachSelected}
+                />
+              )
             ) : (
               <LeftPanel
                 category={leftCat}
@@ -261,9 +546,18 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
                 assets={assets}
                 onImport={() => importInput.current?.click()}
                 importing={importing}
-                onAddText={(content) => addTextClip(content, playhead)}
+                onAddText={(content, style) => addTextClip(content, playhead, style)}
+                onAddShape={(type, color) => addShapeClip({ type, color }, playhead)}
+                onAddSubtitles={addSubtitleClips}
+                onAddStock={addStock}
+                onTalkingCharacter={generateTalkingCharacter}
+                onApplyFont={applyFont}
+                onSetBackground={(bg) => doc && commit({ ...doc, background: bg })}
                 projectId={projectId}
                 selectedClip={selectedClip}
+                onOpenPlayground={openPlayground}
+                onDub={() => enhanceSelected("dub")}
+                onOpenTransitions={() => setClipView("transitions")}
               />
             )
           ) : null}
@@ -273,27 +567,54 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex min-h-0 flex-1 gap-2">
             {/* center preview */}
-            <main className={cn(CARD, "flex min-w-0 flex-1 flex-col gap-3 p-4")}>
-              <Preview doc={doc} urlOf={urlOf} playhead={playhead} playing={playing} overlay={!!(aspect?.overlay && showOverlay)} />
+            <main className={cn(CARD, "relative z-0 flex min-w-0 flex-1 flex-col gap-2 p-2")}>
+              <Preview
+                doc={doc}
+                urlOf={urlOf}
+                playhead={playhead}
+                playing={playing}
+                overlay={showOverlay ? (aspect?.overlay ?? undefined) : undefined}
+                selectedClip={selectedClip}
+                startGesture={startGesture}
+                preview={preview}
+                endGesture={endGesture}
+                onSelect={(id) => setSelection(new Set([id]))}
+              />
               <div className="flex shrink-0 items-center justify-center">
-                <div className="flex items-center gap-0.5 rounded-xl border border-border bg-card p-1">
-                  <AspectMenu
+                {selectedClip ? (
+                  <ClipToolbar
+                    clip={selectedClip}
                     doc={doc}
-                    selectedKey={aspectKey}
-                    onSelect={(key, w, h) => {
-                      setAspectKey(key);
-                      setAspect(w, h);
+                    startGesture={startGesture}
+                    preview={preview}
+                    endGesture={endGesture}
+                    onOpenAnimations={() => setClipView("animations")}
+                    onOpenTransitions={() => setClipView("transitions")}
+                    onGenerateVideo={() => openPlayground("text-to-video")}
+                    onSaveToBrandKit={saveToBrandKit}
+                    onDuplicate={() => commit(duplicateClip(doc, selectedClip.id))}
+                    onDelete={() => {
+                      commit(removeClips(doc, new Set([selectedClip.id])));
+                      setSelection(new Set());
                     }}
-                    showOverlay={showOverlay}
-                    onToggleOverlay={() => setShowOverlay((v) => !v)}
                   />
-                  <span className="mx-0.5 h-5 w-px bg-border" />
-                  <BackgroundMenu doc={doc} onChange={(color) => commit({ ...doc, background: color })} />
-                  <button type="button" className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground">
-                    <Settings className="size-4" />
-                    Settings
-                  </button>
-                </div>
+                ) : (
+                  <div className="flex items-center gap-0.5 rounded-xl border border-border bg-card p-1">
+                    <AspectMenu
+                      doc={doc}
+                      selectedKey={aspectKey}
+                      onSelect={(key, w, h) => {
+                        setAspectKey(key);
+                        setAspect(w, h);
+                      }}
+                      showOverlay={showOverlay}
+                      onToggleOverlay={() => setShowOverlay((v) => !v)}
+                    />
+                    <span className="mx-0.5 h-5 w-px bg-border" />
+                    <BackgroundMenu doc={doc} onChange={(color) => commit({ ...doc, background: color })} assets={assets} urlOf={urlOf} />
+                    <SettingsMenu fps={doc.fps} onFps={(f) => commit({ ...doc, fps: f })} />
+                  </div>
+                )}
               </div>
             </main>
           </div>
@@ -369,6 +690,11 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
           onClose={() => setExporting(false)}
         />
       ) : null}
+
+      {/* ── AI generation playground ── */}
+      <AiPlayground open={playgroundOpen} onClose={() => setPlaygroundOpen(false)} initialMode={playgroundMode} projectId={projectId} />
+
+      <VersionHistory open={versionsOpen} onClose={() => setVersionsOpen(false)} projectId={projectId} doc={doc} onRestore={(d) => commit(d)} />
 
       {/* dragged floating clip ghost */}
       {drag?.kind === "move" && drag.grab && dragPos

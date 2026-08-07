@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession } from "@/stores/session";
+import { useClerk } from "@clerk/nextjs";
 import { AccountTab } from "../components/account-tab";
 import { BillingTab } from "../components/billing-tab";
 import { ConnectionsTab } from "../components/connections-tab";
@@ -16,7 +16,7 @@ const HEADERS: Record<string, { title: string; sub: string }> = {
 };
 
 export function SettingsContent({ tab }: { tab: string }) {
-  const clear = useSession((s) => s.clear);
+  const { signOut } = useClerk();
   const h = HEADERS[tab] ?? HEADERS.account;
 
   return (
@@ -26,13 +26,13 @@ export function SettingsContent({ tab }: { tab: string }) {
         <a href="/dashboard" className="transition-colors hover:text-foreground">
           Home page
         </a>
-        <a
-          href="/login"
-          onClick={() => clear()}
+        <button
+          type="button"
+          onClick={() => signOut({ redirectUrl: "/login" })}
           className="transition-colors hover:text-foreground"
         >
           Sign out
-        </a>
+        </button>
       </div>
 
       <h1 className="mt-4 text-2xl font-bold tracking-tight">{h.title}</h1>

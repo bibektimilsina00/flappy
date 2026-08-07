@@ -7,13 +7,12 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import Session
 
 from apps.api.app.core.database import get_session  # re-exported for routers
-from apps.api.app.core.security import decode_token
-from apps.api.app.features.users import repository as users_repo
 from apps.api.app.features.users.models import User
 from apps.api.app.features.workspaces import repository as workspaces_repo
 
 __all__ = ["current_workspace_id", "get_current_user", "get_session"]
 
+# tokenUrl is nominal — Clerk issues tokens, the backend only verifies them.
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 _CREDENTIALS_ERROR = HTTPException(
@@ -23,15 +22,26 @@ _CREDENTIALS_ERROR = HTTPException(
 )
 
 
+def user_from_token(session: Session, token: str) -> User | None:
+    """Resolve a Clerk session JWT to an active local user (creating/linking on
+    first sight). Returns None on any invalid/expired token. Shared by the HTTP
+    dep + the executions WebSocket."""
+    from apps.api.app.core import clerk as clerk_svc
+    from apps.api.app.features.auth import service as auth_service
+
+    claims = clerk_svc.verify_session_token(token)
+    if not (claims and claims.get("sub")):
+        return None
+    user = auth_service.sync_clerk_user(session, claims["sub"])
+    return user if user.is_active else None
+
+
 def get_current_user(
     token: str = Depends(oauth2_scheme),
     session: Session = Depends(get_session),
 ) -> User:
-    subject = decode_token(token)
-    if subject is None:
-        raise _CREDENTIALS_ERROR
-    user = users_repo.get(session, uuid.UUID(subject))
-    if user is None or not user.is_active:
+    user = user_from_token(session, token)
+    if user is None:
         raise _CREDENTIALS_ERROR
     return user
 

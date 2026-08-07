@@ -23,17 +23,36 @@ class Settings(BaseSettings):
     api_base_url: str = ""
     frontend_url: str = ""
 
-    # OAuth
+    # Clerk auth — the backend verifies Clerk session JWTs (issuer/JWKS are derived
+    # from the publishable key); the secret key is used to look up a user's email.
+    clerk_publishable_key: str = ""
+    clerk_secret_key: str = ""
+
+    # OAuth (social publishing — Google/YouTube)
     google_client_id: str = ""
     google_client_secret: str = ""
-    discord_client_id: str = ""
-    discord_client_secret: str = ""
 
     # Generation provider keys
     gemini_api_key: str = ""
     openai_api_key: str = ""
     open_router_api_key: str = ""
     replicate_api_key: str = ""
+
+    # Stock media search (editor). Empty = stock search disabled (curated tiles only).
+    pexels_api_key: str = ""
+    # Editor "Eye Contact" gaze-correction Replicate model ("owner/name"). Empty =
+    # the effect stays disabled (no canonical default model exists).
+    eye_contact_model: str = ""
+    # Editor "Face Filter" face-touchup Replicate model ("owner/name"). Empty = off.
+    face_filter_model: str = ""
+    # Editor "AI Background Expand" outpainting Replicate model ("owner/name"). Empty = off.
+    background_expand_model: str = ""
+    # Editor "AI Transition" morph model ("owner/name"); must accept image_1/image_2
+    # (+ optional prompt) and output a video. Empty = the feature stays disabled.
+    transition_morph_model: str = ""
+    # Editor "Talking Characters" model ("owner/name"); must accept image + text and
+    # output a talking-head video. Empty = the feature stays disabled.
+    talking_character_model: str = ""
 
     # Spend guardrail (real provider USD). 0 disables the daily cap.
     daily_spend_cap_usd: float = 0.0

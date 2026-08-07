@@ -1,4 +1,4 @@
-import { useSession } from "@/stores/session";
+import { authToken } from "@/lib/auth-token";
 
 // Gateway errors that mean "backend momentarily unreachable" — normal during a
 // deploy while the api container restarts. We retry these silently so an active
@@ -21,7 +21,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const idempotent = method === "GET" || method === "HEAD";
 
   for (let attempt = 0; ; attempt++) {
-    const token = useSession.getState().token;
+    const token = await authToken();
     // Active workspace (workspace switcher). Absent -> backend uses the first owned one.
     const wsId = typeof window !== "undefined" ? localStorage.getItem("active-workspace") : null;
 
@@ -53,8 +53,10 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
       continue;
     }
 
-    if (res.status === 401) useSession.getState().clear();
-
+    // Don't force sign-out on a 401 — Clerk owns session state, and its token can
+    // momentarily be unavailable right after sign-in. Signing out here turned a
+    // transient 401 into a login bounce. Let the error surface; AuthGuard handles
+    // an actually-ended session.
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as { detail?: string } | null;
       throw new Error(body?.detail ?? `${res.status} ${res.statusText}`);

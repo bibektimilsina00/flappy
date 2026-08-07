@@ -4,11 +4,24 @@ import { ChevronDown, Monitor, Smartphone } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
-import type { VideoEditorDoc } from "../../types";
+import { animate } from "../../lib/animation-engine";
+import type { Clip, VideoEditorAsset, VideoEditorDoc } from "../../types";
 import { ASPECT_PRESETS, RATIO_PRESETS, RatioIcon, resolveAspect } from "./aspect-presets";
+import { CanvasSelection } from "./canvas-selection";
 import { usePreview } from "./hooks/use-preview";
+import { type OverlayKind, PlatformOverlay } from "./platform-overlays";
 
 const ACCENT = "#14b8a6";
+
+// A clip's transition renders as an alpha fade-in over its first ~0.6s — a
+// crossfade with whatever shows through beneath. Matches render.py's ffmpeg fade.
+function txFade(clip: Clip, playhead: number): number {
+  const tr = clip.transition;
+  if (!tr || tr === "None") return 1;
+  const d = Math.min(0.6, clip.duration / 2);
+  const dt = playhead - clip.start;
+  return dt >= d ? 1 : Math.max(0, dt / d);
+}
 
 export function Preview({
   doc,
@@ -16,59 +29,133 @@ export function Preview({
   playhead,
   playing,
   overlay,
+  selectedClip,
+  startGesture,
+  preview,
+  endGesture,
+  onSelect,
 }: {
   doc: VideoEditorDoc;
   urlOf: (id?: string) => string | undefined;
   playhead: number;
   playing: boolean;
-  overlay?: boolean;
+  overlay?: OverlayKind;
+  selectedClip?: Clip | null;
+  startGesture?: () => void;
+  preview?: (d: VideoEditorDoc) => void;
+  endGesture?: (changed?: boolean) => void;
+  onSelect?: (id: string) => void;
 }) {
+  // Click a clip on the canvas to select it. Only unselected clips are clickable —
+  // the selected clip stays pointer-transparent so its drag overlay catches events.
+  const selId = selectedClip?.id;
+  const clickable = (id: string) => !!onSelect && id !== selId;
+  const peClass = (id: string) => (clickable(id) ? "pointer-events-auto cursor-pointer" : "pointer-events-none");
+  const onPick = (id: string) => (e: React.PointerEvent) => {
+    e.stopPropagation();
+    onSelect?.(id);
+  };
   const { fitCb, bw, bh, layers, textLayers, setRef } = usePreview(doc, playhead, playing);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const editable = selectedClip && selectedClip.kind !== "audio" && startGesture && preview && endGesture;
 
   return (
     <div ref={fitCb} className="flex min-h-0 w-full flex-1 items-center justify-center">
       <div
-        className="relative overflow-hidden rounded-lg"
-        style={{
-          backgroundColor: doc.background || "#000000",
-          ...(bw ? { width: bw, height: bh } : { aspectRatio: `${doc.width} / ${doc.height}`, maxWidth: "100%", maxHeight: "100%" }),
-        }}
+        ref={boxRef}
+        className="relative"
+        style={bw ? { width: bw, height: bh } : { aspectRatio: `${doc.width} / ${doc.height}`, maxWidth: "100%", maxHeight: "100%" }}
       >
-        {layers.visual.length === 0 ? (
-          <div className="grid size-full place-items-center text-sm text-muted-foreground">Drop media on the timeline to preview</div>
-        ) : (
+        {/* clipped content layer — handles below overflow it, so they must sit outside this */}
+        <div
+          className="absolute inset-0 overflow-hidden rounded-lg bg-cover bg-center"
+          style={(() => {
+            const bg = doc.background || "#000000";
+            const bgUrl = bg.startsWith("asset:") ? urlOf(bg.slice(6)) : undefined;
+            return bgUrl ? { backgroundImage: `url(${bgUrl})` } : { backgroundColor: bg.startsWith("asset:") ? "#000000" : bg };
+          })()}
+        >
+        {layers.visual.length === 0 ? null : (
           layers.visual
             .filter((l) => l.clip.kind !== "text")
             .map(({ clip, z }) => {
               const url = urlOf(clip.assetId);
               const t = clip.transform;
+              const a = animate(clip, playhead);
+              if (clip.kind === "shape" && clip.shape) {
+                const size = (bw || 300) * 0.4;
+                return (
+                  <div
+                    key={clip.id}
+                    onPointerDown={clickable(clip.id) ? onPick(clip.id) : undefined}
+                    className={cn(peClass(clip.id), "absolute left-1/2 top-1/2")}
+                    style={{
+                      zIndex: t.z ?? z,
+                      opacity: t.opacity * a.opacity * txFade(clip, playhead),
+                      width: size,
+                      height: size,
+                      transform: `translate(-50%, -50%) translate(${t.x + a.dx * bw}px, ${t.y + a.dy * bh}px) scale(${t.scale * a.scale * (t.flipH ? -1 : 1)}, ${t.scale * a.scale * (t.flipV ? -1 : 1)}) rotate(${t.rotation + a.rotate}deg)`,
+                    }}
+                  >
+                    <ShapeSvg type={clip.shape.type} color={clip.shape.color} />
+                  </div>
+                );
+              }
+              const sx = t.scale * a.scale * (t.flipH ? -1 : 1);
+              const sy = t.scale * a.scale * (t.flipV ? -1 : 1);
               const style = {
-                zIndex: z,
-                opacity: t.opacity,
-                transform: `translate(${t.x}px, ${t.y}px) scale(${t.scale}) rotate(${t.rotation}deg)`,
+                zIndex: t.z ?? z,
+                opacity: t.opacity * a.opacity * txFade(clip, playhead),
+                transform: `translate(${t.x + a.dx * bw}px, ${t.y + a.dy * bh}px) scale(${sx}, ${sy}) rotate(${t.rotation + a.rotate}deg)`,
+                borderRadius: t.radius ? `${t.radius}px` : undefined,
               } as const;
+              const fitCls = t.fit === "cover" ? "object-cover" : "object-contain";
               if (clip.kind === "video" && url) {
                 return (
                   // biome-ignore lint/a11y/useMediaCaption: editor preview
-                  <video key={clip.id} ref={setRef(clip.id)} src={url} muted={clip.volume === 0} playsInline preload="auto" className="absolute inset-0 size-full object-contain" style={style} />
+                  <video key={clip.id} ref={setRef(clip.id)} src={url} muted={clip.volume === 0} playsInline preload="auto" onPointerDown={clickable(clip.id) ? onPick(clip.id) : undefined} className={cn("absolute inset-0 size-full", fitCls, peClass(clip.id))} style={style} />
                 );
               }
               return url ? (
                 // biome-ignore lint/a11y/useAltText: editor preview
-                <img key={clip.id} src={url} className="absolute inset-0 size-full object-contain" style={style} />
+                <img key={clip.id} src={url} onPointerDown={clickable(clip.id) ? onPick(clip.id) : undefined} className={cn("absolute inset-0 size-full", fitCls, peClass(clip.id))} style={style} />
               ) : null;
             })
         )}
 
-        {/* text as caption pill (bottom-centered) */}
+        {/* text — positioned + styled per clip */}
         {textLayers.length ? (
-          <div className="pointer-events-none absolute inset-x-0 bottom-6 z-40 flex flex-col items-center gap-1.5 px-4">
-            {textLayers.map(({ clip }) => (
-              <span key={clip.id} className="rounded bg-black/70 px-3 py-1.5 text-center text-sm font-medium text-white" style={{ opacity: clip.transform.opacity }}>
-                {clip.text?.content}
-              </span>
-            ))}
-          </div>
+          <>
+            {textLayers.map(({ clip, z }) => {
+              const t = clip.transform;
+              const ts = clip.text;
+              const a = animate(clip, playhead);
+              const fontScale = bw && doc.width ? bw / doc.width : 1;
+              return (
+                <div
+                  key={clip.id}
+                  data-clip={clip.id}
+                  onPointerDown={clickable(clip.id) ? onPick(clip.id) : undefined}
+                  className={cn(peClass(clip.id), "absolute left-1/2 top-1/2 max-w-[92%] whitespace-pre-wrap break-words")}
+                  style={{
+                    zIndex: (t.z ?? z) + 40,
+                    opacity: t.opacity * a.opacity * txFade(clip, playhead),
+                    color: ts?.color ?? "#ffffff",
+                    fontFamily: ts?.fontFamily ?? "Inter, system-ui, sans-serif",
+                    fontSize: (ts?.fontSize ?? 48) * fontScale,
+                    fontWeight: ts?.bold ? 700 : 400,
+                    fontStyle: ts?.italic ? "italic" : "normal",
+                    textAlign: ts?.align ?? "center",
+                    lineHeight: ts?.lineHeight ?? 1.2,
+                    letterSpacing: `${(ts?.letterSpacing ?? 0) * fontScale}px`,
+                    transform: `translate(-50%, -50%) translate(${t.x + a.dx * bw}px, ${t.y + a.dy * bh}px) scale(${t.scale * a.scale}) rotate(${t.rotation + a.rotate}deg)`,
+                  }}
+                >
+                  {ts?.content}
+                </div>
+              );
+            })}
+          </>
         ) : null}
 
         {layers.audio.map(({ clip, track }) => {
@@ -79,30 +166,40 @@ export function Preview({
           ) : null;
         })}
 
-        {overlay ? <PlatformOverlay /> : null}
+        {overlay ? <PlatformOverlay kind={overlay} /> : null}
+        </div>
+
+        {editable && bw ? (
+          <CanvasSelection
+            clip={selectedClip}
+            doc={doc}
+            bw={bw}
+            bh={bh}
+            boxRef={boxRef}
+            startGesture={startGesture}
+            preview={preview}
+            endGesture={endGesture}
+          />
+        ) : null}
       </div>
     </div>
   );
 }
 
-// Generic short-form safe-zone overlay (TikTok / Reels / Shorts style): the
-// right action rail + bottom caption zone that platform UI covers.
-function PlatformOverlay() {
+function ShapeSvg({ type, color }: { type: NonNullable<Clip["shape"]>["type"]; color: string }) {
+  const common = { fill: color, vectorEffect: "non-scaling-stroke" as const };
   return (
-    <div className="pointer-events-none absolute inset-0 z-30">
-      <div className="absolute inset-x-0 top-0 h-[10%] bg-gradient-to-b from-black/25 to-transparent" />
-      <div className="absolute bottom-[14%] right-[4%] flex flex-col items-center gap-[6%]">
-        {[0, 1, 2, 3, 4].map((i) => (
-          <span key={i} className="size-[9%] min-h-4 min-w-4 rounded-full border border-white/50 bg-white/15" style={{ aspectRatio: "1" }} />
-        ))}
-      </div>
-      <div className="absolute inset-x-0 bottom-0 h-[22%] bg-gradient-to-t from-black/40 to-transparent" />
-      <div className="absolute inset-x-[4%] bottom-[6%] right-[18%] space-y-1.5">
-        <span className="block h-2 w-1/3 rounded-full bg-white/50" />
-        <span className="block h-2 w-3/4 rounded-full bg-white/30" />
-        <span className="block h-2 w-1/2 rounded-full bg-white/30" />
-      </div>
-    </div>
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="size-full" role="img" aria-label={`${type} shape`}>
+      {type === "ellipse" ? (
+        <ellipse cx="50" cy="50" rx="50" ry="50" {...common} />
+      ) : type === "triangle" ? (
+        <polygon points="50,0 100,100 0,100" {...common} />
+      ) : type === "star" ? (
+        <polygon points="50,0 61,35 98,35 68,57 79,91 50,70 21,91 32,57 2,35 39,35" {...common} />
+      ) : (
+        <rect x="0" y="0" width="100" height="100" rx={type === "rounded" ? 12 : 0} {...common} />
+      )}
+    </svg>
   );
 }
 
@@ -188,8 +285,8 @@ export function AspectMenu({
             >
               <Smartphone className="size-4 shrink-0 text-muted-foreground" />
               <span className="flex-1 truncate text-left">Show {sel.name} Overlay</span>
-              <span className={cn("relative h-4 w-7 shrink-0 rounded-full transition-colors", showOverlay ? "bg-[#14b8a6]" : "bg-border")}>
-                <span className={cn("absolute top-0.5 size-3 rounded-full bg-white transition-transform", showOverlay ? "translate-x-3.5" : "translate-x-0.5")} />
+              <span className={cn("flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors", showOverlay ? "bg-[#14b8a6]" : "bg-border")}>
+                <span className={cn("size-4 rounded-full bg-white shadow-sm transition-transform", showOverlay ? "translate-x-4" : "translate-x-0")} />
               </span>
             </button>
           ) : null}
@@ -223,11 +320,14 @@ const BG_PALETTE = [
 ];
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
-export function BackgroundMenu({ doc, onChange }: { doc: VideoEditorDoc; onChange: (color: string) => void }) {
+export function BackgroundMenu({ doc, onChange, assets, urlOf }: { doc: VideoEditorDoc; onChange: (color: string) => void; assets?: VideoEditorAsset[]; urlOf?: (id?: string) => string | undefined }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"color" | "image">("color");
   const ref = useRef<HTMLDivElement>(null);
-  const current = doc.background || "#000000";
+  const rawCurrent = doc.background || "#000000";
+  const currentBgUrl = rawCurrent.startsWith("asset:") ? urlOf?.(rawCurrent.slice(6)) : undefined;
+  const current = rawCurrent.startsWith("asset:") ? "#000000" : rawCurrent;
+  const images = (assets ?? []).filter((a) => a.kind === "image");
   const [hex, setHex] = useState(current);
   useEffect(() => setHex(current), [current]);
   useEffect(() => {
@@ -244,7 +344,10 @@ export function BackgroundMenu({ doc, onChange }: { doc: VideoEditorDoc; onChang
         onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors hover:bg-accent"
       >
-        <span className="size-4 rounded-full border border-border" style={{ backgroundColor: current }} />
+        <span
+          className="size-4 rounded-full border border-border bg-cover bg-center"
+          style={currentBgUrl ? { backgroundImage: `url(${currentBgUrl})` } : { backgroundColor: current }}
+        />
         Background
       </button>
       {open ? (
@@ -308,7 +411,27 @@ export function BackgroundMenu({ doc, onChange }: { doc: VideoEditorDoc; onChang
               </div>
             </div>
           ) : (
-            <p className="py-6 text-center text-xs text-muted-foreground">Image backgrounds — coming soon.</p>
+            images.length === 0 ? (
+              <p className="py-6 text-center text-xs text-muted-foreground">Upload or generate an image, then pick it here.</p>
+            ) : (
+              <div className="grid grid-cols-3 gap-1.5">
+                {images.map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => onChange(`asset:${a.id}`)}
+                    title="Use as background"
+                    className={cn(
+                      "aspect-square overflow-hidden rounded-md border transition-colors",
+                      rawCurrent === `asset:${a.id}` ? "border-[#14b8a6] ring-1 ring-[#14b8a6]" : "border-border hover:border-muted-foreground/40",
+                    )}
+                  >
+                    {/* biome-ignore lint/a11y/useAltText: thumbnail */}
+                    <img src={a.url} className="size-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )
           )}
         </div>
       ) : null}

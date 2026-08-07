@@ -1,10 +1,10 @@
 import { api } from "@/lib/api";
-import { useSession } from "@/stores/session";
+import { authToken } from "@/lib/auth-token";
 import type { Workflow, WorkflowGraph } from "../types";
 
 // Multipart upload with progress. Uses XHR (fetch can't report upload progress)
 // and bypasses the JSON `api` helper so the browser sets the multipart boundary.
-export function uploadAsset(
+export async function uploadAsset(
 	file: File,
 	onProgress?: (percent: number) => void,
 ): Promise<{
@@ -13,8 +13,8 @@ export function uploadAsset(
 	kind: "image" | "video" | "audio";
 	name: string;
 }> {
+	const token = await authToken();
 	return new Promise((resolve, reject) => {
-		const token = useSession.getState().token;
 		const form = new FormData();
 		form.append("file", file);
 

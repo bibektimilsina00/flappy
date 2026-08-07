@@ -28,8 +28,23 @@ export function useInspector({
   };
 
   const updateText = (content: string) => {
-    preview(updateClip(doc, clip.id, { text: { ...(clip.text ?? {}), content } }));
+    preview(updateClip(doc, clip.id, { text: { ...(clip.text ?? { content: "" }), content } }));
   };
+
+  // discrete text-style edits — snapshot, apply, commit
+  const commitText = (patch: Partial<NonNullable<Clip["text"]>>) => {
+    startGesture();
+    preview(updateClip(doc, clip.id, { text: { ...(clip.text ?? { content: "" }), ...patch } }));
+    endGesture(true);
+  };
+  const toggleBold = () => commitText({ bold: !clip.text?.bold });
+  const toggleItalic = () => commitText({ italic: !clip.text?.italic });
+  const setAlign = (align: "left" | "center" | "right") => commitText({ align });
+  const setColor = (color: string) => commitText({ color });
+  const setFontSize = (fontSize: number) => commitText({ fontSize });
+  const setFontFamily = (fontFamily: string) => commitText({ fontFamily });
+  const setLineHeight = (lineHeight: number) => commitText({ lineHeight });
+  const setLetterSpacing = (letterSpacing: number) => commitText({ letterSpacing });
 
   const updateStart = (val: number) => {
     const parsed = clipTimingSchema.pick({ start: true }).safeParse({ start: val });
@@ -78,6 +93,37 @@ export function useInspector({
     preview(updateClip(doc, clip.id, { volume: vol }));
   };
 
+  const updateRotation = (rotation: number) => {
+    preview(updateTransform(doc, clip.id, { rotation: ((rotation % 360) + 360) % 360 }));
+  };
+
+  const updateEnd = (end: number) => updateDuration(Math.max(0.1, end - clip.start));
+
+  // discrete transform toggles — snapshot, apply, commit in one step
+  const commitTransform = (patch: Partial<Clip["transform"]>) => {
+    startGesture();
+    preview(updateTransform(doc, clip.id, patch));
+    endGesture(true);
+  };
+  const toggleFlipH = () => commitTransform({ flipH: !clip.transform.flipH });
+  const toggleFlipV = () => commitTransform({ flipV: !clip.transform.flipV });
+  const toggleRoundCorners = () => commitTransform({ radius: clip.transform.radius ? 0 : 24 });
+  const toggleFadeAudio = () => {
+    startGesture();
+    preview(updateClip(doc, clip.id, { fadeAudio: !clip.fadeAudio }));
+    endGesture(true);
+  };
+  const fitCanvas = () => commitTransform({ fit: "contain", scale: 1, x: 0, y: 0 });
+  const fillCanvas = () => commitTransform({ fit: "cover", scale: 1, x: 0, y: 0 });
+
+  // stacking order — z override defaults to the clip's track index
+  const trackIndex = doc.tracks.findIndex((t) => t.clips.some((c) => c.id === clip.id));
+  const effZ = clip.transform.z ?? Math.max(0, trackIndex);
+  const bringForward = () => commitTransform({ z: effZ + 1 });
+  const sendBackward = () => commitTransform({ z: effZ - 1 });
+  const bringToFront = () => commitTransform({ z: doc.tracks.length + 1 });
+  const sendToBack = () => commitTransform({ z: -1 });
+
   return {
     media,
     visual,
@@ -91,5 +137,25 @@ export function useInspector({
     updateScale,
     updateOpacity,
     updateVolume,
+    updateRotation,
+    updateEnd,
+    toggleFadeAudio,
+    toggleFlipH,
+    toggleFlipV,
+    toggleRoundCorners,
+    fitCanvas,
+    fillCanvas,
+    toggleBold,
+    toggleItalic,
+    setAlign,
+    setColor,
+    setFontSize,
+    setFontFamily,
+    setLineHeight,
+    setLetterSpacing,
+    bringForward,
+    sendBackward,
+    bringToFront,
+    sendToBack,
   };
 }

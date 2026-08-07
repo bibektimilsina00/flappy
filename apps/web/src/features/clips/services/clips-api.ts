@@ -1,5 +1,5 @@
 import { api } from "@/lib/api";
-import { useSession } from "@/stores/session";
+import { authToken } from "@/lib/auth-token";
 import type {
   ClipsJob,
   ClipsParams,
@@ -122,7 +122,7 @@ export async function authDownload(
   path: string,
   filename: string,
 ): Promise<void> {
-  const token = useSession.getState().token;
+  const token = await authToken();
   const res = await fetch(`/api/v1${path}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });

@@ -4,10 +4,13 @@ The editor doc is the declarative EditorDoc (VIDEO-EDITOR-PLAN.md §4). On first
 open for a workflow we seed a basic timeline from the workflow's assets.
 """
 
+import copy
 import os
 import subprocess
 import tempfile
+import urllib.parse
 import uuid
+from datetime import UTC, datetime
 
 import imageio_ffmpeg
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -18,16 +21,20 @@ from apps.api.app.api.deps import current_workspace_id, get_current_user, get_se
 from apps.api.app.core.celery import celery_app
 from apps.api.app.features.assets import repository as assets_repo
 from apps.api.app.features.assets.models import Asset
+from apps.api.app.features.executions import repository as executions_repo
 from apps.api.app.features.executions import service as executions_service
+from apps.api.app.features.executions.models import Execution
 from apps.api.app.features.social.models import SocialAccount
 from apps.api.app.features.users.models import User
-from apps.api.app.features.video_editor import repository
+from apps.api.app.features.video_editor import clip_ops, repository
 from apps.api.app.features.video_editor.models import (
     VideoEditorComment,
     VideoEditorProject,
 )
 from apps.api.app.features.video_editor.render import build_render_args, build_text_ass
 from apps.api.app.features.workflows import repository as workflows_repo
+from apps.api.app.features.workflows.models import Workflow
+from apps.api.app.features.workspaces.models import Workspace
 from apps.api.app.storage.factory import get_storage
 
 router = APIRouter(prefix="/video-editor", tags=["video-editor"])
@@ -218,7 +225,7 @@ async def upload_to_project(
 
 
 class GenerateRequest(BaseModel):
-    kind: str  # "image" | "video"
+    kind: str  # "image" | "video" | "audio"
     prompt: str
     model: str | None = None
     params: dict = {}
@@ -238,8 +245,8 @@ def generate_in_project(
     that node through the normal execution engine. The result Asset joins the workflow via
     its execution, so it lands in the shared media pool the editor and canvas both read.
     """
-    if body.kind not in ("image", "video"):
-        raise HTTPException(status_code=422, detail="kind must be 'image' or 'video'")
+    if body.kind not in ("image", "video", "audio"):
+        raise HTTPException(status_code=422, detail="kind must be 'image', 'video' or 'audio'")
     if not (body.prompt or "").strip():
         raise HTTPException(status_code=422, detail="A prompt is required")
 
@@ -304,6 +311,1679 @@ def generate_in_project(
         session, workspace_id, workflow_id, node_id=gen_id
     )
     return {"execution_id": str(execution.id), "node_id": gen_id}
+
+
+_STOCK_HOSTS = (".pexels.com", ".giphy.com", ".veed.io")
+_EXT_BY_MIME = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/gif": "gif",
+    "video/mp4": "mp4",
+    "video/webm": "webm",
+    "audio/mpeg": "mp3",
+    "audio/wav": "wav",
+}
+
+
+class ImportUrlRequest(BaseModel):
+    url: str
+    kind: str  # image | video | audio
+
+
+def _import_pool_asset(
+    session: Session, workflow, workspace_id: uuid.UUID, url: str, kind: str, storage
+) -> str:
+    """Download an external asset, store it, and add it to the workflow pool as an
+    upload node. Returns the storage key. Shared by /import-url and /broll."""
+    import httpx
+
+    try:
+        with httpx.Client(timeout=30, follow_redirects=True) as client:
+            res = client.get(url)
+            res.raise_for_status()
+            data = res.content
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail="Could not fetch the asset") from exc
+    if len(data) > 100 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Asset too large")
+
+    ctype = res.headers.get("content-type", "").split(";")[0].strip()
+    ext = _EXT_BY_MIME.get(ctype) or (
+        url.rsplit(".", 1)[-1].split("?")[0].lower() if "." in url else "bin"
+    )
+    key = f"{workspace_id}/uploads/{uuid.uuid4()}.{ext}"
+    rkind = assets_repo.kind_from_key(key) or kind
+    storage.put(key, data, ctype or "application/octet-stream")
+
+    graph = dict(workflow.graph or {})
+    nodes = list(graph.get("nodes") or [])
+    nodes.append(
+        {
+            "id": f"node-{uuid.uuid4()}",
+            "type": rkind,
+            "position": {"x": 240 + (len(nodes) % 4) * 300, "y": 140 + len(nodes) * 40},
+            "data": {"kind": rkind, "upload_key": key, "label": "stock"},
+        }
+    )
+    graph["nodes"] = nodes
+    workflow.graph = graph
+    workflows_repo.save(session, workflow)
+    return key
+
+
+@router.post("/projects/{workflow_id}/import-url")
+def import_url(
+    workflow_id: uuid.UUID,
+    body: ImportUrlRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Import a stock asset from an allow-listed CDN (Pexels/Giphy/VEED) into the
+    project pool — the frontend's stock tiles use these hosts."""
+    workflow = workflows_repo.get(session, workspace_id, workflow_id)
+    if workflow is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if body.kind not in ("image", "video", "audio"):
+        raise HTTPException(status_code=422, detail="Unsupported kind")
+
+    host = (urllib.parse.urlparse(body.url).hostname or "").lower()
+    if not any(host == h.lstrip(".") or host.endswith(h) for h in _STOCK_HOSTS):
+        raise HTTPException(status_code=422, detail="URL host is not allowed")
+
+    storage = get_storage()
+    key = _import_pool_asset(session, workflow, workspace_id, body.url, body.kind, storage)
+    kind = assets_repo.kind_from_key(key) or body.kind
+    return {"id": key, "kind": kind, "url": storage.url(key)}
+
+
+@router.get("/stock/search")
+def stock_search(
+    q: str,
+    kind: str = "image",
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Search Pexels for stock images/videos. Returns normalized results whose
+    `url` is an allow-listed Pexels CDN link — feed it to /import-url to add it."""
+    from apps.api.app.core.config import settings
+
+    if kind not in ("image", "video"):
+        raise HTTPException(status_code=422, detail="kind must be image or video")
+    if not settings.pexels_api_key:
+        raise HTTPException(status_code=501, detail="Stock search is not configured")
+    query = (q or "").strip()
+    if not query:
+        return {"results": []}
+
+    import httpx
+
+    base = (
+        "https://api.pexels.com/videos/search"
+        if kind == "video"
+        else "https://api.pexels.com/v1/search"
+    )
+    try:
+        with httpx.Client(timeout=15) as client:
+            res = client.get(
+                base,
+                params={"query": query, "per_page": 24},
+                headers={"Authorization": settings.pexels_api_key},
+            )
+            res.raise_for_status()
+            payload = res.json()
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail="Stock search failed") from exc
+
+    results: list[dict] = []
+    if kind == "video":
+        for v in payload.get("videos") or []:
+            files = sorted(
+                (f for f in v.get("video_files") or [] if f.get("link")),
+                key=lambda f: f.get("height") or 0,
+            )
+            # smallest file that is at least 720p, else the largest available
+            pick = next(
+                (f for f in files if (f.get("height") or 0) >= 720), files[-1] if files else None
+            )
+            if not pick:
+                continue
+            results.append(
+                {
+                    "id": str(v.get("id")),
+                    "thumb": v.get("image"),
+                    "url": pick["link"],
+                    "kind": "video",
+                    "duration": v.get("duration"),
+                }
+            )
+    else:
+        for p in payload.get("photos") or []:
+            src = p.get("src") or {}
+            url = src.get("large") or src.get("original") or src.get("medium")
+            if not url:
+                continue
+            results.append(
+                {
+                    "id": str(p.get("id")),
+                    "thumb": src.get("tiny") or src.get("small") or url,
+                    "url": url,
+                    "kind": "image",
+                }
+            )
+    return {"results": results}
+
+
+class SubtitlesRequest(BaseModel):
+    source_asset_id: str | None = None  # a pool asset; defaults to the first video/audio clip
+
+
+@router.post("/projects/{project_id}/subtitles")
+def generate_subtitles(
+    project_id: uuid.UUID,
+    body: SubtitlesRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Transcribe the project's audio and return caption segments mapped to the
+    timeline. Picks the source clip (given asset, else the first video/audio clip),
+    transcribes its media via the shared OpenRouter pipeline, then maps each
+    segment's media time onto the timeline (honouring the clip's trim + speed)."""
+    from apps.api.app.features.clips.pipeline import _transcribe
+
+    # editor calls carry the workflow id (like /generate), one project per workflow
+    project = repository.get_by_workflow(session, workspace_id, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+
+    tracks = (project.doc or {}).get("tracks") or []
+    clips = [c for t in tracks for c in (t.get("clips") or []) if c.get("assetId")]
+    # Choose the source clip: the requested asset, else the first video/audio clip.
+    clip = None
+    if body.source_asset_id:
+        clip = next((c for c in clips if c.get("assetId") == body.source_asset_id), None)
+    if clip is None:
+        clip = next((c for c in clips if c.get("kind") in ("video", "audio")), None)
+    if clip is None:
+        raise HTTPException(status_code=422, detail="No video or audio clip to transcribe")
+
+    workflow = workflows_repo.get(session, workspace_id, project.workflow_id)
+    refmap = {item["id"]: item for item in (_workflow_media(session, workflow) if workflow else [])}
+    item = refmap.get(clip["assetId"])
+    if item is None:
+        raise HTTPException(status_code=404, detail="Source media not found")
+
+    storage = get_storage()
+    c_start = float(clip.get("start") or 0)
+    c_in = float(clip.get("in") or 0)
+    c_out = float(clip.get("out") or (c_in + float(clip.get("duration") or 0)))
+    speed = float(clip.get("speed") or 1) or 1
+
+    with tempfile.TemporaryDirectory() as d:
+        ext = os.path.splitext(item["key"])[1] or ".bin"
+        path = os.path.join(d, f"src{ext}")
+        with open(path, "wb") as f:
+            f.write(storage.get(item["key"]))
+        try:
+            raw, _dur = _transcribe(path)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    out: list[dict] = []
+    for seg in raw:
+        s = float(seg.get("start") or 0)
+        e = float(seg.get("end") or 0)
+        if e <= c_in or s >= c_out:  # outside the trimmed region
+            continue
+        s = max(s, c_in)
+        e = min(e, c_out)
+        text = (seg.get("text") or "").strip()
+        if not text:
+            continue
+        out.append(
+            {
+                "start": round(c_start + (s - c_in) / speed, 3),
+                "end": round(c_start + (e - c_in) / speed, 3),
+                "text": text,
+            }
+        )
+    return {"segments": out}
+
+
+# ── Magic B-Roll (transcribe → topic windows → a stock photo per topic) ──────
+
+_BROLL_STOPWORDS = frozenset(
+    "the a an and or but if of to in on for with as at by from is are was were be been it its this that these those "
+    "i you he she we they my your our their me him her us them so just like really gonna wanna about into out up down "
+    "not no yes do does did have has had will would can could should what which who when where why how there here then "
+    "than too very also get got one all some more most well know think going right okay yeah".split()
+)
+_BROLL_MAX = 6  # cap inserts per run
+_BROLL_WINDOW = 6.0  # seconds of speech grouped into one b-roll topic
+_BROLL_CLIP_DUR = 3.0  # how long each b-roll image shows
+
+
+def _broll_query(text: str) -> str:
+    """A stock-search query from a transcript chunk — the top content words."""
+    import re
+    from collections import Counter
+
+    words = [w for w in re.findall(r"[a-z']{4,}", text.lower()) if w not in _BROLL_STOPWORDS]
+    if not words:
+        return ""
+    return " ".join(w for w, _ in Counter(words).most_common(3))
+
+
+def _pexels_photo_url(query: str) -> str | None:
+    """First Pexels photo URL for a query, or None (no key / no result / error)."""
+    from apps.api.app.core.config import settings
+
+    if not settings.pexels_api_key or not query:
+        return None
+    import httpx
+
+    try:
+        with httpx.Client(timeout=15) as client:
+            res = client.get(
+                "https://api.pexels.com/v1/search",
+                params={"query": query, "per_page": 1, "orientation": "landscape"},
+                headers={"Authorization": settings.pexels_api_key},
+            )
+            res.raise_for_status()
+            photos = res.json().get("photos") or []
+    except Exception:  # noqa: BLE001
+        return None
+    if not photos:
+        return None
+    src = photos[0].get("src") or {}
+    return src.get("large") or src.get("original") or src.get("medium")
+
+
+class BrollRequest(BaseModel):
+    clip_id: str | None = None  # source clip; defaults to the first video/audio clip
+
+
+@router.post("/projects/{project_id}/broll")
+def magic_broll(
+    project_id: uuid.UUID,
+    body: BrollRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Transcribe the source clip, group speech into topic windows, and fetch a
+    stock photo for each — returns b-roll image assets + the timeline range to
+    place them. The client inserts the clips (keeps the doc client-authoritative).
+    Gated on PEXELS_API_KEY. ponytail: sync (transcribe + a few fetches), like
+    magic-cut; capped at 6 inserts."""
+    from apps.api.app.core.config import settings
+    from apps.api.app.features.clips.pipeline import _transcribe
+
+    if not settings.pexels_api_key:
+        raise HTTPException(status_code=501, detail="Magic B-Roll needs stock search configured")
+
+    project = repository.get_by_workflow(session, workspace_id, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+    clips = [
+        c
+        for t in (project.doc or {}).get("tracks") or []
+        for c in (t.get("clips") or [])
+        if c.get("assetId")
+    ]
+    clip = None
+    if body.clip_id:
+        clip = next((c for c in clips if c.get("id") == body.clip_id), None)
+    if clip is None:
+        clip = next((c for c in clips if c.get("kind") in ("video", "audio")), None)
+    if clip is None:
+        raise HTTPException(status_code=422, detail="No video or audio clip to analyze")
+
+    workflow = workflows_repo.get(session, workspace_id, project.workflow_id)
+    refmap = {item["id"]: item for item in (_workflow_media(session, workflow) if workflow else [])}
+    item = refmap.get(clip["assetId"])
+    if item is None or workflow is None:
+        raise HTTPException(status_code=404, detail="Source media not found")
+
+    storage = get_storage()
+    c_start = float(clip.get("start") or 0)
+    c_in = float(clip.get("in") or 0)
+    c_out = float(clip.get("out") or (c_in + float(clip.get("duration") or 0)))
+    speed = float(clip.get("speed") or 1) or 1
+
+    with tempfile.TemporaryDirectory() as d:
+        ext = os.path.splitext(item["key"])[1] or ".bin"
+        path = os.path.join(d, f"src{ext}")
+        with open(path, "wb") as f:
+            f.write(storage.get(item["key"]))
+        try:
+            raw, _dur = _transcribe(path)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    # group segments into ~_BROLL_WINDOW-second topic windows (timeline coords)
+    windows: list[dict] = []
+    cur: dict | None = None
+    for seg in raw:
+        s, e = float(seg.get("start") or 0), float(seg.get("end") or 0)
+        if e <= c_in or s >= c_out:
+            continue
+        s, e = max(s, c_in), min(e, c_out)
+        txt = (seg.get("text") or "").strip()
+        if not txt:
+            continue
+        ts = round(c_start + (s - c_in) / speed, 3)
+        te = round(c_start + (e - c_in) / speed, 3)
+        if cur is None:
+            cur = {"start": ts, "end": te, "text": txt}
+        else:
+            cur["end"], cur["text"] = te, f"{cur['text']} {txt}"
+        if cur["end"] - cur["start"] >= _BROLL_WINDOW:
+            windows.append(cur)
+            cur = None
+            if len(windows) >= _BROLL_MAX:
+                break
+    if cur and len(windows) < _BROLL_MAX:
+        windows.append(cur)
+
+    items: list[dict] = []
+    for win in windows:
+        query = _broll_query(win["text"])
+        url = _pexels_photo_url(query)
+        if not url:
+            continue
+        key = _import_pool_asset(session, workflow, workspace_id, url, "image", storage)
+        items.append(
+            {
+                "asset_id": key,
+                "kind": "image",
+                "url": storage.url(key),
+                "start": win["start"],
+                "duration": round(min(_BROLL_CLIP_DUR, win["end"] - win["start"]), 3),
+                "query": query,
+            }
+        )
+    return {"items": items}
+
+
+# ── AI Dubbing (transcribe → translate → TTS a new audio clip) ───────────────
+
+
+def _translate(text: str, target_language: str) -> str:
+    """Translate a transcript into `target_language` via OpenRouter chat. Raises."""
+    from apps.api.app.core.config import settings
+
+    if not settings.open_router_api_key:
+        raise HTTPException(status_code=501, detail="Translation is not configured")
+    import httpx
+
+    model = settings.assistant_model or "openrouter/free"
+    prompt = (
+        f"Translate the transcript below into {target_language}. Output ONLY the "
+        "translated text — no notes, no quotes, no preamble. Keep it natural and "
+        f"speakable.\n\nTranscript:\n{text}"
+    )
+    try:
+        with httpx.Client(timeout=90) as client:
+            r = client.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={"Authorization": f"Bearer {settings.open_router_api_key}"},
+                json={"model": model, "messages": [{"role": "user", "content": prompt}]},
+            )
+            r.raise_for_status()
+            return (r.json()["choices"][0]["message"]["content"] or "").strip()
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail="Translation failed") from exc
+
+
+class DubRequest(BaseModel):
+    clip_id: str | None = None  # source; defaults to the first video/audio clip
+    target_language: str
+    voice: str | None = None
+
+
+@router.post("/projects/{project_id}/dub")
+def dub(
+    project_id: uuid.UUID,
+    body: DubRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Dub a clip: transcribe it, translate to the target language, then generate a
+    TTS voice track (async, via the generation execution). The client places the
+    dubbed audio and mutes the original. All OpenRouter — no extra provider key."""
+    from apps.api.app.features.clips.pipeline import _transcribe
+
+    if not (body.target_language or "").strip():
+        raise HTTPException(status_code=422, detail="A target language is required")
+
+    project = repository.get_by_workflow(session, workspace_id, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+    clips = [
+        c
+        for t in (project.doc or {}).get("tracks") or []
+        for c in (t.get("clips") or [])
+        if c.get("assetId")
+    ]
+    clip = None
+    if body.clip_id:
+        clip = next((c for c in clips if c.get("id") == body.clip_id), None)
+    if clip is None:
+        clip = next((c for c in clips if c.get("kind") in ("video", "audio")), None)
+    if clip is None:
+        raise HTTPException(status_code=422, detail="No video or audio clip to dub")
+
+    workflow = workflows_repo.get(session, workspace_id, project.workflow_id)
+    refmap = {item["id"]: item for item in (_workflow_media(session, workflow) if workflow else [])}
+    item = refmap.get(clip["assetId"])
+    if item is None or workflow is None:
+        raise HTTPException(status_code=404, detail="Source media not found")
+
+    storage = get_storage()
+    with tempfile.TemporaryDirectory() as d:
+        ext = os.path.splitext(item["key"])[1] or ".bin"
+        path = os.path.join(d, f"src{ext}")
+        with open(path, "wb") as f:
+            f.write(storage.get(item["key"]))
+        try:
+            segs, _dur = _transcribe(path)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    text = " ".join((s.get("text") or "").strip() for s in segs).strip()
+    if not text:
+        raise HTTPException(status_code=422, detail="Nothing to dub — no speech found")
+    translated = _translate(text, body.target_language.strip())
+    if not translated:
+        raise HTTPException(status_code=502, detail="Translation returned nothing")
+
+    # Append a TTS audio-generation node and run it through the execution engine.
+    graph = dict(workflow.graph or {})
+    nodes = list(graph.get("nodes") or [])
+    n = len(nodes)
+    gen_id = f"dub-{uuid.uuid4()}"
+    nodes.append(
+        {
+            "id": gen_id,
+            "type": "audio",
+            "position": {"x": 240 + (n % 4) * 320, "y": 640 + n * 40},
+            "data": {
+                "kind": "audio",
+                "prompt": translated,
+                "model": None,
+                "params": {"voice": body.voice or "nova"},
+                "label": f"dub · {body.target_language}"[:40],
+            },
+        }
+    )
+    graph["nodes"] = nodes
+    workflow.graph = graph
+    workflows_repo.save(session, workflow)
+
+    execution = executions_service.create_execution(
+        session, workspace_id, project.workflow_id, node_id=gen_id
+    )
+    return {
+        "execution_id": str(execution.id),
+        "node_id": gen_id,
+        "source_clip_id": clip["id"],
+        "start": round(float(clip.get("start") or 0), 3),
+        "duration": round(float(clip.get("duration") or 0), 3),
+    }
+
+
+_ENHANCE_FILTERS = {
+    "denoise": "afftdn=nf=-25",
+    "remove_silences": (
+        "silenceremove=start_periods=1:start_threshold=-40dB:"
+        "stop_periods=-1:stop_threshold=-40dB:stop_duration=0.5"
+    ),
+}
+
+
+def _media_duration(exe: str, path: str) -> float:
+    """Parse a media file's duration from ffmpeg's banner (no ffprobe dependency)."""
+    proc = subprocess.run([exe, "-hide_banner", "-i", path], capture_output=True, text=True)
+    for line in proc.stderr.splitlines():
+        line = line.strip()
+        if line.startswith("Duration:"):
+            hms = line.split("Duration:", 1)[1].split(",", 1)[0].strip()
+            try:
+                h, m, s = hms.split(":")
+                return int(h) * 3600 + int(m) * 60 + float(s)
+            except ValueError:
+                return 0.0
+    return 0.0
+
+
+def _extract_frame(exe: str, src: str, at: float, out_png: str) -> bool:
+    """Grab a single frame at time `at` (seconds) into out_png. Returns success."""
+    proc = subprocess.run(
+        [
+            exe,
+            "-y",
+            "-ss",
+            f"{max(0.0, at):.3f}",
+            "-i",
+            src,
+            "-frames:v",
+            "1",
+            "-q:v",
+            "3",
+            out_png,
+        ],
+        capture_output=True,
+        text=True,
+    )
+    return proc.returncode == 0 and os.path.exists(out_png)
+
+
+class EnhanceRequest(BaseModel):
+    clip_id: str
+    op: str  # "denoise" | "remove_silences"
+
+
+@router.post("/projects/{project_id}/enhance")
+def enhance_clip_audio(
+    project_id: uuid.UUID,
+    body: EnhanceRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Run an ffmpeg audio filter (denoise / remove-silences) on a clip's media and
+    store the result as a new pool asset. Returns the new asset + duration so the
+    editor can point the clip at it."""
+    if body.op not in _ENHANCE_FILTERS:
+        raise HTTPException(status_code=422, detail="Unknown enhancement")
+
+    # editor calls carry the workflow id (like /generate), one project per workflow
+    project = repository.get_by_workflow(session, workspace_id, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+
+    clips = [c for t in (project.doc or {}).get("tracks", []) for c in (t.get("clips") or [])]
+    clip = next((c for c in clips if c.get("id") == body.clip_id), None)
+    if clip is None or not clip.get("assetId"):
+        raise HTTPException(status_code=404, detail="Clip not found")
+
+    workflow = workflows_repo.get(session, workspace_id, project.workflow_id)
+    refmap = {item["id"]: item for item in (_workflow_media(session, workflow) if workflow else [])}
+    item = refmap.get(clip["assetId"])
+    if item is None:
+        raise HTTPException(status_code=404, detail="Source media not found")
+
+    storage = get_storage()
+    exe = imageio_ffmpeg.get_ffmpeg_exe()
+    with tempfile.TemporaryDirectory() as d:
+        ext = os.path.splitext(item["key"])[1] or ".bin"
+        src = os.path.join(d, f"src{ext}")
+        with open(src, "wb") as f:
+            f.write(storage.get(item["key"]))
+        out = os.path.join(d, "out.mp3")
+        proc = subprocess.run(
+            [
+                exe,
+                "-y",
+                "-i",
+                src,
+                "-vn",
+                "-af",
+                _ENHANCE_FILTERS[body.op],
+                "-c:a",
+                "libmp3lame",
+                "-q:a",
+                "4",
+                out,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode != 0 or not os.path.exists(out):
+            raise HTTPException(status_code=502, detail="Audio processing failed")
+        data = open(out, "rb").read()
+        duration = _media_duration(exe, out)
+
+    key = f"{workspace_id}/edits/{uuid.uuid4()}.mp3"
+    storage.put(key, data, "audio/mpeg")
+
+    graph = dict(workflow.graph or {}) if workflow else {}
+    nodes = list(graph.get("nodes") or [])
+    nodes.append(
+        {
+            "id": f"node-{uuid.uuid4()}",
+            "type": "audio",
+            "position": {"x": 40, "y": 40 + len(nodes) * 40},
+            "data": {"kind": "audio", "upload_key": key, "label": body.op},
+        }
+    )
+    graph["nodes"] = nodes
+    if workflow:
+        workflow.graph = graph
+        workflows_repo.save(session, workflow)
+
+    return {
+        "asset_id": key,
+        "kind": "audio",
+        "url": storage.url(key),
+        "duration": round(duration, 3),
+    }
+
+
+_FILLERS = {"um", "uh", "er", "ah", "hmm", "mm", "erm", "uhm", "uhh", "umm", "mhm", "huh", "uhhh"}
+
+
+class MagicCutRequest(BaseModel):
+    clip_id: str
+
+
+@router.post("/projects/{project_id}/magic-cut")
+def magic_cut(
+    project_id: uuid.UUID,
+    body: MagicCutRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Transcribe a clip and cut filler words (um/uh/...). Audio in → trimmed mp3;
+    video in → trimmed mp4 (this is 'Remove Filler Words'). Returns a new pool
+    asset + its trimmed duration. ponytail: sync re-encode, same as chroma/magic-cut
+    — a very long clip can be slow; move to the async clip-op path if that bites."""
+    from apps.api.app.features.clips.pipeline import _transcribe
+
+    project = repository.get_by_workflow(session, workspace_id, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+    clip = next(
+        (
+            c
+            for t in (project.doc or {}).get("tracks", [])
+            for c in (t.get("clips") or [])
+            if c.get("id") == body.clip_id
+        ),
+        None,
+    )
+    if clip is None or not clip.get("assetId") or clip.get("kind") not in ("audio", "video"):
+        raise HTTPException(status_code=404, detail="Audio or video clip not found")
+
+    workflow = workflows_repo.get(session, workspace_id, project.workflow_id)
+    refmap = {item["id"]: item for item in (_workflow_media(session, workflow) if workflow else [])}
+    item = refmap.get(clip["assetId"])
+    if item is None:
+        raise HTTPException(status_code=404, detail="Source media not found")
+
+    storage = get_storage()
+    exe = imageio_ffmpeg.get_ffmpeg_exe()
+    with tempfile.TemporaryDirectory() as d:
+        ext = os.path.splitext(item["key"])[1] or ".bin"
+        src = os.path.join(d, f"src{ext}")
+        with open(src, "wb") as f:
+            f.write(storage.get(item["key"]))
+        try:
+            segs, total = _transcribe(src)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+        # filler word time ranges (small pad so cuts don't clip neighbours)
+        cuts: list[tuple[float, float]] = []
+        for seg in segs:
+            for w in seg.get("words") or []:
+                token = str(w.get("w") or "").strip().lower().strip(".,!?;:")
+                if token in _FILLERS:
+                    cuts.append((max(0.0, float(w["s"]) - 0.05), float(w["e"]) + 0.05))
+        cuts.sort()
+
+        # keep = complement of the cuts across [0, total]
+        keeps: list[tuple[float, float]] = []
+        prev = 0.0
+        for s, e in cuts:
+            if s > prev:
+                keeps.append((prev, s))
+            prev = max(prev, e)
+        keeps.append((prev, total))
+        keeps = [(s, e) for s, e in keeps if e - s > 0.02]
+        if not keeps:
+            raise HTTPException(status_code=422, detail="Nothing left after cutting")
+
+        aparts = [
+            f"[0:a]atrim=start={s:.3f}:end={e:.3f},asetpts=N/SR/TB[a{i}]"
+            for i, (s, e) in enumerate(keeps)
+        ]
+        if clip.get("kind") == "video":
+            out = os.path.join(d, "out.mp4")
+            vparts = [
+                f"[0:v]trim=start={s:.3f}:end={e:.3f},setpts=N/FRAME_RATE/TB[v{i}]"
+                for i, (s, e) in enumerate(keeps)
+            ]
+            concat = (
+                "".join(f"[v{i}][a{i}]" for i in range(len(keeps)))
+                + f"concat=n={len(keeps)}:v=1:a=1[vout][aout]"
+            )
+            fc = ";".join([*vparts, *aparts, concat])
+            cmd = [
+                exe,
+                "-y",
+                "-i",
+                src,
+                "-filter_complex",
+                fc,
+                "-map",
+                "[vout]",
+                "-map",
+                "[aout]",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "veryfast",
+                "-pix_fmt",
+                "yuv420p",
+                "-c:a",
+                "aac",
+                out,
+            ]
+            out_ext, out_mime, out_kind = "mp4", "video/mp4", "video"
+        else:
+            out = os.path.join(d, "out.mp3")
+            concat = (
+                "".join(f"[a{i}]" for i in range(len(keeps)))
+                + f"concat=n={len(keeps)}:v=0:a=1[out]"
+            )
+            fc = ";".join([*aparts, concat])
+            cmd = [
+                exe,
+                "-y",
+                "-i",
+                src,
+                "-filter_complex",
+                fc,
+                "-map",
+                "[out]",
+                "-c:a",
+                "libmp3lame",
+                "-q:a",
+                "4",
+                out,
+            ]
+            out_ext, out_mime, out_kind = "mp3", "audio/mpeg", "audio"
+
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0 or not os.path.exists(out):
+            raise HTTPException(status_code=502, detail="Magic cut failed")
+        data = open(out, "rb").read()
+        duration = _media_duration(exe, out)
+
+    key = f"{workspace_id}/edits/{uuid.uuid4()}.{out_ext}"
+    storage.put(key, data, out_mime)
+    graph = dict(workflow.graph or {}) if workflow else {}
+    nodes = list(graph.get("nodes") or [])
+    nodes.append(
+        {
+            "id": f"node-{uuid.uuid4()}",
+            "type": out_kind,
+            "position": {"x": 40, "y": 40 + len(nodes) * 40},
+            "data": {"kind": out_kind, "upload_key": key, "label": "magic cut"},
+        }
+    )
+    graph["nodes"] = nodes
+    if workflow:
+        workflow.graph = graph
+        workflows_repo.save(session, workflow)
+
+    return {
+        "asset_id": key,
+        "kind": out_kind,
+        "url": storage.url(key),
+        "duration": round(duration, 3),
+    }
+
+
+class ChromaRequest(BaseModel):
+    clip_id: str
+    color: str | None = None  # key colour, default green
+
+
+@router.post("/projects/{project_id}/chroma-key")
+def chroma_key(
+    project_id: uuid.UUID,
+    body: ChromaRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Chroma-key (green-screen) a video clip: remove the key colour and store a
+    transparent webm as a new pool asset. (Editor calls carry the workflow id.)"""
+    project = repository.get_by_workflow(session, workspace_id, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+    clip = next(
+        (
+            c
+            for t in (project.doc or {}).get("tracks", [])
+            for c in (t.get("clips") or [])
+            if c.get("id") == body.clip_id
+        ),
+        None,
+    )
+    if clip is None or not clip.get("assetId") or clip.get("kind") != "video":
+        raise HTTPException(status_code=404, detail="Video clip not found")
+
+    color = (body.color or "#00ff00").lstrip("#")
+    if len(color) != 6 or any(ch not in "0123456789abcdefABCDEF" for ch in color):
+        raise HTTPException(status_code=422, detail="color must be a #RRGGBB hex")
+
+    workflow = workflows_repo.get(session, workspace_id, project.workflow_id)
+    refmap = {item["id"]: item for item in (_workflow_media(session, workflow) if workflow else [])}
+    item = refmap.get(clip["assetId"])
+    if item is None:
+        raise HTTPException(status_code=404, detail="Source media not found")
+
+    storage = get_storage()
+    exe = imageio_ffmpeg.get_ffmpeg_exe()
+    with tempfile.TemporaryDirectory() as d:
+        ext = os.path.splitext(item["key"])[1] or ".mp4"
+        src = os.path.join(d, f"src{ext}")
+        with open(src, "wb") as f:
+            f.write(storage.get(item["key"]))
+        out = os.path.join(d, "out.webm")
+        proc = subprocess.run(
+            [
+                exe,
+                "-y",
+                "-i",
+                src,
+                "-vf",
+                f"chromakey=0x{color}:0.1:0.1",
+                "-c:v",
+                "libvpx-vp9",
+                "-pix_fmt",
+                "yuva420p",
+                "-b:v",
+                "1M",
+                "-c:a",
+                "libopus",
+                out,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode != 0 or not os.path.exists(out):
+            raise HTTPException(status_code=502, detail="Chroma-key failed")
+        data = open(out, "rb").read()
+        duration = _media_duration(exe, out)
+
+    key = f"{workspace_id}/edits/{uuid.uuid4()}.webm"
+    storage.put(key, data, "video/webm")
+    graph = dict(workflow.graph or {}) if workflow else {}
+    nodes = list(graph.get("nodes") or [])
+    nodes.append(
+        {
+            "id": f"node-{uuid.uuid4()}",
+            "type": "video",
+            "position": {"x": 40, "y": 40 + len(nodes) * 40},
+            "data": {"kind": "video", "upload_key": key, "label": "green screen"},
+        }
+    )
+    graph["nodes"] = nodes
+    if workflow:
+        workflow.graph = graph
+        workflows_repo.save(session, workflow)
+
+    return {
+        "asset_id": key,
+        "kind": "video",
+        "url": storage.url(key),
+        "duration": round(duration, 3),
+    }
+
+
+class RemoveBgRequest(BaseModel):
+    clip_id: str
+
+
+def _clip_by_id(project, clip_id: str) -> dict | None:
+    return next(
+        (
+            c
+            for t in (project.doc or {}).get("tracks", [])
+            for c in (t.get("clips") or [])
+            if c.get("id") == clip_id
+        ),
+        None,
+    )
+
+
+@router.post("/projects/{project_id}/remove-bg")
+def remove_bg(
+    project_id: uuid.UUID,
+    body: RemoveBgRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Remove an image clip's background (Replicate matting) and store the cutout
+    PNG as a new pool asset. Runs inline — image matting settles in seconds. Video
+    goes through the async /clip-op path instead. Gated on REPLICATE_API_KEY."""
+    project = repository.get_by_workflow(session, workspace_id, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+    clip = _clip_by_id(project, body.clip_id)
+    if clip is None or not clip.get("assetId"):
+        raise HTTPException(status_code=404, detail="Clip not found")
+    if clip.get("kind") != "image":
+        raise HTTPException(
+            status_code=422, detail="Use the async path for video — this endpoint handles images"
+        )
+    if not clip_ops.is_configured("remove_bg_image"):
+        raise HTTPException(status_code=501, detail="Background removal is not configured")
+
+    workflow = workflows_repo.get(session, workspace_id, project.workflow_id)
+    refmap = {item["id"]: item for item in (_workflow_media(session, workflow) if workflow else [])}
+    item = refmap.get(clip["assetId"])
+    if item is None:
+        raise HTTPException(status_code=404, detail="Source media not found")
+
+    storage = get_storage()
+    try:
+        key, kind = clip_ops.run_op(storage, "remove_bg_image", item["key"], workspace_id)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail="Background removal failed") from exc
+
+    graph = dict(workflow.graph or {}) if workflow else {}
+    nodes = list(graph.get("nodes") or [])
+    nodes.append(
+        {
+            "id": f"node-{uuid.uuid4()}",
+            "type": kind,
+            "position": {"x": 40, "y": 40 + len(nodes) * 40},
+            "data": {"kind": kind, "upload_key": key, "label": "cutout"},
+        }
+    )
+    graph["nodes"] = nodes
+    if workflow:
+        workflow.graph = graph
+        workflows_repo.save(session, workflow)
+    return {"asset_id": key, "kind": kind, "url": storage.url(key)}
+
+
+class ClipOpRequest(BaseModel):
+    clip_id: str
+    op: str  # clip_ops.SUPPORTED_OPS — e.g. "remove_bg_video"
+
+
+@router.post("/projects/{project_id}/clip-op")
+def clip_op(
+    project_id: uuid.UUID,
+    body: ClipOpRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Kick off a slow per-clip op (e.g. video background matting) on the worker.
+    Creates an Execution and dispatches `run_clip_op`; the produced asset joins the
+    pool via the execution. Poll GET /executions/{id}, then read its /assets."""
+    if body.op not in clip_ops.SUPPORTED_OPS:
+        raise HTTPException(status_code=422, detail="Unknown operation")
+    if not clip_ops.is_configured(body.op):
+        raise HTTPException(
+            status_code=501, detail="This effect is not set up on this workspace yet"
+        )
+
+    project = repository.get_by_workflow(session, workspace_id, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+    clip = _clip_by_id(project, body.clip_id)
+    if clip is None or not clip.get("assetId"):
+        raise HTTPException(status_code=404, detail="Clip not found")
+    if clip.get("kind") != clip_ops.clip_kind_for_op(body.op):
+        raise HTTPException(
+            status_code=422, detail=f"{body.op} expects a {clip_ops.clip_kind_for_op(body.op)} clip"
+        )
+
+    workflow = workflows_repo.get(session, workspace_id, project.workflow_id)
+    refmap = {item["id"]: item for item in (_workflow_media(session, workflow) if workflow else [])}
+    item = refmap.get(clip["assetId"])
+    if item is None:
+        raise HTTPException(status_code=404, detail="Source media not found")
+
+    execution = executions_repo.add(
+        session,
+        Execution(workspace_id=workspace_id, workflow_id=project.workflow_id, status="pending"),
+    )
+    node_id = f"op-{uuid.uuid4()}"
+    celery_app.send_task(
+        "run_clip_op",
+        args=[
+            str(execution.id),
+            str(workspace_id),
+            str(project.workflow_id),
+            node_id,
+            body.op,
+            item["key"],
+        ],
+    )
+    return {"execution_id": str(execution.id), "node_id": node_id}
+
+
+class TransitionMorphRequest(BaseModel):
+    from_clip_id: str
+    to_clip_id: str
+    prompt: str | None = None
+
+
+@router.post("/projects/{project_id}/transition-morph")
+def transition_morph(
+    project_id: uuid.UUID,
+    body: TransitionMorphRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Generate an AI morph transition between two video clips: grab the last frame
+    of the 'from' clip and the first frame of the 'to' clip, then run a morph model
+    over them (async on the worker). Returns the execution + the timeline point to
+    drop the morph at (the boundary). Gated on TRANSITION_MORPH_MODEL."""
+    if not clip_ops.morph_configured():
+        raise HTTPException(
+            status_code=501, detail="AI transitions are not set up on this workspace yet"
+        )
+
+    project = repository.get_by_workflow(session, workspace_id, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+    a = _clip_by_id(project, body.from_clip_id)
+    b = _clip_by_id(project, body.to_clip_id)
+    if a is None or b is None or a.get("kind") != "video" or b.get("kind") != "video":
+        raise HTTPException(status_code=422, detail="Pick two video clips to transition between")
+
+    workflow = workflows_repo.get(session, workspace_id, project.workflow_id)
+    refmap = {item["id"]: item for item in (_workflow_media(session, workflow) if workflow else [])}
+    a_media, b_media = refmap.get(a.get("assetId")), refmap.get(b.get("assetId"))
+    if a_media is None or b_media is None:
+        raise HTTPException(status_code=404, detail="Source media not found")
+
+    storage = get_storage()
+    exe = imageio_ffmpeg.get_ffmpeg_exe()
+    with tempfile.TemporaryDirectory() as d:
+        a_src = os.path.join(d, "a" + (os.path.splitext(a_media["key"])[1] or ".mp4"))
+        b_src = os.path.join(d, "b" + (os.path.splitext(b_media["key"])[1] or ".mp4"))
+        with open(a_src, "wb") as f:
+            f.write(storage.get(a_media["key"]))
+        with open(b_src, "wb") as f:
+            f.write(storage.get(b_media["key"]))
+        a_frame, b_frame = os.path.join(d, "a.png"), os.path.join(d, "b.png")
+        # last frame of 'from' (its out point), first frame of 'to' (its in point)
+        a_at = max(
+            0.0,
+            float(a.get("out") or (float(a.get("in") or 0) + float(a.get("duration") or 0))) - 0.1,
+        )
+        if not _extract_frame(exe, a_src, a_at, a_frame) or not _extract_frame(
+            exe, b_src, float(b.get("in") or 0), b_frame
+        ):
+            raise HTTPException(status_code=502, detail="Couldn't read the clip frames")
+        from_key = f"{workspace_id}/edits/{uuid.uuid4()}.png"
+        to_key = f"{workspace_id}/edits/{uuid.uuid4()}.png"
+        storage.put(from_key, open(a_frame, "rb").read(), "image/png")
+        storage.put(to_key, open(b_frame, "rb").read(), "image/png")
+
+    execution = executions_repo.add(
+        session,
+        Execution(workspace_id=workspace_id, workflow_id=project.workflow_id, status="pending"),
+    )
+    node_id = f"morph-{uuid.uuid4()}"
+    celery_app.send_task(
+        "run_transition_morph",
+        args=[
+            str(execution.id),
+            str(workspace_id),
+            str(project.workflow_id),
+            node_id,
+            from_key,
+            to_key,
+            body.prompt or "",
+        ],
+    )
+    boundary = round(float(a.get("start") or 0) + float(a.get("duration") or 0), 3)
+    return {"execution_id": str(execution.id), "node_id": node_id, "start": boundary}
+
+
+class TalkingCharacterRequest(BaseModel):
+    image_url: str  # a portrait on an allow-listed host (the character tiles)
+    script: str
+    voice: str | None = None
+
+
+@router.post("/projects/{project_id}/talking-character")
+def talking_character(
+    project_id: uuid.UUID,
+    body: TalkingCharacterRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Animate a character portrait to speak a script — a talking-head video generated
+    async on the worker, then inserted as a clip. Gated on TALKING_CHARACTER_MODEL."""
+    if not clip_ops.talking_configured():
+        raise HTTPException(
+            status_code=501, detail="Talking characters are not set up on this workspace yet"
+        )
+    if not (body.script or "").strip():
+        raise HTTPException(status_code=422, detail="Write a script for the character to say")
+
+    project = repository.get_by_workflow(session, workspace_id, project_id)
+    workflow = workflows_repo.get(session, workspace_id, project.workflow_id) if project else None
+    if project is None or workflow is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+
+    host = (urllib.parse.urlparse(body.image_url).hostname or "").lower()
+    if not any(host == h.lstrip(".") or host.endswith(h) for h in _STOCK_HOSTS):
+        raise HTTPException(status_code=422, detail="Portrait host is not allowed")
+
+    import httpx
+
+    try:
+        with httpx.Client(timeout=30, follow_redirects=True) as client:
+            res = client.get(body.image_url)
+            res.raise_for_status()
+            data = res.content
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail="Couldn't fetch the portrait") from exc
+
+    storage = get_storage()
+    ctype = res.headers.get("content-type", "").split(";")[0].strip() or "image/png"
+    ext = _EXT_BY_MIME.get(ctype) or "png"
+    image_key = f"{workspace_id}/edits/{uuid.uuid4()}.{ext}"
+    storage.put(image_key, data, ctype)
+
+    execution = executions_repo.add(
+        session,
+        Execution(workspace_id=workspace_id, workflow_id=project.workflow_id, status="pending"),
+    )
+    node_id = f"talk-{uuid.uuid4()}"
+    celery_app.send_task(
+        "run_talking_character",
+        args=[
+            str(execution.id),
+            str(workspace_id),
+            str(project.workflow_id),
+            node_id,
+            image_key,
+            body.script.strip(),
+            body.voice or "",
+        ],
+    )
+    return {"execution_id": str(execution.id), "node_id": node_id}
+
+
+class DetachRequest(BaseModel):
+    clip_id: str
+
+
+@router.post("/projects/{project_id}/detach-audio")
+def detach_audio(
+    project_id: uuid.UUID,
+    body: DetachRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Extract a clip's audio track into a new pool asset (mp3), so the editor can
+    place it as its own audio clip. (Editor calls carry the workflow id.)"""
+    project = repository.get_by_workflow(session, workspace_id, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Editor project not found")
+
+    clip = next(
+        (
+            c
+            for t in (project.doc or {}).get("tracks", [])
+            for c in (t.get("clips") or [])
+            if c.get("id") == body.clip_id
+        ),
+        None,
+    )
+    if clip is None or not clip.get("assetId"):
+        raise HTTPException(status_code=404, detail="Clip not found")
+
+    workflow = workflows_repo.get(session, workspace_id, project.workflow_id)
+    refmap = {item["id"]: item for item in (_workflow_media(session, workflow) if workflow else [])}
+    item = refmap.get(clip["assetId"])
+    if item is None:
+        raise HTTPException(status_code=404, detail="Source media not found")
+
+    storage = get_storage()
+    exe = imageio_ffmpeg.get_ffmpeg_exe()
+    with tempfile.TemporaryDirectory() as d:
+        ext = os.path.splitext(item["key"])[1] or ".bin"
+        src = os.path.join(d, f"src{ext}")
+        with open(src, "wb") as f:
+            f.write(storage.get(item["key"]))
+        out = os.path.join(d, "out.mp3")
+        proc = subprocess.run(
+            [exe, "-y", "-i", src, "-vn", "-c:a", "libmp3lame", "-q:a", "4", out],
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode != 0 or not os.path.exists(out):
+            raise HTTPException(status_code=502, detail="No audio track found")
+        data = open(out, "rb").read()
+        duration = _media_duration(exe, out)
+
+    key = f"{workspace_id}/edits/{uuid.uuid4()}.mp3"
+    storage.put(key, data, "audio/mpeg")
+    graph = dict(workflow.graph or {}) if workflow else {}
+    nodes = list(graph.get("nodes") or [])
+    nodes.append(
+        {
+            "id": f"node-{uuid.uuid4()}",
+            "type": "audio",
+            "position": {"x": 40, "y": 40 + len(nodes) * 40},
+            "data": {"kind": "audio", "upload_key": key, "label": "detached audio"},
+        }
+    )
+    graph["nodes"] = nodes
+    if workflow:
+        workflow.graph = graph
+        workflows_repo.save(session, workflow)
+
+    return {
+        "asset_id": key,
+        "kind": "audio",
+        "url": storage.url(key),
+        "duration": round(duration, 3),
+    }
+
+
+def _flatten_project(session: Session, project, workflow) -> tuple[dict, list[dict]]:
+    """Return a self-contained (doc, media) where every clip's assetId is a stable
+    storage key and media is the list of {kind, key} those keys need — so the doc can
+    be rehydrated into a fresh workflow (used by both duplicate and templates)."""
+    # pool id -> {kind, key}. For generated assets id is a UUID, for uploads it is the key.
+    pool = {item["id"]: item for item in _workflow_media(session, workflow)}
+    doc = copy.deepcopy(project.doc or {})
+    used: dict[str, dict] = {}
+    for track in doc.get("tracks") or []:
+        for clip in track.get("clips") or []:
+            aid = clip.get("assetId")
+            item = pool.get(aid) if aid else None
+            if item is None:
+                continue
+            clip["assetId"] = item["key"]  # reference media by its stable key
+            used[item["key"]] = item
+    return doc, [{"kind": i["kind"], "key": i["key"]} for i in used.values()]
+
+
+def _create_project_from(
+    session: Session, workspace_id: uuid.UUID, name: str, title: str, doc: dict, media: list[dict]
+) -> uuid.UUID:
+    """Rehydrate a flattened (doc, media) into a fresh workflow + editor project."""
+    nodes = [
+        {
+            "id": f"node-{uuid.uuid4()}",
+            "type": item["kind"],
+            "position": {"x": 240 + (i % 4) * 300, "y": 140 + i * 40},
+            "data": {"kind": item["kind"], "upload_key": item["key"], "label": "media"},
+        }
+        for i, item in enumerate(media)
+    ]
+    new_wf = workflows_repo.add(
+        session,
+        Workflow(workspace_id=workspace_id, name=name, graph={"nodes": nodes, "edges": []}),
+    )
+    repository.add(
+        session,
+        VideoEditorProject(workspace_id=workspace_id, workflow_id=new_wf.id, title=title, doc=doc),
+    )
+    return new_wf.id
+
+
+@router.post("/projects/{workflow_id}/duplicate")
+def duplicate_project(
+    workflow_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Clone the project into a fresh workflow. The media pool is flattened to
+    upload references (same storage keys — no re-generation), and the doc's clip
+    asset ids are remapped onto those keys so every clip still resolves."""
+    project = repository.get_by_workflow(session, workspace_id, workflow_id)
+    workflow = workflows_repo.get(session, workspace_id, workflow_id)
+    if project is None or workflow is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    doc, media = _flatten_project(session, project, workflow)
+    new_id = _create_project_from(
+        session, workspace_id, f"{workflow.name} (copy)", f"{project.title} (copy)", doc, media
+    )
+    return {"workflow_id": str(new_id)}
+
+
+# ── Brand Kit (stored in workspace.preferences — no migration needed) ────────
+
+
+def _brand_kit(ws: Workspace) -> list[dict]:
+    return list((ws.preferences or {}).get("brand_kit") or [])
+
+
+def _save_brand_kit(session: Session, ws: Workspace, items: list[dict]) -> None:
+    prefs = dict(ws.preferences or {})
+    prefs["brand_kit"] = items
+    ws.preferences = prefs  # reassign so the JSON column is marked dirty
+    session.add(ws)
+    session.commit()
+
+
+def _brand_item_out(item: dict, storage) -> dict:
+    out = {"id": item["id"], "kind": item["kind"], "name": item.get("name") or item["kind"]}
+    if item.get("color"):
+        out["color"] = item["color"]
+    if item.get("font"):
+        out["font"] = item["font"]
+    if item.get("key"):
+        out["url"] = storage.url(item["key"])
+    return out
+
+
+@router.get("/brand-kit")
+def list_brand_kit(
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    ws = session.get(Workspace, workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    storage = get_storage()
+    return {"items": [_brand_item_out(i, storage) for i in _brand_kit(ws)]}
+
+
+class BrandKitAdd(BaseModel):
+    kind: str  # video | audio | image | color | font
+    workflow_id: uuid.UUID | None = None
+    asset_id: str | None = None
+    color: str | None = None
+    font: str | None = None  # CSS font-family string for kind == "font"
+    name: str | None = None
+
+
+@router.post("/brand-kit")
+def add_brand_kit(
+    body: BrandKitAdd,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    ws = session.get(Workspace, workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
+    item = {"id": str(uuid.uuid4()), "kind": body.kind, "created_at": datetime.now(UTC).isoformat()}
+    if body.kind == "color":
+        if not body.color:
+            raise HTTPException(status_code=422, detail="color is required")
+        item["color"] = body.color
+        item["name"] = body.name or body.color
+    elif body.kind == "font":
+        if not body.font:
+            raise HTTPException(status_code=422, detail="font is required")
+        item["font"] = body.font
+        item["name"] = body.name or body.font.split(",")[0].strip()
+    else:
+        if not (body.workflow_id and body.asset_id):
+            raise HTTPException(status_code=422, detail="workflow_id and asset_id are required")
+        workflow = workflows_repo.get(session, workspace_id, body.workflow_id)
+        refmap = {m["id"]: m for m in (_workflow_media(session, workflow) if workflow else [])}
+        media = refmap.get(body.asset_id)
+        if media is None:
+            raise HTTPException(status_code=404, detail="Asset not found")
+        item["key"] = media["key"]
+        item["name"] = body.name or media["key"].rsplit("/", 1)[-1]
+
+    items = _brand_kit(ws)
+    items.append(item)
+    _save_brand_kit(session, ws, items)
+    return _brand_item_out(item, get_storage())
+
+
+@router.delete("/brand-kit/{item_id}")
+def remove_brand_kit(
+    item_id: str,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    ws = session.get(Workspace, workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    _save_brand_kit(session, ws, [i for i in _brand_kit(ws) if i.get("id") != item_id])
+    return {"ok": True}
+
+
+@router.post("/projects/{workflow_id}/brand-kit/{item_id}/add")
+def add_brand_kit_to_project(
+    workflow_id: uuid.UUID,
+    item_id: str,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Drop a saved brand-kit asset into the current project's media pool."""
+    ws = session.get(Workspace, workspace_id)
+    workflow = workflows_repo.get(session, workspace_id, workflow_id)
+    if ws is None or workflow is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    item = next((i for i in _brand_kit(ws) if i.get("id") == item_id), None)
+    if item is None or not item.get("key"):
+        raise HTTPException(status_code=404, detail="Brand kit item not found")
+
+    key = item["key"]
+    kind = assets_repo.kind_from_key(key) or item.get("kind") or "image"
+    graph = dict(workflow.graph or {})
+    nodes = list(graph.get("nodes") or [])
+    if not any((n.get("data") or {}).get("upload_key") == key for n in nodes):
+        nodes.append(
+            {
+                "id": f"node-{uuid.uuid4()}",
+                "type": kind,
+                "position": {"x": 40, "y": 40 + len(nodes) * 40},
+                "data": {"kind": kind, "upload_key": key, "label": item.get("name") or "brand kit"},
+            }
+        )
+        graph["nodes"] = nodes
+        workflow.graph = graph
+        workflows_repo.save(session, workflow)
+    return {"id": key, "kind": kind, "url": get_storage().url(key)}
+
+
+# ── Version history (doc snapshots in workspace.preferences — no migration) ──
+
+_MAX_VERSIONS = 20
+
+
+def _versions(ws: Workspace, wid: uuid.UUID) -> list[dict]:
+    return list(((ws.preferences or {}).get("versions") or {}).get(str(wid)) or [])
+
+
+def _save_versions(session: Session, ws: Workspace, wid: uuid.UUID, vers: list[dict]) -> None:
+    prefs = dict(ws.preferences or {})
+    all_versions = dict(prefs.get("versions") or {})
+    all_versions[str(wid)] = vers
+    prefs["versions"] = all_versions
+    ws.preferences = prefs
+    session.add(ws)
+    session.commit()
+
+
+class SaveVersionRequest(BaseModel):
+    doc: dict
+    label: str | None = None
+
+
+@router.post("/projects/{workflow_id}/versions")
+def save_version(
+    workflow_id: uuid.UUID,
+    body: SaveVersionRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    ws = session.get(Workspace, workspace_id)
+    workflow = workflows_repo.get(session, workspace_id, workflow_id)
+    if ws is None or workflow is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    version = {
+        "id": str(uuid.uuid4()),
+        "ts": datetime.now(UTC).isoformat(),
+        "label": body.label,
+        "doc": body.doc,
+    }
+    vers = [version, *_versions(ws, workflow_id)][:_MAX_VERSIONS]
+    _save_versions(session, ws, workflow_id, vers)
+    return {"id": version["id"], "ts": version["ts"], "label": version["label"]}
+
+
+@router.get("/projects/{workflow_id}/versions")
+def list_versions(
+    workflow_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    ws = session.get(Workspace, workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    return {
+        "versions": [
+            {"id": v["id"], "ts": v["ts"], "label": v.get("label")}
+            for v in _versions(ws, workflow_id)
+        ]
+    }
+
+
+@router.post("/projects/{workflow_id}/versions/{version_id}/restore")
+def restore_version(
+    workflow_id: uuid.UUID,
+    version_id: str,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    ws = session.get(Workspace, workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    version = next((v for v in _versions(ws, workflow_id) if v["id"] == version_id), None)
+    if version is None:
+        raise HTTPException(status_code=404, detail="Version not found")
+    return {"doc": version["doc"]}
+
+
+# ── Templates (self-contained doc snapshots in workspace.preferences) ─────────
+
+_MAX_TEMPLATES = 50
+
+
+def _templates(ws: Workspace) -> list[dict]:
+    return list((ws.preferences or {}).get("templates") or [])
+
+
+def _save_templates(session: Session, ws: Workspace, items: list[dict]) -> None:
+    prefs = dict(ws.preferences or {})
+    prefs["templates"] = items
+    ws.preferences = prefs  # reassign so the JSON column is marked dirty
+    session.add(ws)
+    session.commit()
+
+
+def _template_out(t: dict) -> dict:
+    tracks = (t.get("doc") or {}).get("tracks") or []
+    return {
+        "id": t["id"],
+        "name": t["name"],
+        "ts": t["ts"],
+        "clips": sum(len(tr.get("clips") or []) for tr in tracks),
+    }
+
+
+class SaveTemplateRequest(BaseModel):
+    workflow_id: uuid.UUID
+    name: str | None = None
+
+
+@router.post("/templates")
+def save_template(
+    body: SaveTemplateRequest,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Snapshot a project as a reusable template — flattened to stable storage keys
+    (same media, no re-generation) so it can be spun into a fresh project anytime."""
+    ws = session.get(Workspace, workspace_id)
+    project = repository.get_by_workflow(session, workspace_id, body.workflow_id)
+    workflow = workflows_repo.get(session, workspace_id, body.workflow_id)
+    if ws is None or project is None or workflow is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    doc, media = _flatten_project(session, project, workflow)
+    tpl = {
+        "id": str(uuid.uuid4()),
+        "name": (body.name or project.title or "Untitled").strip() or "Untitled",
+        "ts": datetime.now(UTC).isoformat(),
+        "doc": doc,
+        "media": media,
+    }
+    _save_templates(session, ws, [tpl, *_templates(ws)][:_MAX_TEMPLATES])
+    return _template_out(tpl)
+
+
+@router.get("/templates")
+def list_templates(
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    ws = session.get(Workspace, workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    return {"templates": [_template_out(t) for t in _templates(ws)]}
+
+
+@router.post("/templates/{template_id}/use")
+def use_template(
+    template_id: str,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Spin a template into a fresh workflow + editor project; returns its workflow id."""
+    ws = session.get(Workspace, workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    tpl = next((t for t in _templates(ws) if t["id"] == template_id), None)
+    if tpl is None:
+        raise HTTPException(status_code=404, detail="Template not found")
+    doc = copy.deepcopy(tpl["doc"])
+    new_id = _create_project_from(
+        session, workspace_id, tpl["name"], tpl["name"], doc, tpl.get("media") or []
+    )
+    return {"workflow_id": str(new_id)}
+
+
+@router.delete("/templates/{template_id}")
+def remove_template(
+    template_id: str,
+    session: Session = Depends(get_session),
+    workspace_id: uuid.UUID = Depends(current_workspace_id),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    ws = session.get(Workspace, workspace_id)
+    if ws is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    _save_templates(session, ws, [t for t in _templates(ws) if t["id"] != template_id])
+    return {"ok": True}
 
 
 class ProjectUpdate(BaseModel):

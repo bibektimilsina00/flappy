@@ -1,10 +1,16 @@
 "use client";
 
-import { Captions, ImageIcon, Music, Sparkles, Type, Video } from "lucide-react";
+import { Captions, ImageIcon, Music, Palette, Shapes, Sparkles, Type, Video } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { CategoryId, Clip, VideoEditorAsset } from "../../types";
 import { AiToolsPanel } from "./ai-tools-panel";
-import { MediaGrid, TextTile } from "./media-grid";
+import { AudioTab } from "./audio-tab";
+import { BrandKitTab } from "./brand-kit-tab";
+import { ElementsTab } from "./elements-tab";
+import { ImageTab } from "./image-tab";
+import { SubtitlesTab } from "./subtitles-tab";
+import { type TextPresetStyle, TextTab } from "./text-tab";
+import { VideoTab } from "./video-tab";
 
 export const CATEGORIES: { id: CategoryId; label: string; icon: typeof Type }[] = [
   { id: "ai-tools", label: "AI Tools", icon: Sparkles },
@@ -13,13 +19,8 @@ export const CATEGORIES: { id: CategoryId; label: string; icon: typeof Type }[] 
   { id: "image", label: "Image", icon: ImageIcon },
   { id: "subtitles", label: "Subtitles", icon: Captions },
   { id: "text", label: "Text", icon: Type },
-];
-
-const TEXT_PRESETS = [
-  { label: "Heading", content: "Heading", style: "text-base font-bold text-white" },
-  { label: "Subheading", content: "Subheading", style: "text-sm font-semibold text-white/90" },
-  { label: "Body text", content: "Body text", style: "text-xs text-white/80" },
-  { label: "Caption Pill", content: "Caption Pill", style: "rounded bg-[#14b8a6] px-2 py-0.5 text-xs font-semibold text-black" },
+  { id: "elements", label: "Elements", icon: Shapes },
+  { id: "brand", label: "Brand Kit", icon: Palette },
 ];
 
 export function RailBtn({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: typeof Type; label: string }) {
@@ -45,41 +46,63 @@ export function LeftPanel({
   onImport,
   importing,
   onAddText,
+  onAddShape,
+  onAddSubtitles,
+  onAddStock,
+  onTalkingCharacter,
+  onApplyFont,
+  onSetBackground,
   projectId,
   selectedClip,
+  onOpenPlayground,
+  onDub,
+  onOpenTransitions,
 }: {
   category: CategoryId;
   setCategory: (c: CategoryId) => void;
   assets: VideoEditorAsset[];
   onImport: () => void;
   importing: boolean;
-  onAddText: (content: string) => void;
+  onAddText: (content: string, style?: TextPresetStyle) => void;
+  onAddShape: (type: "rect" | "rounded" | "ellipse" | "triangle" | "star", color: string) => void;
+  onAddSubtitles: (segments: { start: number; end: number; text: string }[]) => void;
+  onAddStock: (url: string, kind: string) => void;
+  onTalkingCharacter: (imageUrl: string, script: string, voice: string) => Promise<void>;
+  onApplyFont: (family: string) => void;
+  onSetBackground: (bg: string) => void;
   projectId: string;
   selectedClip: Clip | null;
+  onOpenPlayground: (mode: string) => void;
+  onDub: () => void;
+  onOpenTransitions: () => void;
 }) {
   const byKind = (k: string) => assets.filter((a) => a.kind === k);
   const title = CATEGORIES.find((c) => c.id === category)?.label ?? "";
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
-      <div className="px-4 pb-2 pt-3.5 select-none">
-        <h3 className="text-base font-semibold">{title}</h3>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto pb-4 [scrollbar-width:thin]">
+      {category === "brand" ? null : (
+        <div className="px-4 pb-2 pt-3.5 select-none">
+          <h3 className="text-base font-semibold">{title}</h3>
+        </div>
+      )}
+      <div className="min-h-0 flex-1 overflow-y-auto pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {category === "ai-tools" ? (
-          <AiToolsPanel projectId={projectId} assets={assets} selectedClip={selectedClip} setCategory={setCategory} />
+          <AiToolsPanel projectId={projectId} assets={assets} selectedClip={selectedClip} setCategory={setCategory} onOpenPlayground={onOpenPlayground} onDub={onDub} onOpenTransitions={onOpenTransitions} />
         ) : category === "video" ? (
-          <MediaGrid items={byKind("video")} onImport={onImport} importing={importing} empty="No video yet — generate or import." />
+          <VideoTab videos={byKind("video")} onImport={onImport} importing={importing} onGenerate={() => onOpenPlayground("text-to-video")} onAddStock={onAddStock} onTalkingCharacter={onTalkingCharacter} />
         ) : category === "audio" ? (
-          <MediaGrid items={byKind("audio")} onImport={onImport} importing={importing} empty="No audio yet — generate or import." />
+          <AudioTab audios={byKind("audio")} onImport={onImport} importing={importing} projectId={projectId} />
         ) : category === "image" ? (
-          <MediaGrid items={byKind("image")} onImport={onImport} importing={importing} empty="No images yet — generate or import." />
+          <ImageTab images={byKind("image")} onImport={onImport} importing={importing} onGenerate={() => onOpenPlayground("text-to-image")} onAddStock={onAddStock} onSetBackground={onSetBackground} />
         ) : category === "text" ? (
-          <div className="grid gap-2 px-3">
-            {TEXT_PRESETS.map((t) => (
-              <TextTile key={t.label} preset={t} onAdd={onAddText} wide />
-            ))}
-          </div>
+          <TextTab onAddText={onAddText} />
+        ) : category === "subtitles" ? (
+          <SubtitlesTab projectId={projectId} onAddSubtitles={onAddSubtitles} />
+        ) : category === "elements" ? (
+          <ElementsTab onAddText={onAddText} onAddShape={onAddShape} onAddStock={onAddStock} />
+        ) : category === "brand" ? (
+          <BrandKitTab onImport={onImport} projectId={projectId} onApplyFont={onApplyFont} />
         ) : (
           <p className="px-4 py-3 text-sm text-muted-foreground">{title} — coming soon.</p>
         )}

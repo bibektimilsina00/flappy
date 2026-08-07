@@ -11,6 +11,7 @@ import {
   removeClips,
   splitClip,
   trackKindForClip,
+  updateClip,
 } from "../lib/doc-ops";
 import { useEditorStore } from "../stores/use-editor-store";
 import type { CategoryId, Clip } from "../types";
@@ -51,17 +52,19 @@ export function useVideoEditorPage(projectId: string) {
     if (next !== doc) commit(next);
   }, [doc, selectedClipId, commit]);
 
-  const addTextClip = (content: string, playhead: number) => {
+  const addTextClip = (content: string, playhead: number, style?: Partial<NonNullable<Clip["text"]>>) => {
     if (!doc) return;
-    const kind = "text";
-    let track = doc.tracks.find((t) => t.kind === kind);
-    let nextDoc = doc;
-    if (!track) {
-      nextDoc = addTrack(doc, kind);
-      track = nextDoc.tracks.find((t) => t.kind === kind)!;
-    }
     const dur = 3;
-    const start = freeStart(nextDoc, track.id, playhead, dur);
+    // Place the text right at the playhead so it's visible. Text overlays stack:
+    // reuse a text track that's free here, else add one (never the subtitle track).
+    const isFree = (d: typeof doc, id: string) => freeStart(d, id, playhead, dur) === playhead;
+    let nextDoc = doc;
+    let track = doc.tracks.find((t) => t.kind === "text" && t.name !== "Subtitles" && isFree(doc, t.id));
+    if (!track) {
+      nextDoc = addTrack(doc, "text");
+      track = nextDoc.tracks.find((t) => t.kind === "text" && t.name !== "Subtitles" && isFree(nextDoc, t.id))!;
+    }
+    const start = playhead;
     const newId = `c-${crypto.randomUUID().slice(0, 8)}`;
     const clip: Clip = {
       id: newId,
@@ -75,7 +78,187 @@ export function useVideoEditorPage(projectId: string) {
       transform: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
       keyframes: [],
       effects: [],
-      text: { content },
+      text: { content, ...style },
+    };
+    commit(addClip(nextDoc, track.id, clip));
+    setSelection(new Set([newId]));
+  };
+
+  // Drop Magic B-Roll images onto a dedicated overlay track at their topic times.
+  const addBrollClips = (items: { assetId: string; start: number; duration: number }[]) => {
+    if (!doc || !items.length) return;
+    let nextDoc = doc;
+    let track = nextDoc.tracks.find((t) => t.kind === "video" && t.name === "B-Roll");
+    if (!track) {
+      nextDoc = addTrack(nextDoc, "video");
+      track = nextDoc.tracks[0];
+      nextDoc = { ...nextDoc, tracks: nextDoc.tracks.map((t) => (t.id === track!.id ? { ...t, name: "B-Roll" } : t)) };
+      track = nextDoc.tracks.find((t) => t.id === track!.id)!;
+    }
+    for (const it of items) {
+      const dur = Math.max(0.3, it.duration);
+      const clip: Clip = {
+        id: `c-${crypto.randomUUID().slice(0, 8)}`,
+        assetId: it.assetId,
+        kind: "image",
+        start: Math.max(0, it.start),
+        duration: dur,
+        in: 0,
+        out: dur,
+        speed: 1,
+        volume: 1,
+        transform: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
+        keyframes: [],
+        effects: [],
+      };
+      nextDoc = addClip(nextDoc, track.id, clip);
+    }
+    commit(nextDoc);
+  };
+
+  // Drop an AI transition morph video onto a "Transitions" overlay track at the boundary.
+  const addMorphClip = (assetId: string, start: number, duration = 2) => {
+    if (!doc) return;
+    let nextDoc = doc;
+    let track = nextDoc.tracks.find((t) => t.kind === "video" && t.name === "Transitions");
+    if (!track) {
+      nextDoc = addTrack(nextDoc, "video");
+      track = nextDoc.tracks[0];
+      nextDoc = { ...nextDoc, tracks: nextDoc.tracks.map((t) => (t.id === track!.id ? { ...t, name: "Transitions" } : t)) };
+      track = nextDoc.tracks.find((t) => t.id === track!.id)!;
+    }
+    const clip: Clip = {
+      id: `c-${crypto.randomUUID().slice(0, 8)}`,
+      assetId,
+      kind: "video",
+      start: Math.max(0, start),
+      duration,
+      in: 0,
+      out: duration,
+      speed: 1,
+      volume: 1,
+      transform: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
+      keyframes: [],
+      effects: [],
+    };
+    commit(addClip(nextDoc, track.id, clip));
+  };
+
+  // Place a dubbed audio track and mute the original clip's audio.
+  const addDubClip = (assetId: string, start: number, duration: number, sourceClipId: string) => {
+    if (!doc) return;
+    let nextDoc = updateClip(doc, sourceClipId, { volume: 0 });
+    let track = nextDoc.tracks.find((t) => t.kind === "audio" && t.name === "Dub");
+    if (!track) {
+      nextDoc = addTrack(nextDoc, "audio");
+      track = nextDoc.tracks[0];
+      nextDoc = { ...nextDoc, tracks: nextDoc.tracks.map((t) => (t.id === track!.id ? { ...t, name: "Dub" } : t)) };
+      track = nextDoc.tracks.find((t) => t.id === track!.id)!;
+    }
+    const dur = Math.max(0.3, duration);
+    const clip: Clip = {
+      id: `c-${crypto.randomUUID().slice(0, 8)}`,
+      assetId,
+      kind: "audio",
+      start: Math.max(0, start),
+      duration: dur,
+      in: 0,
+      out: dur,
+      speed: 1,
+      volume: 1,
+      transform: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
+      keyframes: [],
+      effects: [],
+    };
+    commit(addClip(nextDoc, track.id, clip));
+  };
+
+  const addSubtitleClips = (segments: { start: number; end: number; text: string }[]) => {
+    if (!doc || !segments.length) return;
+    // dedicated subtitle track (reuse if present), styled bottom-center captions
+    let nextDoc = doc;
+    let track = nextDoc.tracks.find((t) => t.kind === "text" && t.name === "Subtitles");
+    if (!track) {
+      nextDoc = addTrack(nextDoc, "text");
+      track = nextDoc.tracks[0];
+      nextDoc = { ...nextDoc, tracks: nextDoc.tracks.map((t) => (t.id === track!.id ? { ...t, name: "Subtitles" } : t)) };
+      track = nextDoc.tracks.find((t) => t.id === track!.id)!;
+    }
+    for (const seg of segments) {
+      const dur = Math.max(0.3, seg.end - seg.start);
+      const clip: Clip = {
+        id: `c-${crypto.randomUUID().slice(0, 8)}`,
+        kind: "text",
+        start: Math.max(0, seg.start),
+        duration: dur,
+        in: 0,
+        out: dur,
+        speed: 1,
+        volume: 1,
+        transform: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
+        keyframes: [],
+        effects: [],
+        text: { content: seg.text, fontSize: 40, bold: true, align: "center" },
+      };
+      nextDoc = addClip(nextDoc, track.id, clip);
+    }
+    commit(nextDoc);
+  };
+
+  // Mute the source video clip and drop the extracted audio as its own clip,
+  // aligned to the video's timeline position.
+  const detachAudioClip = (videoClipId: string, assetId: string) => {
+    if (!doc) return;
+    const src = doc.tracks.flatMap((t) => t.clips).find((c) => c.id === videoClipId);
+    if (!src) return;
+    let nextDoc = updateClip(doc, videoClipId, { volume: 0 });
+    let track = nextDoc.tracks.find((t) => t.kind === "audio");
+    if (!track) {
+      nextDoc = addTrack(nextDoc, "audio");
+      track = nextDoc.tracks.find((t) => t.kind === "audio")!;
+    }
+    const start = freeStart(nextDoc, track.id, src.start, src.duration);
+    const clip: Clip = {
+      id: `c-${crypto.randomUUID().slice(0, 8)}`,
+      assetId,
+      kind: "audio",
+      start,
+      duration: src.duration,
+      in: 0,
+      out: src.duration,
+      speed: 1,
+      volume: 1,
+      transform: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
+      keyframes: [],
+      effects: [],
+    };
+    commit(addClip(nextDoc, track.id, clip));
+  };
+
+  const addShapeClip = (shape: NonNullable<Clip["shape"]>, playhead: number) => {
+    if (!doc) return;
+    let track = doc.tracks.find((t) => t.kind === "video");
+    let nextDoc = doc;
+    if (!track) {
+      nextDoc = addTrack(doc, "video");
+      track = nextDoc.tracks.find((t) => t.kind === "video")!;
+    }
+    const dur = 3;
+    const start = freeStart(nextDoc, track.id, playhead, dur);
+    const newId = `c-${crypto.randomUUID().slice(0, 8)}`;
+    const clip: Clip = {
+      id: newId,
+      kind: "shape",
+      start,
+      duration: dur,
+      in: 0,
+      out: dur,
+      speed: 1,
+      volume: 1,
+      transform: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
+      keyframes: [],
+      effects: [],
+      shape,
     };
     commit(addClip(nextDoc, track.id, clip));
     setSelection(new Set([newId]));
@@ -100,6 +283,21 @@ export function useVideoEditorPage(projectId: string) {
     } finally {
       setImporting(false);
     }
+  };
+
+  // Add a clip for a freshly-imported asset (id may not be in the pool yet).
+  const addImportedClip = (assetId: string, kind: string, dropTime: number) => {
+    if (!doc) return;
+    const targetKind = trackKindForClip(kind);
+    let track = doc.tracks.find((t) => t.kind === targetKind);
+    let nextDoc = doc;
+    if (!track) {
+      nextDoc = addTrack(doc, targetKind);
+      track = nextDoc.tracks.find((t) => t.kind === targetKind)!;
+    }
+    const clip = clipForAsset({ id: assetId, kind, url: "" }, Math.max(0, dropTime));
+    commit(addClip(nextDoc, track.id, clip));
+    setSelection(new Set([clip.id]));
   };
 
   const dropAsset = (assetId: string, dropTime: number, rowTrackId: string | null) => {
@@ -163,6 +361,13 @@ export function useVideoEditorPage(projectId: string) {
     setAspect,
     splitSelected,
     addTextClip,
+    addShapeClip,
+    addSubtitleClips,
+    addBrollClips,
+    addMorphClip,
+    addDubClip,
+    addImportedClip,
+    detachAudioClip,
     doImport,
     dropAsset,
     setupKeybindings,

@@ -48,6 +48,15 @@ export function usePreview(doc: VideoEditorDoc, playhead: number, playing: boole
       const el = media.current.get(clip.id);
       if (!el) continue;
       const src = Math.max(0, clip.in + (playhead - clip.start) * clip.speed);
+      // audio fade in/out — mirrors render.py's afade so preview matches export
+      if (clip.fadeAudio) {
+        const d = Math.min(0.5, clip.duration / 2);
+        const t = playhead - clip.start;
+        const f = t < d ? t / d : t > clip.duration - d ? (clip.duration - t) / d : 1;
+        el.volume = Math.max(0, Math.min(1, (clip.volume ?? 1) * f));
+      } else {
+        el.volume = Math.max(0, Math.min(1, clip.volume ?? 1));
+      }
       if (playing) {
         if (Math.abs(el.currentTime - src) > 0.3) el.currentTime = src;
         el.play().catch(() => {});
