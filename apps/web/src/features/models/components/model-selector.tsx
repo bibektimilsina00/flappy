@@ -3,7 +3,7 @@
 import { ChevronDown } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useBalance } from "@/features/billing";
+import { openUpgrade, useBalance } from "@/features/billing";
 import { popupRegistry } from "@/features/canvas";
 import type { Model } from "../types";
 import { ProviderIcon } from "./provider-icon";
@@ -154,9 +154,16 @@ export function ModelSelector({ models, value, onChange }: ModelSelectorProps) {
                 ))}
 
                 {isFree && premium.length > 0 ? (
-                  <a href="/pricing" className="block px-2 py-2 text-sm text-muted-foreground hover:text-foreground">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpen(false);
+                      openUpgrade("Unlock premium models");
+                    }}
+                    className="block w-full px-2 py-2 text-left text-sm text-muted-foreground hover:text-foreground"
+                  >
                     <span className="text-[#4a9eff] underline underline-offset-2">Upgrade</span> your plan to unlock more models
-                  </a>
+                  </button>
                 ) : null}
 
                 {premium.map((model) => (

@@ -84,7 +84,7 @@ export const TOOL_TABS = [
     title: "Every model, one canvas",
     desc: "Turn a prompt or a still into footage. Chain text, image, and video models and let media flow between them.",
     bullets: ["Text to image & video", "Image to video", "Extend any clip", "Swap models instantly"],
-    media: "Generation on the canvas", img: "1620712943543-bcc4688e7485",
+    media: "Generation on the canvas", img: "https://images.pexels.com/photos/38220710/pexels-photo-38220710.jpeg",
   },
   {
     n: "02",
@@ -92,7 +92,7 @@ export const TOOL_TABS = [
     title: "A magnetic timeline",
     desc: "Cut, trim, and arrange on a Final-Cut-style timeline that never leaves an accidental gap.",
     bullets: ["Gap-free magnetic edits", "Frame-accurate trims", "Split & ripple", "Multi-track layers"],
-    media: "Timeline editing", img: "1574717024653-61fd2cf4d44d",
+    media: "Timeline editing", img: "https://images.pexels.com/photos/17115909/pexels-photo-17115909.jpeg",
   },
   {
     n: "03",
@@ -100,7 +100,7 @@ export const TOOL_TABS = [
     title: "Long video in, viral clips out",
     desc: "Paste a link or upload a video. The AI reads the transcript, picks the moments with hooks, and hands back captioned, face-framed clips — scored and scheduled.",
     bullets: ["AI moment selection + virality scores", "Word-by-word animated captions", "Vertical 9:16 reframing", "Auto-schedule the posting queue"],
-    media: "AI clipping", img: "1611162616475-46b635cb6868",
+    media: "AI clipping", img: "https://images.pexels.com/photos/6878702/pexels-photo-6878702.jpeg",
   },
   {
     n: "04",
@@ -108,7 +108,7 @@ export const TOOL_TABS = [
     title: "Assistant & connected clips",
     desc: "Describe what you want in plain language, and keep captions, audio, and overlays locked to their shot.",
     bullets: ["Prompt-to-shot assistant", "Connected captions & audio", "Voiceover & music", "One-click presets"],
-    media: "AI assistant", img: "1511671782779-c97d3d27a1d4",
+    media: "AI assistant", img: "https://images.pexels.com/photos/16229745/pexels-photo-16229745.jpeg",
   },
   {
     n: "05",
@@ -116,7 +116,7 @@ export const TOOL_TABS = [
     title: "Ship it anywhere",
     desc: "Render a clean MP4 in the exact ratio you need — vertical for social, wide for the screen, in crisp 1080p HD.",
     bullets: ["9:16 · 1:1 · 16:9", "1080p HD", "No watermark on paid plans", "Fast cloud render"],
-    media: "Export & share", img: "1611262588024-d12430b98920",
+    media: "Export & share", img: "https://images.pexels.com/photos/8488289/pexels-photo-8488289.jpeg",
   },
 ];
 
@@ -134,7 +134,7 @@ export const FEATURE_ROWS = [
     title: "Cut like a pro, without the learning curve.",
     desc: "A Final-Cut-style timeline that keeps itself tidy. Insert makes room, delete closes the gap, trims ripple — all frame-perfect. Captions, voiceover, and overlays stay locked to their shot.",
     bullets: ["Gap-free magnetic editing", "Frame-accurate trims & splits", "Connected captions & audio", "Instant preview, clean export"],
-    media: { tone: "slate", label: "Timeline editor", play: true, img: "1574717024653-61fd2cf4d44d" } as const,
+    media: { tone: "slate", label: "Timeline editor", play: true, img: "https://images.pexels.com/photos/29272604/pexels-photo-29272604.jpeg" } as const,
     reverse: true,
   },
   {
@@ -142,7 +142,7 @@ export const FEATURE_ROWS = [
     title: "One long video. Ten viral clips.",
     desc: "Riocut listens to every word of your podcast or stream, scores each moment for hook strength and completeness, then renders vertical clips with karaoke captions and a posting schedule. Review, tweak a caption, and ship.",
     bullets: ["Whisper-accurate transcripts, word by word", "Virality scores with the reasoning shown", "Caption templates — or design your own", "Bulk schedule straight to a posting queue"],
-    media: { tone: "teal", label: "AI clipping", play: true, img: "1611162616475-46b635cb6868" } as const,
+    media: { tone: "teal", label: "AI clipping", play: true, img: "https://images.pexels.com/photos/4319926/pexels-photo-4319926.jpeg" } as const,
     reverse: false,
   },
   {
@@ -168,24 +168,16 @@ export const COMPARE = {
   },
 };
 
-export const BLOG = [
-  { title: "AI Clips: turn one video into a week of content", excerpt: "How the clipping engine scores moments, writes captions, and schedules your posting queue.", category: "Product", date: "Jul 2026", tone: "teal" },
-  { title: "Introducing Riocut: one canvas for AI video", excerpt: "Why we fused a node-based generator and a real editor into a single workspace.", category: "Product", date: "Jul 2026", tone: "violet" },
-  { title: "How the magnetic timeline works", excerpt: "A look under the hood at frame-perfect, gap-free editing — and why it matters.", category: "Engineering", date: "Jul 2026", tone: "teal" },
-  { title: "Image-to-video: from a still to a shot", excerpt: "A step-by-step walkthrough of animating a single frame into moving footage.", category: "Tutorial", date: "Jun 2026", tone: "indigo" },
-  { title: "Picking the right model for the job", excerpt: "Free vs premium, speed vs quality — a practical guide to the model menu.", category: "Guide", date: "Jun 2026", tone: "amber" },
-  { title: "5 ad formats you can ship in an afternoon", excerpt: "Templates and prompts for scroll-stopping product spots.", category: "Inspiration", date: "May 2026", tone: "rose" },
-  { title: "Connected clips: captions that never drift", excerpt: "Keep overlays, subtitles, and audio locked to their shot as you edit.", category: "Tutorial", date: "May 2026", tone: "teal" },
-];
+// Blog posts moved to ./blog (full article content + SEO). Re-exported via the barrel.
 
 export const USE_CASES = [
-  { icon: "Megaphone", title: "Ads & promos", desc: "Spin up scroll-stopping product spots in an afternoon, not a week.", img: "1533750349088-cd871a92f312" },
-  { icon: "Music", title: "Music & lyric videos", desc: "Visualize a track with generated scenes cut to the beat.", img: "1470225620780-dba8ba36b745" },
-  { icon: "GraduationCap", title: "Explainers", desc: "Script, storyboard, and animate a concept end-to-end.", img: "1509062522246-3755977927d7" },
-  { icon: "Clapperboard", title: "Short films", desc: "Pre-viz or produce entire scenes from a single canvas.", img: "1478720568477-152d9b164e26" },
-  { icon: "Store", title: "Social content", desc: "Batch vertical clips for every platform from one project.", img: "1611162617474-5b21e879e113" },
-  { icon: "Music", title: "Podcast clipping", desc: "Every episode becomes a stack of captioned, scored shorts.", img: "1590602847861-f357a9332bbc" },
-  { icon: "Newspaper", title: "News & recaps", desc: "Turn a headline into a narrated, illustrated segment.", img: "1504711434969-e33886168f5c" },
+  { icon: "Megaphone", title: "Ads & promos", desc: "Spin up scroll-stopping product spots in an afternoon, not a week.", img: "https://images.pexels.com/photos/8747310/pexels-photo-8747310.jpeg" },
+  { icon: "Music", title: "Music & lyric videos", desc: "Visualize a track with generated scenes cut to the beat.", img: "https://images.pexels.com/photos/13230484/pexels-photo-13230484.jpeg" },
+  { icon: "GraduationCap", title: "Explainers", desc: "Script, storyboard, and animate a concept end-to-end.", img: "https://images.pexels.com/photos/18999279/pexels-photo-18999279.jpeg" },
+  { icon: "Clapperboard", title: "Short films", desc: "Pre-viz or produce entire scenes from a single canvas.", img: "https://images.pexels.com/photos/30396798/pexels-photo-30396798.jpeg" },
+  { icon: "Store", title: "Social content", desc: "Batch vertical clips for every platform from one project.", img: "https://images.pexels.com/photos/6964949/pexels-photo-6964949.jpeg" },
+  { icon: "Music", title: "Podcast clipping", desc: "Every episode becomes a stack of captioned, scored shorts.", img: "https://images.pexels.com/photos/6919954/pexels-photo-6919954.jpeg" },
+  { icon: "Newspaper", title: "News & recaps", desc: "Turn a headline into a narrated, illustrated segment.", img: "https://images.pexels.com/photos/35755252/pexels-photo-35755252.jpeg" },
 ];
 
 export const TESTIMONIALS = [

@@ -11,10 +11,10 @@ export function QuickStartButton({ icon: Icon, label, onClick }: QuickStartButto
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-2 rounded-xl border border-border bg-card/60 px-3 py-2 text-xs font-medium text-muted-foreground transition-all hover:border-foreground/30 hover:bg-accent hover:text-foreground active:scale-95"
+      className="flex items-center gap-2.5 rounded-lg border border-border bg-card/50 px-4 py-2.5 text-sm font-medium transition-colors hover:border-muted-foreground/30 hover:bg-accent"
     >
-      <Icon className="size-4 text-teal-400" />
-      <span>{label}</span>
+      <Icon className="size-4 text-muted-foreground" />
+      {label}
     </button>
   );
 }

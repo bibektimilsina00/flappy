@@ -679,7 +679,7 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
         <EditorModeTabs projectId={projectId} mode="video" className="shrink-0 overflow-hidden rounded-lg border border-border" />
       </div>
 
-      {/* ── export modal ── */}
+      {/* ── export side panel ── */}
       {exporting ? (
         <ExportPanel
           projectId={project.id}

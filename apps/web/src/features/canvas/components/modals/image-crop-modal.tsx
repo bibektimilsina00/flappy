@@ -96,7 +96,7 @@ export function ImageCropModal({
             type="button"
             disabled={busy}
             onClick={() => void save()}
-            className="flex items-center gap-2 rounded-xl bg-teal-400 px-4 py-2 text-sm font-semibold text-black hover:bg-teal-300 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-xl bg-teal-400 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-300 disabled:opacity-50"
           >
             <Check className="size-4" /> Save Crop
           </button>

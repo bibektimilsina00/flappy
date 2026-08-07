@@ -165,7 +165,7 @@ export function WorkspaceSwitcher({ name, initial, collapsed, onToggle }: Worksp
               <button
                 type="submit"
                 disabled={!newName.trim() || create.isPending}
-                className="rounded-lg bg-teal-400 px-2.5 py-1.5 text-xs font-semibold text-black disabled:opacity-40"
+                className="rounded-lg bg-teal-400 px-2.5 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
               >
                 {create.isPending ? <Loader2 className="size-3.5 animate-spin" /> : "Create"}
               </button>

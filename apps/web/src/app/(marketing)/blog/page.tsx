@@ -1,7 +1,7 @@
 import { ArrowRight } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BLOG, CTA, Poster, Container, Section, SectionHeading } from "@/features/marketing";
+import { BLOG, CTA, Container, media, Poster, Section, SectionHeading } from "@/features/marketing";
 
 export const metadata: Metadata = {
   title: "Blog",
@@ -21,8 +21,8 @@ export default function BlogPage() {
       <Section className="pt-0">
         <Container>
           {/* featured post */}
-          <Link href="#" className="group grid gap-6 rounded-2xl border border-mk-border bg-mk-surface p-4 transition-colors hover:border-mk-borders md:grid-cols-2 md:p-5">
-            <Poster tone={featured.tone} label="" ratio="16 / 10" play />
+          <Link href={`/blog/${featured.slug}`} className="group grid gap-6 rounded-2xl border border-mk-border bg-mk-surface p-4 transition-colors hover:border-mk-borders md:grid-cols-2 md:p-5">
+            <Poster tone={featured.tone} src={featured.img ? media(featured.img, 900) : undefined} label="" ratio="16 / 10" play />
             <div className="flex flex-col justify-center p-2">
               <div className="flex items-center gap-3 text-xs">
                 <span className="rounded bg-mk-accent/15 px-2 py-0.5 font-semibold text-mk-accent">{featured.category}</span>
@@ -39,8 +39,8 @@ export default function BlogPage() {
           {/* grid */}
           <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {rest.map((post) => (
-              <Link key={post.title} href="#" className="group flex flex-col overflow-hidden rounded-2xl border border-mk-border bg-mk-surface transition-colors hover:border-mk-borders">
-                <Poster tone={post.tone} label="" ratio="16 / 9" className="rounded-none border-0 border-b border-mk-border" />
+              <Link key={post.title} href={`/blog/${post.slug}`} className="group flex flex-col overflow-hidden rounded-2xl border border-mk-border bg-mk-surface transition-colors hover:border-mk-borders">
+                <Poster tone={post.tone} src={post.img ? media(post.img, 600) : undefined} label="" ratio="16 / 9" className="rounded-none border-0 border-b border-mk-border" />
                 <div className="flex flex-1 flex-col p-5">
                   <div className="flex items-center gap-3 text-xs">
                     <span className="rounded bg-mk-accent/15 px-2 py-0.5 font-semibold text-mk-accent">{post.category}</span>

@@ -114,7 +114,7 @@ export function Submit({ busy, credits, label = "Generate", onClick }: { busy: b
       type="button"
       disabled={busy}
       onClick={onClick}
-      className="flex items-center justify-center gap-2 rounded-xl bg-teal-400 px-5 py-2.5 text-xs font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-50"
+      className="flex items-center justify-center gap-2 rounded-xl bg-teal-400 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-teal-300 disabled:opacity-50"
     >
       {busy ? <Loader2 className="size-4 animate-spin" /> : null}
       {label} {credits ? `(${credits} credits)` : ""}

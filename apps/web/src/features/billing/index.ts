@@ -1,7 +1,10 @@
+export { BillingPeriodToggle } from "./components/billing-period-toggle";
+export { PricingModal } from "./components/pricing-modal";
 export { UpgradeCta } from "./components/upgrade-cta";
 export { useBalance } from "./hooks/use-balance";
 export { useUpgrade } from "./hooks/use-upgrade";
 export * from "./lib/plans";
+export * from "./lib/pricing";
 export * from "./schemas/billing-schemas";
 export * from "./services/billing-api";
 export * from "./stores/use-billing-store";

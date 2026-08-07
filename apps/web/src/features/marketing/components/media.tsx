@@ -20,6 +20,17 @@ export const toneAt = (i: number) => ORDER[i % ORDER.length];
 export const unsplash = (id: string, w = 900) =>
   `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&q=80`;
 
+// Resolve an image reference to a sized URL. Accepts a full Pexels image URL
+// (adds compression/sizing params) or a bare Unsplash photo id (legacy).
+export const media = (ref: string, w = 900) => {
+  if (!ref.startsWith("http")) return unsplash(ref, w);
+  if (ref.includes("images.pexels.com")) {
+    const join = ref.includes("?") ? "&" : "?";
+    return `${ref}${join}auto=compress&cs=tinysrgb&fit=crop&w=${w}`;
+  }
+  return ref;
+};
+
 export function Poster({
   tone = "teal",
   ratio = "16 / 9",

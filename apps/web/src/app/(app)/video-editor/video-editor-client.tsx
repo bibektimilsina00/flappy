@@ -71,7 +71,7 @@ export function VideoEditorRouteClient({ initialProjectId }: { initialProjectId?
             Create multi-track video edits, add voiceovers, captions, and export high-resolution video.
           </p>
         </div>
-        <Button onClick={handleCreateNew} disabled={creating} className="w-full gap-2 bg-teal-500 hover:bg-teal-600 text-black font-semibold">
+        <Button onClick={handleCreateNew} disabled={creating} className="w-full gap-2 bg-teal-500 hover:bg-teal-600 text-white font-semibold">
           <Plus className="size-4" />
           Create New Video Project
         </Button>

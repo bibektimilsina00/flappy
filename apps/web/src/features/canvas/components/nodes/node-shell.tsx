@@ -15,143 +15,205 @@ import { NodeHandles } from "./node-handles";
 import { NodeToolbar } from "./node-toolbar";
 import { PromptBar } from "../toolbar/prompt-bar/prompt-bar";
 
+// A spinning square conic gradient with a short green arc; whatever rounded
+// container clips it turns the arc into a highlight that rides the border.
 const BEAM =
-  "pointer-events-none absolute -inset-24 animate-[spin_3.5s_linear_infinite] opacity-90 [background:conic-gradient(from_0deg,transparent_0deg,transparent_310deg,#14b8a6_335deg,transparent_360deg)]";
+  "absolute left-1/2 top-1/2 aspect-square w-[170%] -translate-x-1/2 -translate-y-1/2 animate-[spin_3s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_0deg,transparent_110deg,#22c55e_150deg,#86efac_170deg,transparent_190deg,transparent_290deg,#22c55e_330deg,#86efac_350deg,transparent_360deg)]";
 
 interface NodeShellProps {
   id: string;
   kind: NodeKind;
   selected: boolean;
   locked: boolean;
-  data: Record<string, unknown>;
-  content?: string;
-  flush?: boolean;
+  data?: Record<string, unknown>;
   showPromptBar?: boolean;
+  bodyClassName?: string;
+  // Present only when the node has produced/holds content (media URL or text).
+  // Gates the floating action toolbar.
+  content?: string;
+  // Render the body edge-to-edge (no padding, clipped to the border) — for media.
+  flush?: boolean;
   children: ReactNode;
 }
 
+// Common frame shared by every node type: header, box, toolbar, ports, and
+// the selected-state prompt bar. Per-type components supply the body.
 export function NodeShell({
   id,
   kind,
   selected,
-  locked,
   data,
+  showPromptBar = true,
+  bodyClassName,
   content,
   flush,
-  showPromptBar = true,
   children,
 }: NodeShellProps) {
+  const config: NodeConfig = NODE_CONFIG[kind];
+  const Icon = config.icon;
   const status = useNodeStatus(id);
-  const isRunning = status === "running";
-  const cfg: NodeConfig = NODE_CONFIG[kind];
-  const Icon = cfg.icon;
-
-  const [expandedErr, setExpandedErr] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!expandedErr) return;
-    const onDown = (e: MouseEvent) => {
-      if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
-        setExpandedErr(false);
-      }
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [expandedErr]);
-
-  const style = cfg.width ? { width: cfg.width } : undefined;
+  const upload = (data as { upload?: UploadState } | undefined)?.upload;
+  const label = (data as { label?: string } | undefined)?.label;
 
   return (
-    <div
-      ref={cardRef}
-      style={style}
-      className={cn(
-        "group relative rounded-2xl transition-shadow",
-        kind === "video" ? "w-[520px]" : kind === "audio" ? "w-[380px]" : "w-[288px]",
-        selected && "z-20",
-      )}
-    >
-      {isRunning ? <div className="absolute inset-0 overflow-hidden rounded-2xl"><div className={BEAM} /></div> : null}
-
-      <div
-        className={cn(
-          "relative flex flex-col rounded-2xl border bg-card/95 backdrop-blur-md transition-colors",
-          selected
-            ? "border-foreground/50 shadow-xl shadow-black/20"
-            : "border-border shadow-sm hover:border-muted-foreground/40",
-          isRunning && "border-transparent bg-card/98",
-        )}
-      >
-        <NodeHandles kind={kind} />
-        <NodeToolbar id={id} kind={kind} content={content ?? undefined} />
-
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
-          <div className="flex items-center gap-2">
-            <span className="grid size-6 place-items-center rounded-lg bg-secondary text-foreground">
-              <Icon className="size-3.5" />
-            </span>
-            <span className="text-xs font-semibold">{cfg.title}</span>
-          </div>
-
-          <StatusIndicator status={status} onToggleExpand={() => setExpandedErr((e) => !e)} />
+    <div className="group relative" style={{ width: config.width ?? 288 }}>
+      {/* Floating action toolbar — only when the node has content AND is selected */}
+      {selected && content && !upload && status !== "running" ? (
+        <div className="absolute bottom-full left-1/2 z-[80] -translate-x-1/2 pb-3">
+          <NodeToolbar id={id} kind={kind} content={content} label={label} />
         </div>
+      ) : null}
 
-        {/* Content */}
-        <div className={cn("relative flex-1", !flush && "p-1")}>{children}</div>
+      <div className="mb-1.5 flex items-center gap-1 px-1 text-xs font-medium">
+        <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="truncate">{label ?? config.title}</span>
+        <StatusBadge status={status} />
+      </div>
 
-        {/* Prompt bar */}
-        {showPromptBar ? (
+      {status === "running" ? (
+        // Border beam: a green highlight rides around the perimeter. The spinning
+        // conic sits in a 1.5px ring; the inner bg-card masks all but the border.
+        // A blurred copy behind adds the soft outward glow.
+        <div className="relative rounded-lg p-[1.5px]">
+          {/* soft glow bleeding outward from the border */}
+          <div className="pointer-events-none absolute -inset-0.5 overflow-hidden rounded-lg opacity-60 blur-sm">
+            <div className={BEAM} />
+          </div>
+          {/* crisp light riding the border */}
+          <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg">
+            <div className={BEAM} />
+          </div>
+          <div className="relative rounded-[7px] bg-card p-4">
+            <NodeGeneratingOverlay icon={Icon} />
+            <NodeHandles icon={Icon} inputs={config.inputs} outputs={config.outputs} />
+          </div>
+        </div>
+      ) : (
+        <div
+          className={cn(
+            "relative rounded-lg border bg-card transition-colors",
+            status === "failed" ? "border-destructive/40" : selected ? "border-white/70" : "border-border",
+            bodyClassName,
+          )}
+        >
+          {upload ? (
+            <div className="p-4">
+              <NodeUploadOverlay upload={upload} />
+            </div>
+          ) : status === "failed" ? (
+            <div className="p-4">
+              <NodeErrorOverlay />
+            </div>
+          ) : flush ? (
+            <div className="overflow-hidden rounded-[7px]">{children}</div>
+          ) : (
+            <div className="p-4">{children}</div>
+          )}
+          <NodeHandles icon={Icon} inputs={config.inputs} outputs={config.outputs} />
+        </div>
+      )}
+
+      {selected && showPromptBar && !upload ? (
+        <div className="nodrag nowheel absolute left-1/2 top-full z-[70] mt-3 w-[720px] -translate-x-1/2">
           <PromptBar
             nodeId={id}
             kind={kind}
-            model={data.model as string | undefined}
-            params={data.params as Record<string, unknown> | undefined}
-            prompt={data.prompt as string | undefined}
+            model={data?.model as string | undefined}
+            params={data?.params as Record<string, unknown> | undefined}
+            prompt={data?.prompt as string | undefined}
           />
-        ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+interface UploadState {
+  name: string;
+  progress: number;
+}
+
+// Uploading placeholder — same look for every node kind: an empty media body
+// with a filename + progress bar pinned to the bottom.
+function NodeUploadOverlay({ upload }: { upload: UploadState }) {
+  return (
+    <div className="flex min-h-[320px] flex-col">
+      <div className="flex-1" />
+      <div>
+        <div className="mb-1.5 flex items-center justify-between gap-2 text-sm">
+          <span className="flex min-w-0 items-center gap-2">
+            <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
+            <span className="truncate">{upload.name}</span>
+          </span>
+          <span className="shrink-0 text-muted-foreground">{upload.progress}%</span>
+        </div>
+        <div className="h-1 w-full overflow-hidden rounded-full bg-white/10">
+          <div
+            className="h-full rounded-full bg-white transition-[width] duration-200"
+            style={{ width: `${upload.progress}%` }}
+          />
+        </div>
+        <div className="mt-2 text-xs text-muted-foreground">Creating canvas node</div>
       </div>
     </div>
   );
 }
 
-function StatusIndicator({
-  status,
-  onToggleExpand,
-}: {
-  status?: string;
-  onToggleExpand: () => void;
-}) {
-  if (!status || status === "idle") return null;
+const PHRASES = [
+  "Cooking",
+  "Brewing",
+  "Conjuring",
+  "Percolating",
+  "Noodling",
+  "Simmering",
+  "Composing",
+  "Weaving pixels",
+  "Manifesting",
+  "Crafting",
+  "Dreaming it up",
+  "Summoning",
+  "Marinating",
+  "Warming up",
+  "Almost there",
+];
 
-  if (status === "running") {
-    return (
-      <span className="flex items-center gap-1.5 text-xs text-[#14b8a6]">
-        <Loader2 className="size-3.5 animate-spin" /> Generating…
+function NodeGeneratingOverlay({ icon: Icon }: { icon: LucideIcon }) {
+  const start = useRef(Date.now());
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 2800);
+    return () => clearInterval(t);
+  }, []);
+  const elapsed = Math.floor((Date.now() - start.current) / 1000);
+  // Mostly playful words; every third beat show elapsed time.
+  const msg = tick % 3 === 2 ? `${elapsed}s elapsed…` : `${PHRASES[tick % PHRASES.length]}…`;
+
+  return (
+    <div className="grid min-h-[240px] place-items-center gap-4">
+      <Icon className="size-10 text-muted-foreground/50" strokeWidth={1.25} />
+      <span key={msg} className="animate-in fade-in-0 text-sm text-muted-foreground duration-700">
+        {msg}
       </span>
-    );
-  }
+    </div>
+  );
+}
 
-  if (status === "completed") {
-    return (
-      <span className="flex items-center gap-1 text-xs text-[#14b8a6]">
-        <CheckCircle2 className="size-3.5" /> Done
-      </span>
-    );
-  }
+function NodeErrorOverlay() {
+  return (
+    <div className="grid min-h-[200px] place-items-center">
+      <div className="flex flex-col items-center gap-3 text-center">
+        <CircleAlert className="size-9 text-destructive" strokeWidth={1.5} />
+        <span className="flex items-center gap-1.5 text-sm text-destructive">
+          Generation failed <Info className="size-3.5 opacity-70" />
+        </span>
+      </div>
+    </div>
+  );
+}
 
-  if (status === "error") {
-    return (
-      <button
-        type="button"
-        onClick={onToggleExpand}
-        className="flex items-center gap-1 text-xs text-destructive hover:underline"
-      >
-        <XCircle className="size-3.5" /> Error
-      </button>
-    );
-  }
-
-  return null;
+function StatusBadge({ status }: { status: ReturnType<typeof useNodeStatus> }) {
+  if (!status || status === "running") return null; // running shown by the border beam
+  if (status === "succeeded") return <CheckCircle2 className="size-3.5 text-emerald-500" />;
+  if (status === "failed") return <XCircle className="size-3.5 text-destructive" />;
+  return <MinusCircle className="size-3.5 text-muted-foreground" />;
 }

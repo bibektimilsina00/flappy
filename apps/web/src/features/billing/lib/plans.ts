@@ -6,6 +6,7 @@ export const PLANS: Plan[] = [
     name: "Plus",
     tagline: "Best for occasional clipping and posting.",
     monthly: 12,
+    yearly: 120,
     credits: 1200,
     features: [
       "1,200 credits / month",
@@ -20,6 +21,7 @@ export const PLANS: Plan[] = [
     name: "Pro",
     tagline: "Best for creators shipping video every week.",
     monthly: 28,
+    yearly: 280,
     credits: 3200,
     popular: true,
     features: [
@@ -36,6 +38,7 @@ export const PLANS: Plan[] = [
     name: "Ultra",
     tagline: "Built for professional productions.",
     monthly: 76,
+    yearly: 760,
     credits: 10000,
     features: [
       "10,000 credits / month",
@@ -49,6 +52,7 @@ export const PLANS: Plan[] = [
     name: "Studio",
     tagline: "Best for series, films, and ads — pick your size.",
     monthly: 140,
+    yearly: 1400,
     credits: 20000,
     features: [
       "20,000+ credits / month — scales with size",

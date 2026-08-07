@@ -11,13 +11,14 @@ import type { Workflow } from "../types";
 import { ProjectOptionsMenu, RenameInput } from "./project-options-menu";
 import { ProjectThumb } from "./project-thumb";
 
-export function SidebarRecent() {
+export function SidebarRecent({ collapsed = false }: { collapsed?: boolean }) {
   const { projects } = useRecentProjects();
   const { create } = useProjectActions();
 
   return (
     <NavSection
       title="Recent"
+      collapsed={collapsed}
       action={
         <button
           type="button"
@@ -31,15 +32,17 @@ export function SidebarRecent() {
       }
     >
       {projects.length === 0 ? (
-        <p className="px-3 py-1 text-sm text-muted-foreground/60">No projects yet</p>
+        collapsed ? null : <p className="px-3 py-1 text-sm text-muted-foreground/60">No projects yet</p>
       ) : (
-        projects.map((workflow) => <SidebarRecentItem key={workflow.id} workflow={workflow} />)
+        projects.map((workflow) => (
+          <SidebarRecentItem key={workflow.id} workflow={workflow} collapsed={collapsed} />
+        ))
       )}
     </NavSection>
   );
 }
 
-function SidebarRecentItem({ workflow }: { workflow: Workflow }) {
+function SidebarRecentItem({ workflow, collapsed }: { workflow: Workflow; collapsed: boolean }) {
   const { rename, remove } = useProjectActions();
   const [editing, setEditing] = useState(false);
 
@@ -55,6 +58,20 @@ function SidebarRecentItem({ workflow }: { workflow: Workflow }) {
       <ProjectThumb src={workflow.thumbnail} iconClassName="size-4" />
     </span>
   );
+
+  // Collapsed rail: just the thumbnail, centered, with the name as a tooltip.
+  if (collapsed) {
+    return (
+      <Link
+        href={`/canvas?project=${workflow.id}`}
+        title={workflow.name}
+        aria-label={workflow.name}
+        className="mx-auto grid size-6 place-items-center overflow-hidden rounded bg-muted text-muted-foreground transition-colors hover:ring-2 hover:ring-teal-400/60"
+      >
+        <ProjectThumb src={workflow.thumbnail} iconClassName="size-3" />
+      </Link>
+    );
+  }
 
   return (
     <div className="group relative">

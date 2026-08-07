@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useBalance } from "@/features/billing";
 import type { NodeKind } from "@/features/canvas";
-import { CommunityWorks } from "@/features/community";
 import { useUser } from "@clerk/nextjs";
 import { createWorkflow, RecentProjects } from "@/features/projects";
 import { Composer } from "../components/composer";
@@ -93,7 +92,6 @@ export function DashboardPage() {
           />
         </div>
         <RecentProjects />
-        <CommunityWorks />
       </div>
     </div>
   );

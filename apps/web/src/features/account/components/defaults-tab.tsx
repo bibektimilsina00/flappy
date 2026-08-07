@@ -63,7 +63,7 @@ export function DefaultsTab() {
           type="button"
           disabled={!dirty || isUpdatingWorkspace}
           onClick={handleSave}
-          className="flex items-center gap-2 rounded-lg bg-teal-400 px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-40"
+          className="flex items-center gap-2 rounded-lg bg-teal-400 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-teal-300 disabled:opacity-40"
         >
           {isUpdatingWorkspace ? <Loader2 className="size-4 animate-spin" /> : saved ? <Check className="size-4" /> : null}
           Save defaults

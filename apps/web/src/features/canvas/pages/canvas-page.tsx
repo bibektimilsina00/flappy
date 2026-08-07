@@ -216,6 +216,7 @@ function CanvasWorkspace({
 			insertNodeOnEdge,
 			setNodeData,
 			addConnectedNode,
+			connectNodes,
 			addInputNode,
 			runNode,
 			addImageResults,
@@ -228,6 +229,7 @@ function CanvasWorkspace({
 			insertNodeOnEdge,
 			setNodeData,
 			addConnectedNode,
+			connectNodes,
 			addInputNode,
 			runNode,
 			addImageResults,
@@ -573,10 +575,9 @@ function CanvasWorkspace({
 
 							<CanvasControls
 								tool={tool}
-								zoom={1}
 								onToolChange={setTool}
-								onZoomIn={() => rf.current?.zoomIn()}
-								onZoomOut={() => rf.current?.zoomOut()}
+								onUndo={() => {}}
+								onRedo={() => {}}
 								onFitView={() =>
 									rf.current?.fitView({ maxZoom: 0.85, duration: 300 })
 								}

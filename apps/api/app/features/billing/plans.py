@@ -23,6 +23,17 @@ def monthly_credits(tier: str) -> float:
     return MONTHLY_CREDITS.get(tier, 0.0)
 
 
+def base_tier(tier: str) -> str:
+    """Strip the billing interval: 'pro_yearly' -> 'pro' (what workspace.plan stores)."""
+    return tier[: -len("_yearly")] if tier.endswith("_yearly") else tier
+
+
+def credits_for(tier: str) -> float:
+    """Credits granted on activation/renewal — a year's worth for yearly plans."""
+    monthly = MONTHLY_CREDITS.get(base_tier(tier), 0.0)
+    return monthly * 12 if tier.endswith("_yearly") else monthly
+
+
 def source_limit_min(plan: str) -> int:
     return _SOURCE_LIMIT_MIN.get(plan, 120)
 

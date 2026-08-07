@@ -240,8 +240,20 @@ def create_job(
     count = body.params.get("count", "auto")
     cost = estimate_credits(body.source_duration, count)
 
+    exec_id = uuid.uuid4()
+
     def charge(credits: float, label: str):
-        billing_service.spend(session, workspace_id, credits, label, user_id=user.id)
+        try:
+            billing_service.charge(
+                session,
+                workspace_id,
+                execution_id=exec_id,
+                node_id="clips",
+                kind=label,
+                cost=credits,
+            )
+        except billing_service.InsufficientCredits as exc:
+            raise HTTPException(status_code=402, detail=str(exc)) from exc
 
     charge(cost, "Clips job start")
 

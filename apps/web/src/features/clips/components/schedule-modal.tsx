@@ -395,7 +395,7 @@ export function ScheduleModal({
               onSave({ ...cfg, enabled: true });
               onClose();
             }}
-            className="w-full rounded-xl bg-teal-400 py-3.5 text-[15px] font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-50"
+            className="w-full rounded-xl bg-teal-400 py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-teal-300 disabled:opacity-50"
           >
             Save
           </button>

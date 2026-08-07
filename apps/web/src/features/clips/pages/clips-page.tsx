@@ -2,51 +2,46 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-	ArrowDown,
 	ArrowRight,
+	CalendarClock,
 	Check,
 	ChevronDown,
-	Clapperboard,
+	ChevronLeft,
+	ChevronRight,
 	Crown,
 	ExternalLink,
-	Film,
-	Flame,
-	FolderOpen,
+	Gem,
 	Link2,
 	Loader2,
-	Lock,
-	Play,
 	Plus,
-	Scissors,
-	SlidersHorizontal,
 	Sparkles,
-	Trash2,
 	Upload,
 	XCircle,
-	Gem,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Checkbox } from "@/components/ui/checkbox";
 import { getWorkspace } from "@/features/account";
-import { useBalance } from "@/features/billing";
+import { openUpgrade, useBalance } from "@/features/billing";
 import { createWorkflow } from "@/features/projects/services/workflows-api";
 import { cn } from "@/lib/cn";
 import { EditorModeTabs } from "@/shared/components/editor-mode-tabs";
+import { ClipsFanAnimation, CLIPS_PREVIEW_VIDEO as PREVIEW_VIDEO } from "@/shared/components/clips-fan-animation";
 import {
 	createClipsJob,
-	deleteClipsJob,
 	estimateClipsCost,
 	jobByWorkflow,
-	listClipsJobs,
 	listSocialAccounts,
 	probeClipsSource,
 	socialConnectUrl,
 	socialProviders,
 	uploadClipsSource,
 } from "../services/clips-api";
-import type { ClipsJob, ClipsParams, SocialAccount } from "../types";
-import { CaptionStylePicker } from "../components/caption-templates";
+import type { ClipsParams, SocialAccount } from "../types";
+import {
+	CaptionSample,
+	captionCss,
+	PRESET_META,
+} from "../components/caption-templates";
 import { extractVideoMetadata } from "../lib/local-video-meta";
 import { PLATFORMS as SOCIAL_PLATFORMS } from "../components/publish-panel";
 import { defaultSchedule, ScheduleModal } from "../components/schedule-modal";
@@ -62,13 +57,6 @@ const DEFAULTS: ClipsParams = {
 	add_emojis: true,
 	highlight_keywords: true,
 	censor: false,
-};
-
-const PHASE_LABEL: Record<string, string> = {
-	ingest: "Fetching video",
-	transcribe: "Transcribing",
-	select: "Picking moments",
-	render: "Rendering clips",
 };
 
 // Mini brand glyphs for the "supported links" hint (white, 14px — fidelity over detail).
@@ -149,7 +137,6 @@ export function ClipsPage() {
 	const [error, setError] = useState<string | null>(null);
 	const [dragging, setDragging] = useState(false);
 	const [hint, setHint] = useState(false);
-	const [jobs, setJobs] = useState<ClipsJob[] | null>(null);
 	// Two-step flow: pick a source, then configure before the job starts.
 	const [step, setStep] = useState<"input" | "config">("input");
 	// Link the platform refuses to hand over — shown as a card steering to upload.
@@ -162,6 +149,8 @@ export function ClipsPage() {
 	const [source, setSource] = useState<{
 		source_url?: string;
 		source_key?: string;
+		// Local object URL for an uploaded file so the config preview can play it.
+		preview_url?: string;
 	} | null>(null);
 	const [meta, setMeta] = useState<SourceMeta | null>(null);
 	const [title, setTitle] = useState("");
@@ -192,28 +181,6 @@ export function ClipsPage() {
 		defaultsApplied.current = true;
 		setParams((p) => ({ ...p, ...d }) as ClipsParams);
 	}, [workspace]);
-
-	// Poll the list while anything is running so Recent shows live progress.
-	useEffect(() => {
-		let alive = true;
-		let timer: ReturnType<typeof setTimeout>;
-		const poll = async () => {
-			try {
-				const list = await listClipsJobs();
-				if (!alive) return;
-				setJobs(list);
-				if (list.some((j) => j.status === "queued" || j.status === "running"))
-					timer = setTimeout(poll, 3000);
-			} catch {
-				if (alive) setJobs((l) => l ?? []);
-			}
-		};
-		void poll();
-		return () => {
-			alive = false;
-			clearTimeout(timer);
-		};
-	}, []);
 
 	// Coming back to a project's Clips tab: a started job wins (progress page);
 	// otherwise restore the saved draft and land on the config step.
@@ -305,7 +272,7 @@ export function ClipsPage() {
 				const { source_key } = await uploadClipsSource(file, (loaded, total) =>
 					setUpload((u) => (u ? { ...u, loaded, total } : u)),
 				);
-				setSource({ source_key });
+				setSource({ source_key, preview_url: URL.createObjectURL(file) });
 				setMeta({
 					title: file.name.replace(/\.[^.]+$/, ""),
 					duration: localMeta.duration || null,
@@ -361,6 +328,7 @@ export function ClipsPage() {
 
 	const backToInput = () => {
 		if (projectId) localStorage.removeItem(`riocut-clips-draft-${projectId}`);
+		if (source?.preview_url) URL.revokeObjectURL(source.preview_url);
 		setStep("input");
 		setSource(null);
 		setMeta(null);
@@ -369,8 +337,8 @@ export function ClipsPage() {
 
 	return (
 		<div className="flex h-full w-full flex-col gap-2 p-2">
-			<div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-border">
-				<div className="relative mx-auto w-full max-w-4xl px-6 py-12">
+			<div className="min-h-0 flex-1 overflow-y-auto bg-background">
+				<div className="relative flex h-full min-h-0 w-full flex-col p-2">
 					{/* ambient glow */}
 					<div
 						aria-hidden
@@ -379,23 +347,11 @@ export function ClipsPage() {
 						<div className="absolute left-1/2 top-[-120px] h-[340px] w-[640px] -translate-x-1/2 rounded-full bg-teal-500/10 blur-[110px]" />
 					</div>
 
-					<div className="mb-10 text-center">
-						<h1 className="text-4xl font-bold tracking-tight">
-							One long video.{" "}
-							<span className="text-teal-300">Ten viral clips.</span>
-						</h1>
-						<p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
-							Paste a link or drop a file. Riocut listens to every word, finds
-							the strongest moments, and hands you captioned, face-framed clips
-							ready to post.
-						</p>
-					</div>
-
 					{step === "config" && source ? (
 						<ConfigPanel
 							meta={meta}
+							preview={source?.preview_url}
 							title={title}
-							setTitle={setTitle}
 							params={params}
 							setParams={setParams}
 							busy={busy}
@@ -405,29 +361,44 @@ export function ClipsPage() {
 						/>
 					) : (
 						<>
-							{/* The one input — pick a source, configure on the next step */}
-							<div
-								onDragOver={(e) => {
-									e.preventDefault();
-									setDragging(true);
-								}}
-								onDragLeave={() => setDragging(false)}
-								onDrop={(e) => {
-									e.preventDefault();
-									setDragging(false);
-									void onFile(e.dataTransfer.files?.[0]);
-								}}
-								className="relative"
-							>
+							<div className="grid min-h-0 flex-1 items-stretch gap-6 lg:grid-cols-[minmax(0,460px)_1fr]">
+								{/* LEFT — create card */}
 								<div
-									onMouseEnter={() => setHint(true)}
-									onMouseLeave={() => setHint(false)}
-									className={cn(
-										"relative flex h-16 items-center gap-3 rounded-lg border bg-[#161616] pl-5 pr-2 shadow-[0_8px_40px_-16px_rgba(0,0,0,0.8)] transition-colors",
-										"focus-within:border-teal-400/60",
-										dragging ? "border-teal-400" : "border-white/12",
-									)}
+									onDragOver={(e) => {
+										e.preventDefault();
+										setDragging(true);
+									}}
+									onDragLeave={() => setDragging(false)}
+									onDrop={(e) => {
+										e.preventDefault();
+										setDragging(false);
+										void onFile(e.dataTransfer.files?.[0]);
+									}}
+									className="relative flex min-h-0 flex-col overflow-y-auto rounded-lg border border-border bg-card p-7 shadow-xl"
 								>
+									<div className="flex items-start justify-between">
+										<h1 className="text-2xl font-extrabold uppercase tracking-tight">
+											Video In. Clips Out.
+										</h1>
+										<div className="mt-2 flex items-center gap-1.5">
+											<span className="size-2 rounded-full bg-[#14b8a6]" />
+											<span className="size-2 rounded-full bg-white/15" />
+										</div>
+									</div>
+									<p className="mt-1.5 text-sm text-muted-foreground">
+										AI cuts your video into ready-to-post clips.
+									</p>
+
+									<p className="mt-6 mb-2 text-sm font-semibold">Paste a video link</p>
+									<div
+										onMouseEnter={() => setHint(true)}
+										onMouseLeave={() => setHint(false)}
+										className={cn(
+											"relative flex h-12 items-center gap-2.5 rounded-xl border bg-[#151821] px-4 transition-colors",
+											"focus-within:border-teal-400/60",
+											dragging ? "border-teal-400" : "border-white/12",
+										)}
+									>
 									<Link2 className="size-[18px] shrink-0 text-muted-foreground" />
 									<input
 										value={value}
@@ -443,22 +414,16 @@ export function ClipsPage() {
 												void submit(text);
 											}
 										}}
-										placeholder="Drop a video link…"
+										placeholder="Paste a link and press Enter"
 										className="min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground/70"
 									/>
-									<button
-										type="button"
-										disabled={busy !== null}
-										onClick={() => void submit()}
-										className="flex h-11 shrink-0 items-center gap-2 rounded-lg bg-teal-400 px-5 text-sm font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-60"
-									>
-										{busy ? (
-											<Loader2 className="size-4 animate-spin" />
-										) : (
-											<Scissors className="size-4" />
-										)}
-										{busy ? "Working…" : "Get clips"}
-									</button>
+									{busy ? (
+										<Loader2 className="size-4 shrink-0 animate-spin text-teal-300" />
+									) : value.trim() ? (
+										<kbd className="shrink-0 rounded border border-white/15 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+											↵
+										</kbd>
+									) : null}
 
 									{/* supported-platforms hint — shows on hover/focus of the link bar */}
 									{hint && !dragging ? (
@@ -502,12 +467,13 @@ export function ClipsPage() {
 											</p>
 											<div className="mt-2 flex flex-wrap items-center gap-2">
 												{blocked.message.includes("paid plan") ? (
-													<a
-														href="/pricing"
-														className="inline-flex items-center gap-1.5 rounded-lg bg-teal-400 px-3 py-1.5 text-xs font-semibold text-black transition-colors hover:bg-teal-300"
+													<button
+														type="button"
+														onClick={() => openUpgrade("Paste YouTube links on a paid plan")}
+														className="inline-flex items-center gap-1.5 rounded-lg bg-teal-400 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-teal-300"
 													>
 														<Crown className="size-3.5" /> Upgrade — from $12/mo
-													</a>
+													</button>
 												) : null}
 												<a
 													href={blocked.url}
@@ -524,7 +490,7 @@ export function ClipsPage() {
 														"inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
 														blocked.message.includes("paid plan")
 															? "border border-white/15 font-medium hover:bg-white/5"
-															: "bg-teal-400 text-black hover:bg-teal-300",
+															: "bg-teal-400 text-white hover:bg-teal-300",
 													)}
 												>
 													<Upload className="size-3.5" /> Upload the file
@@ -553,6 +519,13 @@ export function ClipsPage() {
 										</button>
 									</div>
 								) : null}
+
+								<div className="my-5 flex items-center gap-3 text-xs uppercase tracking-wide text-muted-foreground/60">
+									<span className="h-px flex-1 bg-border" />
+									or
+									<span className="h-px flex-1 bg-border" />
+								</div>
+								<p className="mb-2 text-sm font-semibold">Upload your own file</p>
 
 								{/* big browse / drop zone box — transforms to circular progress card during upload */}
 								{upload ? (
@@ -680,29 +653,21 @@ export function ClipsPage() {
 										type="button"
 										onClick={() => fileRef.current?.click()}
 										className={cn(
-											"mt-4 grid w-full place-items-center rounded-lg border-2 border-dashed py-16 transition-colors",
+											"grid w-full place-items-center rounded-xl border-2 border-dashed px-6 py-12 transition-colors",
 											dragging
 												? "border-teal-400 bg-teal-400/5"
-												: "border-white/10 hover:border-white/20 hover:bg-white/[0.02]",
+												: "border-white/12 bg-[#151821] hover:border-white/25 hover:bg-white/[0.02]",
 										)}
 									>
-										<span className="relative mb-4 grid size-16 place-items-center">
-											<span className="absolute inset-0 rounded-lg bg-teal-400/10" />
-											<FolderOpen
-												className="relative size-8 text-teal-300"
-												strokeWidth={1.5}
-											/>
+										<span className="grid size-12 place-items-center rounded-full bg-[#14b8a6] text-white shadow-lg shadow-teal-500/20">
+											<Upload className="size-5" strokeWidth={2} />
 										</span>
-										<span className="text-[15px]">
-											<span className="font-semibold text-teal-300">
-												Click to browse
+										<span className="mt-3 text-sm font-semibold">Upload video</span>
+										<span className="mt-0.5 text-xs text-muted-foreground">
+											<span className="font-medium text-teal-300 underline underline-offset-2">
+												Choose files
 											</span>{" "}
-											<span className="text-foreground/90">
-												or drag &amp; drop
-											</span>
-										</span>
-										<span className="mt-1 text-xs text-muted-foreground">
-											Supported file type: video · up to 2 GB
+											or drag them here
 										</span>
 									</button>
 								)}
@@ -732,212 +697,198 @@ export function ClipsPage() {
 										{error}
 									</p>
 								) : null}
-								<p className="mt-3 text-center text-[11px] text-muted-foreground/50">
+								<p className="mt-auto pt-6 text-center text-[11px] text-muted-foreground/50">
 									Sources up to 2 hours (30 min on Free) · only import content
 									you have the rights to use
 								</p>
+
+									<p className="mt-5 text-center text-xs text-muted-foreground">
+										By generating a video, you agree to our{" "}
+										<a href="/terms" className="text-teal-300 hover:underline">
+											Terms of Service
+										</a>
+										.
+									</p>
+								</div>
+
+								{/* RIGHT — decorative clip collage */}
+								<ClipsCollage />
 							</div>
 
-							{/* How it works — with the user's own latest result once one exists */}
-							<Showcase
-								demo={
-									jobs?.find(
-										(j) =>
-											j.status === "completed" && j.clips.some((c) => c.url),
-									) ?? null
-								}
-							/>
-
-							{/* Recents */}
-							{jobs && jobs.length > 0 ? (
-								<div className="mt-10">
-									<h2 className="mb-3 text-sm font-semibold text-muted-foreground">
-										Recent
-									</h2>
-									<div className="space-y-2">
-										{jobs.map((job) => (
-											<JobRow
-												key={job.id}
-												job={job}
-												onOpen={() => router.push(`/clips/${job.id}`)}
-												onDelete={() => {
-													void deleteClipsJob(job.id).then(() =>
-														setJobs((l) =>
-															(l ?? []).filter((j) => j.id !== job.id),
-														),
-													);
-												}}
-											/>
-										))}
-									</div>
-								</div>
-							) : null}
 						</>
 					)}
 				</div>
 			</div>
-			<div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center">
-				<EditorModeTabs projectId={projectId} mode="clips" className="pointer-events-auto shadow-2xl backdrop-blur-xl bg-[#18181b]/95 border-white/10" />
-			</div>
+			{/* mode tabs: docked bottom bar below the main content */}
+			<EditorModeTabs projectId={projectId} mode="clips" className="shrink-0 overflow-hidden rounded-lg border border-border" />
 		</div>
 	);
 }
 
-// Knob is anchored with `left` (buttons center static content, which pushed a
-// translate-only knob out of the track).
-function Switch({
-	checked,
-	onChange,
-}: {
-	checked: boolean;
-	onChange: () => void;
-}) {
+
+// Looping hero animation lives in the shared component (also used on the
+// marketing site); here we just wrap it with the clips-screen heading.
+function ClipsCollage() {
 	return (
-		<button
-			type="button"
-			role="switch"
-			aria-checked={checked}
-			onClick={onChange}
-			className={cn(
-				"relative h-6 w-11 shrink-0 rounded-full transition-colors",
-				checked ? "bg-teal-400" : "bg-white/15",
-			)}
-		>
-			<span
-				className={cn(
-					"absolute top-0.5 size-5 rounded-full bg-white shadow transition-[left] duration-150",
-					checked ? "left-[22px]" : "left-0.5",
-				)}
-			/>
-		</button>
+		<div className="relative hidden min-h-[560px] flex-col items-center justify-start pt-16 lg:flex">
+			<div className="mb-9 max-w-sm text-center">
+				<p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-300/80">
+					AI Clips
+				</p>
+				<h2 className="mt-1.5 text-2xl font-bold tracking-tight">
+					1 long video → <span className="text-teal-300">10 viral clips</span>
+				</h2>
+				<p className="mt-2.5 text-sm text-muted-foreground">
+					AI hunts down every hook, highlight, and punchline — then cuts them
+					into captioned shorts, ready to post.
+				</p>
+			</div>
+			<ClipsFanAnimation />
+		</div>
 	);
 }
 
-const fmtDur = (s: number) =>
-	`${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
-// "Source -> AI -> clips" strip. With a completed job, it shows the user's own
-// poster and top clips; otherwise a neutral placeholder mock.
-function Showcase({ demo }: { demo: ClipsJob | null }) {
-	const top = demo
-		? [...demo.clips]
-				.filter((c) => c.url)
-				.sort((a, b) => b.score - a.score)
-				.slice(0, 3)
-		: [];
-	// middle card lifted, side cards tilted — same fan for real and mock media
-	const fan = [
-		{ tilt: "-6deg", lift: "" },
-		{ tilt: "0deg", lift: "-translate-y-3" },
-		{ tilt: "6deg", lift: "" },
-	];
-	const mock = [
-		{
-			hue: "from-fuchsia-500/70 to-violet-600/70",
-			score: 92,
-			caption: "the wild part is…",
-		},
-		{
-			hue: "from-teal-400/70 to-emerald-600/70",
-			score: 88,
-			caption: "nobody talks about",
-		},
-		{
-			hue: "from-amber-400/70 to-orange-600/70",
-			score: 81,
-			caption: "here's the secret",
-		},
-	];
-
+// Subtitle-style picker: a horizontal scroller with floating arrows that appear
+// only when there is more to scroll in that direction.
+function SubtitleStyleRow({ value, onSelect }: { value: string; onSelect: (id: string) => void }) {
+	const ref = useRef<HTMLDivElement>(null);
+	const [canL, setCanL] = useState(false);
+	const [canR, setCanR] = useState(false);
+	const update = useCallback(() => {
+		const el = ref.current;
+		if (!el) return;
+		setCanL(el.scrollLeft > 4);
+		setCanR(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+	}, []);
+	useEffect(() => {
+		update();
+		const el = ref.current;
+		if (!el) return;
+		el.addEventListener("scroll", update, { passive: true });
+		window.addEventListener("resize", update);
+		return () => {
+			el.removeEventListener("scroll", update);
+			window.removeEventListener("resize", update);
+		};
+	}, [update]);
+	const go = (dir: number) => ref.current?.scrollBy({ left: dir * 220, behavior: "smooth" });
+	const arrow =
+		"absolute top-[44px] z-10 grid size-9 -translate-y-1/2 place-items-center rounded-full border border-white/15 bg-[#1e2129] text-foreground shadow-xl shadow-black/40 backdrop-blur-sm transition-colors hover:border-white/25 hover:bg-[#262a34]";
 	return (
-		<div className="mt-14 grid items-center gap-6 md:grid-cols-[1fr_auto_1fr]">
-			{/* source */}
-			<div className="mx-auto w-full max-w-[300px]">
-				<div className="relative aspect-video overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br from-slate-800 to-slate-900">
-					{demo?.source_thumb_url ? (
-						// biome-ignore lint/a11y/useAltText: showcase poster
-						<img
-							src={demo.source_thumb_url}
-							className="absolute inset-0 size-full object-cover"
-						/>
-					) : null}
-					<div className="absolute inset-0 grid place-items-center bg-black/20">
-						<span className="grid size-10 place-items-center rounded-full bg-white/10 backdrop-blur">
-							<Play className="ml-0.5 size-4 fill-white text-white" />
-						</span>
-					</div>
-					<div className="absolute inset-x-3 bottom-2.5">
-						<div className="h-1 rounded-full bg-white/20">
-							<div className="h-full w-1/3 rounded-full bg-teal-400" />
-						</div>
-					</div>
-				</div>
-				<p className="mt-2 truncate text-center text-xs text-muted-foreground">
-					{demo
-						? (demo.source_title ?? "Your latest video") +
-							(demo.duration
-								? ` · ${Math.max(1, Math.round(demo.duration / 60))} min`
-								: "")
-						: "Your 20-minute video"}
-				</p>
-			</div>
-
-			{/* arrow */}
-			<div className="flex flex-col items-center gap-1 text-teal-300">
-				<ArrowRight className="hidden size-5 md:block" />
-				<ArrowDown className="size-5 md:hidden" />
-				<p className="w-24 text-center text-[11px] leading-tight text-muted-foreground">
-					AI finds the moments
-				</p>
-			</div>
-
-			{/* clips fan */}
-			<div className="mx-auto flex items-end justify-center gap-3">
-				{fan.map((f, i) => {
-					const clip = top[i];
+		<div className="relative">
+			<div
+				ref={ref}
+				className="-mx-1 flex shrink-0 gap-3 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+			>
+				{PRESET_META.map((preset) => {
+					const active = value === preset.id;
 					return (
-						<div
-							key={clip?.id ?? i}
-							style={
-								{
-									"--tilt": f.tilt,
-									animationDelay: `${i * 0.6}s`,
-								} as React.CSSProperties
-							}
-							className={cn(
-								"relative h-40 w-24 overflow-hidden rounded-lg border border-white/15 shadow-xl animate-[clip-float_5s_ease-in-out_infinite]",
-								clip ? "bg-black" : cn("bg-gradient-to-br", mock[i].hue),
-								f.lift,
-							)}
-						>
-							{clip?.url ? (
-								// biome-ignore lint/a11y/useMediaCaption: showcase thumbnail
-								<video
-									src={clip.url}
-									muted
-									playsInline
-									preload="metadata"
-									className="absolute inset-0 size-full object-cover"
-								/>
-							) : null}
-							<span className="absolute left-1.5 top-1.5 flex items-center gap-0.5 rounded-full bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-white">
-								<Flame className="size-2.5 text-orange-400" />
-								{clip?.score ?? mock[i].score}
+						<button key={preset.id} type="button" onClick={() => onSelect(preset.id)} className="group shrink-0 text-center">
+							<div
+								className={cn(
+									"grid h-[88px] w-[124px] place-items-center overflow-hidden rounded-xl border-2 bg-gradient-to-b from-[#1c2029] to-[#12151b] p-2 transition-colors",
+									active ? "border-teal-400" : "border-white/10 group-hover:border-white/25",
+								)}
+							>
+								<CaptionSample css={captionCss(preset.id, null, 1.05)} text="Hey there," />
+							</div>
+							<span className={cn("mt-1.5 block text-xs font-medium transition-colors", active ? "text-teal-300" : "text-muted-foreground group-hover:text-foreground")}>
+								{preset.name}
 							</span>
-							<span className="absolute inset-x-1.5 bottom-2 line-clamp-2 rounded-md bg-black/60 px-1.5 py-1 text-center text-[9px] font-semibold leading-tight text-white">
-								{(clip?.title ?? mock[i].caption).split(" ").map((w, j) => (
-									<span
-										key={`${w}-${j}`}
-										className={j === 1 ? "text-teal-300" : ""}
-									>
-										{w}{" "}
-									</span>
-								))}
-							</span>
-						</div>
+						</button>
 					);
 				})}
 			</div>
+			{canL ? (
+				<button type="button" aria-label="Scroll left" onClick={() => go(-1)} className={cn(arrow, "left-0")}>
+					<ChevronLeft className="size-5" />
+				</button>
+			) : null}
+			{canR ? (
+				<button type="button" aria-label="Scroll right" onClick={() => go(1)} className={cn(arrow, "-right-1.5")}>
+					<ChevronRight className="size-5" />
+				</button>
+			) : null}
+		</div>
+	);
+}
+
+// Themed dropdown (never the native <select>) — matches the dark field style.
+function ThemedSelect({
+	value,
+	options,
+	onChange,
+	onLocked,
+}: {
+	value: string;
+	options: { value: string; label: string; locked?: boolean }[];
+	onChange: (v: string) => void;
+	onLocked?: () => void;
+}) {
+	const [open, setOpen] = useState(false);
+	const ref = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		if (!open) return;
+		const onDown = (e: MouseEvent) => {
+			if (!ref.current?.contains(e.target as Node)) setOpen(false);
+		};
+		document.addEventListener("mousedown", onDown);
+		return () => document.removeEventListener("mousedown", onDown);
+	}, [open]);
+	const current = options.find((o) => o.value === value);
+	return (
+		<div ref={ref} className="relative">
+			<button
+				type="button"
+				onClick={() => setOpen((o) => !o)}
+				className={cn(
+					"flex h-11 w-full items-center justify-between rounded-lg border bg-[#151821] px-3.5 text-sm text-foreground transition-colors",
+					open ? "border-teal-400/60" : "border-white/12 hover:border-white/20",
+				)}
+			>
+				<span>{current?.label ?? value}</span>
+				<ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
+			</button>
+			{open ? (
+				<div className="absolute inset-x-0 top-full z-30 mt-1.5 rounded-lg border border-white/10 bg-[#1e2129] p-1 shadow-2xl backdrop-blur-sm animate-in fade-in-0 zoom-in-95 duration-100">
+					{options.map((o) => {
+						const active = o.value === value;
+						return (
+							<button
+								key={o.value}
+								type="button"
+								onClick={() => {
+									if (o.locked) {
+										onLocked?.();
+										setOpen(false);
+										return;
+									}
+									onChange(o.value);
+									setOpen(false);
+								}}
+								className={cn(
+									"flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors",
+									o.locked
+										? "cursor-not-allowed text-muted-foreground/60"
+										: active
+											? "bg-teal-400/10 text-teal-300"
+											: "text-foreground/90 hover:bg-white/5",
+								)}
+							>
+								{o.label}
+								{o.locked ? (
+									<span className="flex items-center gap-1 rounded-md bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
+										<Gem className="size-3" /> Pro
+									</span>
+								) : active ? (
+									<Check className="size-4" />
+								) : null}
+							</button>
+						);
+					})}
+				</div>
+			) : null}
 		</div>
 	);
 }
@@ -945,8 +896,8 @@ function Showcase({ demo }: { demo: ClipsJob | null }) {
 // Step 2: configure the job (OpusClip-style) before it starts.
 function ConfigPanel({
 	meta,
+	preview,
 	title,
-	setTitle,
 	params,
 	setParams,
 	busy,
@@ -955,8 +906,8 @@ function ConfigPanel({
 	onBack,
 }: {
 	meta: SourceMeta | null;
+	preview?: string;
 	title: string;
-	setTitle: (t: string) => void;
 	params: ClipsParams;
 	setParams: React.Dispatch<React.SetStateAction<ClipsParams>>;
 	busy: string | null;
@@ -964,8 +915,6 @@ function ConfigPanel({
 	onStart: () => void;
 	onBack: () => void;
 }) {
-	const router = useRouter();
-	const tooLong = (meta?.duration ?? 0) > 120 * 60;
 	const [scheduleOpen, setScheduleOpen] = useState(false);
 	const [cost, setCost] = useState<number | null>(null);
 	const { data: balance } = useBalance();
@@ -1039,866 +988,374 @@ function ConfigPanel({
 	const insufficient =
 		cost !== null && balance !== undefined && balance.balance < cost;
 	const isFree = (balance?.plan ?? "free") === "free";
+	const [goal, setGoal] = useState("Viral Short");
+	const [maxLen, setMaxLen] = useState<string>("auto");
+	const [customSec, setCustomSec] = useState<number>(120);
+	// Advanced/rarely-used field — collapsed unless a draft already filled it in.
+	const [showFocus, setShowFocus] = useState<boolean>(Boolean(params.focus));
+
+	const scheduleOn = params.schedule?.enabled ?? false;
+	const pickedAccounts = params.schedule?.account_ids ?? [];
+	const setScheduleOn = (on: boolean) =>
+		setParams((p) => ({
+			...p,
+			schedule: { ...(p.schedule ?? defaultSchedule()), enabled: on },
+		}));
+
+	// Which duration bands allow clips up to `sec` long (band lower-bound < sec).
+	const bandsForMax = (sec: number) =>
+		([["lt30", 0], ["30-60", 30], ["60-90", 60], ["90-180", 90], ["gt180", 180]] as const)
+			.filter(([, lo]) => lo < sec)
+			.map(([k]) => k);
+	const LEN_OPTS: { k: string; label: string; dur: "auto" | string[] }[] = [
+		{ k: "auto", label: "Auto", dur: "auto" },
+		{ k: "30", label: "30s", dur: bandsForMax(30) },
+		{ k: "60", label: "60s", dur: bandsForMax(60) },
+		{ k: "90", label: "90s", dur: bandsForMax(90) },
+		{ k: "180", label: "3 min", dur: bandsForMax(180) },
+	];
+	const GOALS = ["Viral Short", "Highlights", "Insights"];
+	const labelCls = "mt-6 mb-2 block text-sm font-semibold";
+	const pillCls = (active: boolean) =>
+		cn(
+			"rounded-lg border px-4 py-2 text-sm font-medium transition-colors",
+			active ? "border-teal-400 bg-teal-400/10 text-teal-300" : "border-white/12 text-muted-foreground hover:bg-white/5",
+		);
+
 	return (
-		<div className="space-y-5">
-			{/* source chip */}
-			<div className="flex items-center gap-4 rounded-lg border border-white/10 bg-[#161616] p-4">
-				{meta?.thumbnail ? (
-					meta.thumbnail.startsWith("blob:") ? (
-						<video
-							src={meta.thumbnail}
-							preload="metadata"
-							muted
-							playsInline
-							className="h-16 w-28 shrink-0 rounded-lg border border-white/10 bg-black/60 object-cover"
-						/>
-					) : (
-						// biome-ignore lint/a11y/useAltText: source thumbnail
-						<img
-							src={meta.thumbnail}
-							className="h-16 w-28 shrink-0 rounded-lg border border-white/10 object-cover"
-						/>
-					)
-				) : (
-					<span className="grid h-16 w-28 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/5">
-						<Film className="size-6 text-muted-foreground/60" />
-					</span>
-				)}
-				<div className="min-w-0 flex-1">
-					<input
-						value={title}
-						onChange={(e) => setTitle(e.target.value)}
-						placeholder="Video title"
-						className="w-full rounded-lg bg-transparent px-1 py-0.5 text-[15px] font-semibold outline-none transition-colors hover:bg-white/5 focus:bg-white/5"
-					/>
-					<div className="mt-1.5 flex gap-1.5 px-1">
-						{meta?.height ? (
-							<span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[11px] text-muted-foreground">
-								{meta.height}p
-							</span>
-						) : null}
-						{meta?.duration ? (
-							<span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[11px] tabular-nums text-muted-foreground">
-								{fmtDur(meta.duration)}
-							</span>
-						) : null}
+		<div className="grid min-h-0 flex-1 items-stretch gap-6 lg:grid-cols-[minmax(0,460px)_1fr]">
+			{/* LEFT — options */}
+			<div className="relative flex min-h-0 flex-col overflow-y-auto rounded-lg border border-border bg-card p-7 shadow-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+				<div className="flex items-start justify-between">
+					<h1 className="text-2xl font-extrabold uppercase tracking-tight">Customize Clips</h1>
+					<div className="mt-2 flex items-center gap-1.5">
+						<span className="size-2 rounded-full bg-white/15" />
+						<span className="size-2 rounded-full bg-[#14b8a6]" />
 					</div>
 				</div>
+				<p className="mt-1.5 text-sm text-muted-foreground">
+					Choose your caption style and clip length while your video is processed.
+				</p>
+
+				{/* Source preview — the actual uploaded file (plays) or the link's poster. */}
+				{preview || meta?.thumbnail ? (
+					<div className="mt-5 flex items-center gap-3 rounded-lg border border-white/10 bg-[#151821] p-2.5">
+						<div className="relative aspect-video w-24 shrink-0 overflow-hidden rounded-md bg-black">
+							{preview ? (
+								<video src={preview} className="size-full object-cover" muted loop autoPlay playsInline />
+							) : (
+								// biome-ignore lint/a11y/useAltText: decorative source poster
+								<img src={meta?.thumbnail ?? ""} className="size-full object-cover" alt="" />
+							)}
+						</div>
+						<div className="min-w-0">
+							<p className="truncate text-sm font-semibold">{meta?.title ?? title ?? "Your video"}</p>
+							{meta?.duration ? (
+								<p className="text-xs text-muted-foreground">
+									{Math.floor(meta.duration / 60)}m {Math.round(meta.duration % 60)}s
+								</p>
+							) : null}
+						</div>
+					</div>
+				) : null}
+
+				<span className={labelCls}>Size</span>
+				<ThemedSelect
+					value={params.ratio}
+					onChange={(v) => setParams((p) => ({ ...p, ratio: v as ClipsParams["ratio"] }))}
+					onLocked={() => openUpgrade("Unlock more aspect ratios")}
+					options={[
+						{ value: "9:16", label: "Portrait (9:16)" },
+						{ value: "1:1", label: "Square (1:1)", locked: isFree },
+						{ value: "16:9", label: "Landscape (16:9)", locked: isFree },
+					]}
+				/>
+
+				<span className={labelCls}>Video Goals</span>
+				<div className="flex flex-wrap gap-2">
+					{GOALS.map((g) => (
+						<button key={g} type="button" onClick={() => setGoal(g)} className={pillCls(goal === g)}>
+							{g}
+						</button>
+					))}
+				</div>
+
 				<button
 					type="button"
-					onClick={onBack}
-					className="shrink-0 rounded-lg px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
+					onClick={() => setShowFocus((s) => !s)}
+					className={cn(labelCls, "flex w-full items-center justify-between text-left")}
 				>
-					Change
+					<span>
+						Describe what clips should capture{" "}
+						<span className="font-normal text-muted-foreground">(optional)</span>
+					</span>
+					{showFocus ? (
+						<ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+					) : (
+						<Plus className="size-4 shrink-0 text-muted-foreground" />
+					)}
 				</button>
-			</div>
-
-			{tooLong ? (
-				<p className="rounded-lg border border-amber-400/20 bg-amber-400/5 px-4 py-2.5 text-xs text-amber-300">
-					This video is longer than the 2-hour limit — the job will fail. Pick a
-					shorter source.
-				</p>
-			) : null}
-
-			{/* format row — one line: ratio, length, clips (layout comes from templates) */}
-			<div className="grid gap-3 sm:grid-cols-3">
-				<FieldSelect
-					label="Ratio"
-					value={params.ratio}
-					options={["9:16", "1:1", "16:9"]}
-					display={(v) => v}
-					locked={(v) => v !== "9:16" && isFree}
-					onLocked={() => router.push("/pricing")}
-					onChange={(v) =>
-						setParams((p) => ({ ...p, ratio: v as ClipsParams["ratio"] }))
-					}
-				/>
-				<LengthSelect
-					value={params.duration}
-					onChange={(v) => setParams((p) => ({ ...p, duration: v }))}
-				/>
-				<FieldSelect
-					label="Clips"
-					value={String(params.count)}
-					options={["auto", "1", "2", "3", "5", "8", "10"]}
-					display={(v) => (v === "auto" ? "Auto" : v)}
-					onChange={(v) =>
-						setParams((p) => ({
-							...p,
-							count: v === "auto" ? "auto" : Number(v),
-						}))
-					}
-				/>
-			</div>
-
-			{/* templates + options — one card */}
-			<div className="space-y-5 rounded-lg border border-white/[0.05] bg-white/[0.02] p-6">
-				<CaptionStylePicker
-					captions={params.captions}
-					style={params.caption_style}
-					custom={params.caption_custom ?? null}
-					headline={params.headline?.enabled ? params.headline : null}
-					ratio={params.ratio}
-					layout={params.layout ?? "fit"}
-					watermark={isFree}
-					onChange={(patch) => setParams((p) => ({ ...p, ...patch }))}
-				/>
-
-				<div className="pt-2">
-					{/* clip title banner */}
-					<div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-						<label className="flex cursor-pointer items-center gap-3 text-[15px]">
-							<Checkbox
-								checked={Boolean(params.headline?.enabled)}
-								onCheckedChange={(v) =>
-									setParams((p) => ({
-										...p,
-										headline: {
-											bg: "#FFFFFF",
-											color: "#000000",
-											...p.headline,
-											enabled: v === true,
-										},
-									}))
-								}
-							/>
-							Show clip title on video
-						</label>
-						{params.headline?.enabled ? (
-							<>
-								<div className="flex gap-1.5">
-									{(
-										[
-											{ bg: "#000000", color: "#FFFFFF" },
-											{ bg: "#FFFFFF", color: "#000000" },
-											{ bg: "none", color: "#FFD700" },
-										] as const
-									).map((v) => (
-										<button
-											key={v.bg}
-											type="button"
-											aria-label={`Title style ${v.bg}`}
-											onClick={() =>
-												setParams((p) => ({
-													...p,
-													headline: {
-														...p.headline!,
-														bg: v.bg,
-														color: v.color,
-													},
-												}))
-											}
-											className={cn(
-												"rounded-md border px-2.5 py-1 text-[10px] font-extrabold uppercase transition-all",
-												params.headline?.bg === v.bg
-													? "border-teal-400 ring-1 ring-teal-400"
-													: "border-white/15 hover:border-white/35",
-												v.bg === "none" &&
-													"[text-shadow:0_1px_2px_rgba(0,0,0,0.9)]",
-											)}
-											style={{
-												background: v.bg === "none" ? "transparent" : v.bg,
-												color: v.color,
-											}}
-										>
-											Abc
-										</button>
-									))}
-								</div>
-								<input
-									value={params.headline?.text ?? ""}
-									onChange={(e) =>
-										setParams((p) => ({
-											...p,
-											headline: { ...p.headline!, text: e.target.value },
-										}))
-									}
-									placeholder="Uses each clip's AI title — or type your own"
-									className="min-w-64 flex-1 rounded-lg border border-white/10 bg-[#161616] px-3.5 py-2 text-sm outline-none placeholder:text-muted-foreground/50 focus:border-teal-400/50"
-								/>
-							</>
-						) : null}
+				{showFocus ? (
+					<div className="relative">
+						<textarea
+							value={params.focus ?? ""}
+							onChange={(e) => setParams((p) => ({ ...p, focus: e.target.value.slice(0, 5000) }))}
+							placeholder="Let us know if there are any parts of the video you'd like us to extract"
+							className="min-h-28 w-full resize-none rounded-lg border border-white/12 bg-[#151821] p-3.5 pb-8 text-sm outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-teal-400/60"
+						/>
+						<span className="pointer-events-none absolute right-3 bottom-2.5 text-xs text-muted-foreground/60">
+							{(params.focus ?? "").length}/5000
+						</span>
 					</div>
+				) : null}
 
-					<div className="grid grid-cols-2 gap-x-6 gap-y-4 pt-5 sm:grid-cols-3">
-						{(
-							[
-								[
-									"add_emojis",
-									"Add emojis",
-									"AI drops a fitting emoji into key lines",
-								],
-								[
-									"highlight_keywords",
-									"Highlight keywords",
-									"AI colors the 1–2 words that matter",
-								],
-								["censor", "Auto-censor", "Masks profanity in captions"],
-							] as const
-						).map(([key, label, hint]) => (
-							<label
-								key={key}
-								className="flex cursor-pointer items-center gap-3 text-[15px]"
-								title={hint}
-							>
-								<Checkbox
-									checked={Boolean(params[key])}
-									onCheckedChange={(v) =>
-										setParams((p) => ({ ...p, [key]: v === true }))
-									}
-								/>
-								{label}
-							</label>
-						))}
-					</div>
-				</div>
-			</div>
-
-			{/* group 2: focus — expandable, not a card */}
-			<details className="group border-b border-white/[0.06] px-1">
-				<summary className="flex cursor-pointer list-none items-center justify-between py-3 text-[15px] font-semibold [&::-webkit-details-marker]:hidden">
-					<span>
-						Find clip moment
-						<span className="ml-1.5 text-sm font-normal text-muted-foreground">
-							Optional
-						</span>
-					</span>
-					<ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" />
-				</summary>
-				<input
-					value={params.focus ?? ""}
-					onChange={(e) => setParams((p) => ({ ...p, focus: e.target.value }))}
-					placeholder="For example: when they talk about pricing strategy."
-					className="mb-3 w-full rounded-lg border border-white/10 bg-transparent px-4 py-3 text-sm outline-none placeholder:text-muted-foreground/50 focus:border-teal-400/50"
+				<span className={labelCls}>Subtitle Style</span>
+				<SubtitleStyleRow
+					value={params.caption_style}
+					onSelect={(id) => setParams((p) => ({ ...p, caption_style: id, captions: true }))}
 				/>
-			</details>
 
-			{/* group 3: auto-schedule */}
-			<div className="space-y-4 rounded-lg border border-white/[0.05] bg-white/[0.02] p-6">
-				<div className="flex items-center justify-between">
-					<span>
-						<span className="block text-[15px] font-semibold">
-							Schedule clips
-						</span>
-						<span className="mt-0.5 block text-sm text-muted-foreground">
-							Schedule automatically when clips are ready. Save 1 step.
-						</span>
-					</span>
-					<Switch
-						checked={Boolean(params.schedule?.enabled)}
-						onChange={() =>
-							setParams((p) => ({
-								...p,
-								schedule: p.schedule?.enabled
-									? { ...p.schedule, enabled: false }
-									: { ...(p.schedule ?? defaultSchedule()), enabled: true },
-							}))
-						}
-					/>
+				<span className={labelCls}>Max clip length</span>
+				<div className="flex flex-wrap gap-2">
+					{LEN_OPTS.map((o) => (
+						<button
+							key={o.k}
+							type="button"
+							onClick={() => {
+								setMaxLen(o.k);
+								setParams((p) => ({ ...p, duration: o.dur }));
+							}}
+							className={pillCls(maxLen === o.k)}
+						>
+							{o.label}
+						</button>
+					))}
+					<button
+						type="button"
+						onClick={() => {
+							setMaxLen("custom");
+							setParams((p) => ({ ...p, duration: bandsForMax(customSec) }));
+						}}
+						className={pillCls(maxLen === "custom")}
+					>
+						Custom
+					</button>
 				</div>
+				{maxLen === "custom" ? (
+					<div className="mt-2.5 flex items-center gap-2">
+						<input
+							type="number"
+							min={5}
+							max={3600}
+							value={customSec}
+							onChange={(e) => {
+								const sec = Math.max(5, Math.min(3600, Number(e.target.value) || 0));
+								setCustomSec(sec);
+								setParams((p) => ({ ...p, duration: bandsForMax(sec) }));
+							}}
+							className="h-11 w-28 rounded-lg border border-white/12 bg-[#151821] px-3.5 text-sm outline-none transition-colors focus:border-teal-400/60"
+						/>
+						<span className="text-sm text-muted-foreground">
+							seconds max{customSec >= 60 ? ` · ${(customSec / 60).toFixed(customSec % 60 ? 1 : 0)} min` : ""}
+						</span>
+					</div>
+				) : null}
 
-				{params.schedule?.enabled ? (
-					<div className="space-y-4 border-t border-white/[0.06] pt-4">
-						{/* Schedule summary info & Settings button */}
-						<div className="flex items-stretch gap-3">
-							<p className="flex flex-1 items-center rounded-lg border border-white/10 px-4 py-3 text-xs text-foreground/90">
-								<span>
-									Posting from{" "}
-									<strong className="font-semibold text-teal-300">
-										{new Date(
-											`${params.schedule.start_date}T00:00`,
-										).toLocaleDateString()}
-									</strong>
-									, at{" "}
-									<strong className="font-semibold text-teal-300">
-										{params.schedule.per_day} clips/day
-									</strong>
-									{params.schedule.min_score ? (
-										<span className="text-muted-foreground">
-											{" "}
-											· score ≥ {params.schedule.min_score}
-										</span>
-									) : null}
-									.
-								</span>
-							</p>
-							<button
-								type="button"
-								onClick={() => setScheduleOpen(true)}
-								className="flex shrink-0 items-center gap-2 rounded-lg border border-white/10 px-4 text-xs font-semibold transition-colors hover:bg-white/5"
-							>
-								<SlidersHorizontal className="size-3.5" />
-								Settings
-							</button>
-						</div>
-
-						{/* Connected Social Accounts & Connect Platform Button in one row below */}
+				{/* Auto-publish schedule — post finished clips to connected socials. */}
+				<div className="mt-6 rounded-lg border border-white/10 bg-[#151821] p-4">
+					<div className="flex items-center justify-between">
 						<div>
-							<p className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">
-								Publishing Targets
+							<p className="flex items-center gap-2 text-sm font-semibold">
+								<CalendarClock className="size-4 text-teal-300" /> Auto-publish schedule
 							</p>
-							<div className="flex flex-wrap items-center gap-2.5">
+							<p className="mt-0.5 text-xs text-muted-foreground">
+								Post finished clips to your socials automatically.
+							</p>
+						</div>
+						<button
+							type="button"
+							role="switch"
+							aria-checked={scheduleOn}
+							onClick={() => setScheduleOn(!scheduleOn)}
+							className={cn(
+								"relative h-6 w-11 shrink-0 rounded-full transition-colors",
+								scheduleOn ? "bg-teal-500" : "bg-white/15",
+							)}
+						>
+							<span
+								className={cn(
+									"absolute top-0.5 left-0.5 size-5 rounded-full bg-white transition-transform",
+									scheduleOn && "translate-x-5",
+								)}
+							/>
+						</button>
+					</div>
+
+					{scheduleOn ? (
+						<div className="mt-4">
+							<p className="mb-2 text-xs font-medium text-muted-foreground">Post to</p>
+							<div className="flex flex-wrap gap-2">
 								{(accounts ?? []).map((a) => {
-									const selected = (
-										params.schedule?.account_ids ?? []
-									).includes(a.id);
-									const plat = SOCIAL_PLATFORMS.find(
-										(p) => p.provider === a.platform || p.key === a.platform,
-									);
+									const plat = SOCIAL_PLATFORMS.find((p) => p.key === a.platform);
+									const on = pickedAccounts.includes(a.id);
 									return (
 										<button
 											key={a.id}
 											type="button"
 											onClick={() => toggleAccount(a.id)}
 											className={cn(
-												"group relative flex items-center gap-2.5 rounded-xl border bg-[#1a1a1a] px-3.5 py-2 text-xs font-medium transition-all duration-150",
-												selected
-													? "border-teal-400/80 bg-teal-500/10 text-teal-100 shadow-[0_0_15px_-4px_rgba(45,212,191,0.3)] ring-1 ring-teal-400/50"
-													: "border-white/12 text-muted-foreground hover:border-white/25 hover:bg-[#222222] hover:text-foreground",
+												"flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition-colors",
+												on
+													? "border-teal-400 bg-teal-400/10 text-teal-200"
+													: "border-white/12 text-muted-foreground hover:bg-white/5",
 											)}
 										>
-											{/* Platform Brand Logo + Account Avatar Overlay on Bottom-Left */}
-											<div className="relative shrink-0">
-												{plat ? (
-													<span
-														className={cn(
-															"grid size-7 place-items-center rounded-lg shadow-sm text-white",
-															plat.bg,
-														)}
-														title={plat.name}
-													>
-														<plat.icon className="size-4" />
-													</span>
-												) : (
-													<span className="grid size-7 place-items-center rounded-lg bg-[#282828] text-xs font-bold uppercase text-white">
-														{a.platform.slice(0, 1)}
-													</span>
-												)}
-
-												{a.avatar_url ? (
-													// eslint-disable-next-line @next/next/no-img-element
-													<img
-														src={a.avatar_url}
-														alt=""
-														className="absolute -bottom-1 -right-1 size-4 rounded-full object-cover bg-[#222222] ring-2 ring-[#1a1a1a]"
-													/>
-												) : (
-													<span className="absolute -bottom-1 -right-1 grid size-4 place-items-center rounded-full bg-[#2a2a2a] text-[8px] font-bold uppercase text-white ring-2 ring-[#1a1a1a]">
-														{(a.username ?? a.platform).slice(0, 1)}
-													</span>
-												)}
-											</div>
-
-											{/* Handle & Platform Info */}
-											<div className="flex flex-col text-left leading-tight">
-												<span className="max-w-[130px] truncate font-semibold text-foreground">
-													{a.username
-														? a.username.startsWith("@")
-															? a.username
-															: `@${a.username}`
-														: a.platform}
-												</span>
-												<span className="text-[10px] capitalize text-muted-foreground">
-													{plat?.name ?? a.platform}
-												</span>
-											</div>
-
-											{/* Checkmark Status Indicator */}
-											{selected ? (
-												<span className="ml-1 grid size-4 shrink-0 place-items-center rounded-full bg-teal-400 text-black">
-													<Check className="size-2.5 stroke-[3]" />
-												</span>
-											) : (
-												<span className="ml-1 size-4 shrink-0 rounded-full border border-white/20 group-hover:border-white/40" />
-											)}
+											{plat ? <plat.icon className="size-4" /> : null}
+											<span className="max-w-[120px] truncate">{a.username ?? plat?.name ?? a.platform}</span>
+											{on ? <Check className="size-3.5" /> : null}
 										</button>
 									);
 								})}
 
-								{/* Connect new platform dropdown button */}
+								{/* Add / connect a new account */}
 								<div ref={connectRef} className="relative">
 									<button
 										type="button"
-										onClick={() => setShowConnect((v) => !v)}
-										className="flex h-11 items-center gap-2 rounded-xl border border-dashed border-white/25 bg-white/[0.02] px-3.5 text-xs font-medium text-muted-foreground transition-all hover:border-teal-400/50 hover:bg-teal-400/5 hover:text-foreground"
+										onClick={() => setShowConnect((s) => !s)}
+										className="flex items-center gap-1.5 rounded-lg border border-dashed border-white/20 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-white/5"
 									>
-										<Plus className="size-4 text-teal-300" />
-										{(accounts ?? []).length
-											? "Connect another"
-											: "Connect platform"}
+										<Plus className="size-4" /> Add connection
 									</button>
-
 									{showConnect ? (
-										<div className="absolute left-0 top-full z-30 mt-2 w-56 rounded-xl border border-white/10 bg-[#1e1e1e] p-1.5 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-100">
-											<p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
-												Select platform
-											</p>
-											{SOCIAL_PLATFORMS.map((p) => {
-												const configured = providers?.[p.provider] === true;
-												const pending = providers != null && !configured;
-												return (
-													<button
-														key={p.key}
-														type="button"
-														disabled={pending}
-														onClick={() => connect(p.provider)}
-														className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40"
-													>
-														<span
-															className={cn(
-																"grid size-5 shrink-0 place-items-center rounded-md",
-																p.bg,
-															)}
-														>
-															<p.icon className="size-3" />
-														</span>
-														<span className="flex-1 font-medium">{p.name}</span>
-														{pending ? (
-															<span className="text-[10px] text-muted-foreground">
-																Soon
-															</span>
-														) : null}
-													</button>
-												);
-											})}
+										<div className="absolute bottom-full left-0 z-20 mb-2 w-56 rounded-xl border border-border bg-popover p-1.5 shadow-xl">
+											{SOCIAL_PLATFORMS.map((p) => (
+												<button
+													key={p.key}
+													type="button"
+													onClick={() => connect(p.provider)}
+													className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-white/5"
+												>
+													<span className={cn("grid size-6 place-items-center rounded-md", p.bg)}>
+														<p.icon className="size-3.5" />
+													</span>
+													<span className="flex-1 text-left">{p.name}</span>
+													{providers?.[p.provider] ? (
+														<Check className="size-3.5 text-teal-300" />
+													) : (
+														<ExternalLink className="size-3.5 text-muted-foreground" />
+													)}
+												</button>
+											))}
 										</div>
 									) : null}
 								</div>
 							</div>
-							{(accounts ?? []).length === 0 ? (
-								<p className="mt-2.5 text-xs text-muted-foreground/70">
-									No connected social accounts yet. Connect YouTube, TikTok, or
-									Instagram to auto-post.
+
+							{(accounts?.length ?? 0) === 0 ? (
+								<p className="mt-2 text-xs text-muted-foreground">
+									No accounts connected yet — add one to auto-publish.
 								</p>
 							) : null}
+
+							<button
+								type="button"
+								onClick={() => setScheduleOpen(true)}
+								className="mt-3 text-xs font-medium text-teal-300 hover:underline"
+							>
+								Cadence &amp; timing settings →
+							</button>
 						</div>
-					</div>
-				) : null}
-			</div>
-
-			{/* Floating CTA — sticks to the bottom of the scroll area, always in view */}
-			<div className="pointer-events-none sticky bottom-4 z-20 flex flex-col items-center gap-2.5 pt-2">
-				<button
-					type="button"
-					disabled={busy !== null || tooLong || insufficient}
-					onClick={onStart}
-					className="group pointer-events-auto flex items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-teal-400 via-teal-300 to-emerald-400 px-7 py-3.5 text-sm font-bold text-black shadow-[0_10px_30px_-8px_rgba(45,212,191,0.5)] backdrop-blur-lg transition-all duration-150 hover:brightness-105 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:hover:scale-100"
-				>
-					{busy ? (
-						<Loader2 className="size-4 animate-spin" />
-					) : (
-						<Scissors className="size-4 stroke-[2.5]" />
-					)}
-					{busy
-						? "Starting…"
-						: params.schedule?.enabled
-							? "Get AI clips & Schedule"
-							: "Get AI clips"}
-					{!busy && cost !== null ? (
-						<span className="ml-1.5 flex items-center gap-1 rounded-full bg-black/15 px-2 py-0.5 text-xs font-bold text-black">
-							<Gem className="size-3 fill-black text-black" />
-							{Math.round(cost)}
-						</span>
 					) : null}
-				</button>
-
-				{insufficient ? (
-					<div className="pointer-events-auto flex items-center gap-2.5 rounded-xl border border-amber-500/30 bg-[#1c140d]/90 px-4 py-2 text-xs text-amber-200 shadow-xl backdrop-blur-md">
-						<Gem className="size-4 text-amber-400 fill-amber-400 shrink-0" />
-						<span>
-							Not enough credits (you have <strong>{Math.floor(balance?.balance ?? 0)}</strong>, this job needs <strong>{Math.round(cost ?? 0)}</strong>).
-						</span>
-						<a
-							href="/pricing"
-							className="ml-1 rounded-lg bg-amber-400 px-3 py-1 text-[11px] font-bold text-black transition-colors hover:bg-amber-300"
-						>
-							Get Credits
-						</a>
-					</div>
-				) : null}
-			</div>
-			{scheduleOpen && params.schedule ? (
-				<ScheduleModal
-					value={params.schedule}
-					onSave={(cfg) => setParams((p) => ({ ...p, schedule: cfg }))}
-					onClose={() => setScheduleOpen(false)}
-				/>
-			) : null}
-			{error ? (
-				<p className="text-center text-xs text-red-400">{error}</p>
-			) : null}
-		</div>
-	);
-}
-
-const LENGTH_BANDS: { key: string; label: string }[] = [
-	{ key: "lt30", label: "<30s" },
-	{ key: "30-60", label: "30s–60s" },
-	{ key: "60-90", label: "60s–90s" },
-	{ key: "90-180", label: "90s–3mins" },
-	{ key: "gt180", label: ">3mins" },
-];
-
-// Clip length: "Any length" or a multi-selection of bands (checkbox dropdown).
-function LengthSelect({
-	value,
-	onChange,
-}: {
-	value: "auto" | string[];
-	onChange: (v: "auto" | string[]) => void;
-}) {
-	const [open, setOpen] = useState(false);
-	const ref = useRef<HTMLDivElement>(null);
-	const selected = value === "auto" ? [] : value;
-
-	useEffect(() => {
-		if (!open) return;
-		const onDown = (e: MouseEvent) => {
-			if (!ref.current?.contains(e.target as Node)) setOpen(false);
-		};
-		document.addEventListener("mousedown", onDown);
-		return () => document.removeEventListener("mousedown", onDown);
-	}, [open]);
-
-	const toggleBand = (key: string) => {
-		const next = selected.includes(key)
-			? selected.filter((k) => k !== key)
-			: [...selected, key];
-		onChange(next.length === 0 ? "auto" : next);
-	};
-
-	const label =
-		value === "auto"
-			? "Any"
-			: LENGTH_BANDS.filter((b) => selected.includes(b.key))
-					.map((b) => b.label)
-					.slice(0, 2)
-					.join(", ") + (selected.length > 2 ? ` +${selected.length - 2}` : "");
-
-	return (
-		<div ref={ref} className="relative">
-			<button
-				type="button"
-				aria-haspopup="listbox"
-				aria-expanded={open}
-				onClick={() => setOpen((v) => !v)}
-				className={cn(
-					"flex w-full items-center justify-between gap-2 rounded-lg border bg-[#161616] px-4 py-3 text-sm transition-colors",
-					open ? "border-teal-400/50" : "border-white/10 hover:border-white/20",
-				)}
-			>
-				<span className="whitespace-nowrap text-muted-foreground">Length</span>
-				<span className="flex items-center gap-1.5 truncate font-medium">
-					{label}
-					<ChevronDown
-						className={cn(
-							"size-3.5 shrink-0 text-muted-foreground transition-transform",
-							open && "rotate-180",
-						)}
-					/>
-				</span>
-			</button>
-			{open ? (
-				<div className="absolute left-0 right-0 top-full z-30 mt-1.5 rounded-lg border border-white/10 bg-[#1e1e1e] p-1.5 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-100">
-					<label className="flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2.5 text-sm transition-colors hover:bg-white/5">
-						<Checkbox
-							checked={value === "auto"}
-							onCheckedChange={() => onChange("auto")}
-						/>
-						Any length
-					</label>
-					<div className="my-1 h-px bg-white/10" />
-					{LENGTH_BANDS.map((band) => (
-						<label
-							key={band.key}
-							className="flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2.5 text-sm transition-colors hover:bg-white/5"
-						>
-							<Checkbox
-								checked={selected.includes(band.key)}
-								onCheckedChange={() => toggleBand(band.key)}
-							/>
-							{band.label}
-						</label>
-					))}
 				</div>
-			) : null}
-		</div>
-	);
-}
 
-// Bordered full-width dropdown field (custom menu, same behavior as PillSelect).
-function FieldSelect({
-	label,
-	value,
-	options,
-	display,
-	onChange,
-	locked,
-	onLocked,
-}: {
-	label: string;
-	value: string;
-	options: string[];
-	display: (v: string) => string;
-	onChange: (v: string) => void;
-	// Options shown but not selectable (upsell) — renders a lock + Pro tag.
-	locked?: (v: string) => boolean;
-	// Fired when a locked option is clicked (e.g. route to pricing).
-	onLocked?: () => void;
-}) {
-	const [open, setOpen] = useState(false);
-	const ref = useRef<HTMLDivElement>(null);
-
-	useEffect(() => {
-		if (!open) return;
-		const onDown = (e: MouseEvent) => {
-			if (!ref.current?.contains(e.target as Node)) setOpen(false);
-		};
-		document.addEventListener("mousedown", onDown);
-		return () => document.removeEventListener("mousedown", onDown);
-	}, [open]);
-
-	return (
-		<div ref={ref} className="relative">
-			<button
-				type="button"
-				aria-haspopup="listbox"
-				aria-expanded={open}
-				onClick={() => setOpen((v) => !v)}
-				className={cn(
-					"flex w-full items-center justify-between gap-2 rounded-lg border bg-[#161616] px-4 py-3 text-sm transition-colors",
-					open ? "border-teal-400/50" : "border-white/10 hover:border-white/20",
-				)}
-			>
-				<span className="whitespace-nowrap text-muted-foreground">{label}</span>
-				<span className="flex items-center gap-1.5 whitespace-nowrap font-medium">
-					{display(value)}
-					<ChevronDown
-						className={cn(
-							"size-3.5 text-muted-foreground transition-transform",
-							open && "rotate-180",
-						)}
+				{scheduleOpen ? (
+					<ScheduleModal
+						value={params.schedule ?? defaultSchedule()}
+						onSave={(cfg) => {
+							setParams((p) => ({ ...p, schedule: cfg }));
+							setScheduleOpen(false);
+						}}
+						onClose={() => setScheduleOpen(false)}
 					/>
-				</span>
-			</button>
-			{open ? (
-				<div
-					role="listbox"
-					className="absolute left-0 right-0 top-full z-30 mt-1.5 rounded-lg border border-white/10 bg-[#1e1e1e] p-1 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-100"
-				>
-					{options.map((o) => {
-						const active = o === value;
-						const isLocked = locked?.(o) ?? false;
-						return (
-							<button
-								key={o}
-								type="button"
-								role="option"
-								aria-selected={active}
-								aria-disabled={isLocked}
-								onClick={() => {
-									if (isLocked) {
-										onLocked?.();
-										setOpen(false);
-										return;
-									}
-									onChange(o);
-									setOpen(false);
-								}}
-								className={cn(
-									"flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors",
-									isLocked
-										? "cursor-not-allowed text-muted-foreground/60"
-										: active
-											? "bg-teal-400/10 text-teal-300"
-											: "text-foreground/90 hover:bg-white/5",
-								)}
-							>
-								{display(o)}
-								{isLocked ? (
-									<span className="flex items-center gap-1 rounded-md bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
-										<Lock className="size-3" /> Pro
+				) : null}
+
+				{error ? <p className="mt-4 text-sm text-red-400">{error}</p> : null}
+
+				<div className="mt-auto flex gap-3 pt-6">
+					<button
+						type="button"
+						onClick={onBack}
+						disabled={busy !== null}
+						className="rounded-lg border border-white/12 px-5 py-2.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-white/5 disabled:opacity-50"
+					>
+						Back
+					</button>
+					{insufficient && !busy ? (
+						// Out of credits → premium upgrade CTA instead of a dead button.
+						<button
+							type="button"
+							onClick={() => openUpgrade("You're out of credits")}
+							className="group relative flex flex-1 items-center gap-2 overflow-hidden rounded-lg bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-200 py-2.5 pr-2 pl-5 text-sm font-bold text-black shadow-lg shadow-amber-500/25 transition-shadow hover:shadow-xl hover:shadow-amber-500/40"
+						>
+							{/* sheen sweep on hover */}
+							<span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/50 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+							<Gem className="size-4" />
+							<span className="flex-1 text-left">
+								Upgrade to get credits
+								{cost !== null ? (
+									<span className="block text-[11px] font-semibold text-black/60">
+										Needs {cost} credits · you have {balance?.balance ?? 0}
 									</span>
-								) : active ? (
-									<Check className="size-4" />
 								) : null}
-							</button>
-						);
-					})}
-				</div>
-			) : null}
-		</div>
-	);
-}
-
-function JobRow({
-	job,
-	onOpen,
-	onDelete,
-}: {
-	job: ClipsJob;
-	onOpen: () => void;
-	onDelete: () => void;
-}) {
-	const running = job.status === "queued" || job.status === "running";
-	return (
-		<div className="group flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
-			<span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white/5">
-				{job.status === "failed" ? (
-					<XCircle className="size-4 text-red-400" />
-				) : running ? (
-					<Loader2 className="size-4 animate-spin text-muted-foreground" />
-				) : (
-					<Film className="size-4 text-muted-foreground" />
-				)}
-			</span>
-			<button
-				type="button"
-				onClick={onOpen}
-				className="min-w-0 flex-1 text-left"
-			>
-				<span className="block truncate text-sm font-medium">
-					{job.source_title ?? job.source_url ?? "Uploaded video"}
-				</span>
-				<span className="block text-xs text-muted-foreground">
-					{job.status === "completed"
-						? `${job.clips.length} clips`
-						: job.status === "failed"
-							? (job.error ?? "Failed")
-							: `${PHASE_LABEL[job.phase] ?? job.phase}…`}
-					{" · "}
-					{new Date(job.created_at).toLocaleDateString()}
-					{job.is_free_plan ? (
-						job.is_expired || job.retention_status === "expired" || job.retention_status === "hard_deleted" ? (
-							<span className="ml-2 inline-flex items-center gap-1 rounded-md bg-red-500/20 px-2 py-0.5 text-[10px] font-semibold text-red-300">
-								Expired (Free)
 							</span>
-						) : (
-							<span className="ml-2 inline-flex items-center gap-1 rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
-								{job.days_remaining === 1 ? "1d left" : `${job.days_remaining ?? 0}d left`}
+							<span className="flex items-center gap-1 rounded-md bg-black/15 px-2 py-1 text-xs font-bold">
+								Pro <ArrowRight className="size-3.5" />
 							</span>
-						)
-					) : null}
-				</span>
-				{running ? (
-					<span className="mt-1.5 block h-1 w-full overflow-hidden rounded-full bg-white/10">
-						<span
-							className="block h-full rounded-full bg-teal-400 transition-[width] duration-700"
-							style={{
-								width: `${Math.max(4, Math.round((job.progress ?? 0) * 100))}%`,
-							}}
-						/>
-					</span>
-				) : null}
-			</button>
-			<button
-				type="button"
-				aria-label="Delete job"
-				onClick={onDelete}
-				className="hidden rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-red-400 group-hover:block"
-			>
-				<Trash2 className="size-4" />
-			</button>
-			<button
-				type="button"
-				onClick={onOpen}
-				aria-label="Open job"
-				className="rounded-lg p-2 text-muted-foreground hover:text-foreground"
-			>
-				<ArrowRight className="size-4" />
-			</button>
-		</div>
-	);
-}
-
-// Custom dropdown pill (native <select> can't be styled to match the theme).
-function PillSelect({
-	label,
-	value,
-	options,
-	display,
-	onChange,
-}: {
-	label: string;
-	value: string;
-	options: string[];
-	display: (v: string) => string;
-	onChange: (v: string) => void;
-}) {
-	const [open, setOpen] = useState(false);
-	const ref = useRef<HTMLDivElement>(null);
-
-	useEffect(() => {
-		if (!open) return;
-		const onDown = (e: MouseEvent) => {
-			if (!ref.current?.contains(e.target as Node)) setOpen(false);
-		};
-		const onKey = (e: KeyboardEvent) => {
-			if (e.key === "Escape") setOpen(false);
-		};
-		document.addEventListener("mousedown", onDown);
-		document.addEventListener("keydown", onKey);
-		return () => {
-			document.removeEventListener("mousedown", onDown);
-			document.removeEventListener("keydown", onKey);
-		};
-	}, [open]);
-
-	return (
-		<div ref={ref} className="relative">
-			<button
-				type="button"
-				aria-haspopup="listbox"
-				aria-expanded={open}
-				onClick={() => setOpen((v) => !v)}
-				className={cn(
-					"flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors",
-					open
-						? "border-teal-400/50 bg-white/10"
-						: "border-white/10 bg-white/5 hover:border-white/20",
-				)}
-			>
-				<span className="text-muted-foreground">{label}</span>
-				<span className="font-medium text-foreground">{display(value)}</span>
-				<ChevronDown
-					className={cn(
-						"size-3 text-muted-foreground transition-transform",
-						open && "rotate-180",
+						</button>
+					) : (
+						<button
+							type="button"
+							onClick={onStart}
+							disabled={busy !== null}
+							className="group flex flex-1 items-center gap-2 rounded-lg bg-[#14b8a6] py-2.5 pr-2 pl-5 text-sm font-semibold text-white shadow-lg shadow-teal-500/20 transition-colors hover:bg-[#0f9c8c] disabled:opacity-60"
+						>
+							{busy ? (
+								<span className="flex flex-1 items-center justify-center gap-2">
+									<Loader2 className="size-4 animate-spin" /> {busy}
+								</span>
+							) : (
+								<>
+									<Sparkles className="size-4" />
+									<span className="flex-1 text-left">Generate clips</span>
+									{cost !== null ? (
+										<span className="flex items-center gap-1 rounded-md bg-black/20 px-2 py-1 text-xs font-bold tabular-nums">
+											<Gem className="size-3.5 text-teal-200" /> {cost}
+										</span>
+									) : null}
+								</>
+							)}
+						</button>
 					)}
-				/>
-			</button>
-
-			{open ? (
-				<div
-					role="listbox"
-					className="absolute left-1/2 top-full z-30 mt-1.5 min-w-[130px] -translate-x-1/2 rounded-lg border border-white/10 bg-[#1e1e1e] p-1 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-100"
-				>
-					{options.map((o) => {
-						const active = o === value;
-						return (
-							<button
-								key={o}
-								type="button"
-								role="option"
-								aria-selected={active}
-								onClick={() => {
-									onChange(o);
-									setOpen(false);
-								}}
-								className={cn(
-									"flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors",
-									active
-										? "bg-teal-400/10 text-teal-300"
-										: "text-foreground/90 hover:bg-white/5",
-								)}
-							>
-								{display(o)}
-								{active ? <Check className="size-3.5" /> : null}
-							</button>
-						);
-					})}
 				</div>
-			) : null}
+			</div>
+
+			{/* RIGHT — live preview */}
+			<div className="hidden place-items-center lg:grid">
+				<div className="relative aspect-[9/16] w-[400px] max-w-full overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl shadow-black/50">
+					{/* Sample preview clip (not the user's upload) so the caption style is easy to judge. */}
+					<video src={PREVIEW_VIDEO} className="size-full object-cover" autoPlay muted loop playsInline />
+					<div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 to-transparent" />
+					<span className="absolute top-3 left-3 rounded-md bg-black/55 px-2 py-1 text-xs font-medium text-white/90 backdrop-blur-sm">
+						PREVIEW
+					</span>
+					<div className="absolute inset-x-0 bottom-10 flex justify-center px-4">
+						<span className="text-2xl leading-tight font-bold">
+							<CaptionSample css={captionCss(params.caption_style, params.caption_custom ?? null, 1.6)} text="Hey there," />
+						</span>
+					</div>
+				</div>
+			</div>
 		</div>
 	);
 }
+

@@ -164,7 +164,7 @@ function ReviewSidebar({
             aria-label="Send comment"
             disabled={sending || !text.trim()}
             onClick={() => void submit()}
-            className="grid size-9 shrink-0 place-items-center rounded-lg bg-teal-500 text-black transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="grid size-9 shrink-0 place-items-center rounded-lg bg-teal-500 text-white transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
           </button>

@@ -197,7 +197,7 @@ export function PrecisionEdit({
               type="button"
               disabled={busy}
               onClick={() => void save(canvasRef.current)}
-              className="rounded-xl bg-teal-400 px-4 py-1.5 text-xs font-semibold text-black hover:bg-teal-300 disabled:opacity-50"
+              className="rounded-xl bg-teal-400 px-4 py-1.5 text-xs font-semibold text-white hover:bg-teal-300 disabled:opacity-50"
             >
               Save Edits
             </button>

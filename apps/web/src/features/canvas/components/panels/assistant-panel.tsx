@@ -1,16 +1,16 @@
 "use client";
 
-import { History, Plus, Sparkles, Trash2, X } from "lucide-react";
+import { ArrowRight, Clapperboard, HelpCircle, History, type LucideIcon, PenLine, Plus, Trash2, WandSparkles, Workflow, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ChatMsg, ThreadMeta } from "../../hooks/use-assistant-chat";
 import { AssistantInput } from "./assistant-input";
 import { Markdown } from "../shared/markdown";
 
-const SUGGESTIONS = [
-  "Build a 30s product ad: script → keyframe → video",
-  "Write a punchy 15-second hook script",
-  "Add an image node and a video node, connected",
-  "What can this platform do?",
+const SUGGESTIONS: { icon: LucideIcon; text: string }[] = [
+  { icon: Clapperboard, text: "Build a 30s product ad: script → keyframe → video" },
+  { icon: PenLine, text: "Write a punchy 15-second hook script" },
+  { icon: Workflow, text: "Add an image node and a video node, connected" },
+  { icon: HelpCircle, text: "What can this platform do?" },
 ];
 
 export function AssistantPanel({
@@ -42,9 +42,11 @@ export function AssistantPanel({
 
   return (
     <aside className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-border bg-card shadow-xl">
-      <div className="flex items-center justify-between px-4 py-3">
-        <span className="flex items-center gap-2 text-sm font-semibold">
-          <Sparkles className="size-4 text-[#c2b558]" />
+      <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
+        <span className="flex items-center gap-2.5 text-sm font-semibold">
+          <span className="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-teal-400 to-emerald-600 text-white shadow-sm shadow-teal-500/30">
+            <WandSparkles className="size-4" />
+          </span>
           {historyOpen ? "History" : "Assistant"}
         </span>
         <div className="flex items-center gap-1 text-muted-foreground">
@@ -116,19 +118,32 @@ export function AssistantPanel({
       ) : (
         <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-2 [scrollbar-width:thin]">
           {messages.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center gap-4 px-2 text-center">
-              <p className="text-sm text-muted-foreground">
-                I can answer questions, write scripts, and build or edit your workflow.
-              </p>
+            <div className="flex h-full flex-col items-center justify-center gap-6 px-1 text-center">
+              <div className="flex flex-col items-center gap-3">
+                <span className="relative grid size-14 place-items-center rounded-2xl bg-gradient-to-br from-teal-400 to-emerald-600 text-white shadow-lg shadow-teal-500/30">
+                  <span className="pointer-events-none absolute -inset-1 -z-10 rounded-2xl bg-teal-400/40 opacity-60 blur-md" />
+                  <WandSparkles className="size-7" />
+                </span>
+                <div>
+                  <p className="text-base font-semibold text-foreground">How can I help?</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Ask a question, write a script, or build your workflow.
+                  </p>
+                </div>
+              </div>
               <div className="flex w-full flex-col gap-2">
-                {SUGGESTIONS.map((s) => (
+                {SUGGESTIONS.map(({ icon: Icon, text }) => (
                   <button
-                    key={s}
+                    key={text}
                     type="button"
-                    onClick={() => onSend(s)}
-                    className="rounded-lg border border-border px-3 py-2 text-left text-sm text-foreground/90 transition-colors hover:bg-accent"
+                    onClick={() => onSend(text)}
+                    className="group flex items-center gap-3 rounded-xl border border-border bg-white/[0.02] px-3 py-2.5 text-left text-sm text-foreground/90 transition-colors hover:border-teal-400/40 hover:bg-white/[0.05]"
                   >
-                    {s}
+                    <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-white/5 text-teal-300 transition-colors group-hover:bg-teal-400/15">
+                      <Icon className="size-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">{text}</span>
+                    <ArrowRight className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                   </button>
                 ))}
               </div>

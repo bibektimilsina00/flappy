@@ -73,7 +73,7 @@ export default function Page() {
                 type="button"
                 onClick={() => use.mutate(t.id)}
                 disabled={use.isPending}
-                className="mt-3 flex items-center justify-center gap-2 rounded-lg bg-teal-500 py-2 text-sm font-semibold text-black transition-colors hover:bg-teal-600 disabled:opacity-50"
+                className="mt-3 flex items-center justify-center gap-2 rounded-lg bg-teal-500 py-2 text-sm font-semibold text-white transition-colors hover:bg-teal-600 disabled:opacity-50"
               >
                 {use.isPending && use.variables === t.id ? <Loader2 className="size-4 animate-spin" /> : null}
                 Use template

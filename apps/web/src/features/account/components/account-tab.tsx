@@ -49,7 +49,7 @@ export function AccountTab() {
               <button
                 type="submit"
                 disabled={!name.trim() || isUpdatingName}
-                className="rounded-lg bg-teal-400 px-3 py-2 text-xs font-semibold text-black disabled:opacity-40"
+                className="rounded-lg bg-teal-400 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
               >
                 {isUpdatingName ? <Loader2 className="size-3.5 animate-spin" /> : "Save"}
               </button>

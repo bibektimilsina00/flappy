@@ -31,8 +31,6 @@ export const PLATFORMS = [
   { key: "youtube", name: "YouTube", provider: "youtube", bg: "bg-[#FF0000] text-white", icon: Glyph("M10 15V9l5.2 3zM21.58 7.19a2.5 2.5 0 0 0-1.76-1.77C18.25 5 12 5 12 5s-6.25 0-7.82.42A2.5 2.5 0 0 0 2.42 7.19 26 26 0 0 0 2 12a26 26 0 0 0 .42 4.81 2.5 2.5 0 0 0 1.76 1.77C5.75 19 12 19 12 19s6.25 0 7.82-.42a2.5 2.5 0 0 0 1.76-1.77A26 26 0 0 0 22 12a26 26 0 0 0-.42-4.81z") },
   { key: "instagram", name: "Instagram", provider: "instagram", bg: "bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white", icon: Glyph("M12 8.75A3.25 3.25 0 1 0 15.25 12 3.25 3.25 0 0 0 12 8.75zm0-2.5A5.75 5.75 0 1 1 6.25 12 5.75 5.75 0 0 1 12 6.25zm6.5-.75a1.25 1.25 0 1 1-1.25-1.25A1.25 1.25 0 0 1 18.5 5.5zM12 3.5c-2.72 0-3.06 0-4.12.06a5.6 5.6 0 0 0-1.88.35 3.77 3.77 0 0 0-2.16 2.16 5.6 5.6 0 0 0-.35 1.88C3.5 8.94 3.5 9.28 3.5 12s0 3.06.06 4.12a5.6 5.6 0 0 0 .35 1.88 3.77 3.77 0 0 0 2.16 2.16 5.6 5.6 0 0 0 1.88.35c1.06.06 1.4.06 4.12.06s3.06 0 4.12-.06a5.6 5.6 0 0 0 1.88-.35 3.77 3.77 0 0 0 2.16-2.16 5.6 5.6 0 0 0 .35-1.88c.06-1.06.06-1.4.06-4.12s0-3.06-.06-4.12a5.6 5.6 0 0 0-.35-1.88 3.77 3.77 0 0 0-2.16-2.16 5.6 5.6 0 0 0-1.88-.35C15.06 3.5 14.72 3.5 12 3.5z") },
   { key: "facebook", name: "Facebook", provider: "facebook", bg: "bg-[#1877F2] text-white", icon: Glyph("M13.4 21v-8.1h2.72l.4-3.16H13.4V7.72c0-.91.25-1.53 1.56-1.53h1.67V3.36c-.29-.04-1.28-.13-2.43-.13-2.4 0-4.05 1.47-4.05 4.16v2.32H7.43v3.16h2.72V21h3.25z") },
-  { key: "x", name: "X", provider: "x", bg: "bg-white text-black", icon: Glyph("M18.9 1.15h3.68l-8.04 9.19L24 22.85h-7.41l-5.8-7.58-6.64 7.58H.46l8.6-9.83L0 1.15h7.59l5.24 6.93zm-1.29 19.5h2.04L6.49 3.24H4.3z") },
-  { key: "linkedin", name: "LinkedIn", provider: "linkedin", bg: "bg-[#0A66C2] text-white", icon: Glyph("M6.94 8.5v12H3.56v-12h3.38zM7.07 5.25a1.82 1.82 0 1 1-1.83-1.82 1.82 1.82 0 0 1 1.83 1.82zM20.5 13.9v6.6h-3.37v-6.2c0-1.56-.56-2.62-1.96-2.62a2.11 2.11 0 0 0-1.98 1.41 2.64 2.64 0 0 0-.13.94v6.47H9.68v-12h3.38v1.71a3.35 3.35 0 0 1 3.04-1.68c2.22 0 3.9 1.45 3.9 4.57z") },
 ] as const;
 
 const TERMINAL = new Set(["posted", "failed"]);
@@ -156,9 +154,14 @@ export function PublishPanel({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-white/[0.07] px-6 py-4">
-          <div className="min-w-0">
-            <h3 className="text-[15px] font-bold">Publish to social</h3>
-            <p className="truncate text-xs text-muted-foreground">{clipTitle}</p>
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-sm shadow-teal-500/30">
+              <Send className="size-4" />
+            </span>
+            <div className="min-w-0">
+              <h3 className="text-[15px] font-bold">Publish to social</h3>
+              <p className="truncate text-xs text-muted-foreground">{clipTitle}</p>
+            </div>
           </div>
           <button type="button" aria-label="Close" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/10 hover:text-foreground">
             <X className="size-4" />
@@ -186,6 +189,7 @@ export function PublishPanel({
                         mine.length > 0
                           ? "border-white/[0.12] bg-white/[0.03]"
                           : "border-white/[0.07] bg-white/[0.01]",
+                        pending && mine.length === 0 && "opacity-60",
                       )}
                     >
                       <div className="flex items-center gap-3">
@@ -203,7 +207,9 @@ export function PublishPanel({
                           ) : null}
                         </div>
                         {pending ? (
-                          <span className="shrink-0 text-[11px] text-muted-foreground">Awaiting app approval</span>
+                          <span className="shrink-0 rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+                            Coming soon
+                          </span>
                         ) : mine.length > 0 ? (
                           <button
                             type="button"
@@ -338,7 +344,7 @@ export function PublishPanel({
               type="button"
               disabled={busy || selected.size === 0}
               onClick={publish}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-teal-400 py-3 text-sm font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 py-3.5 text-sm font-bold text-white shadow-lg shadow-teal-500/25 transition-all hover:shadow-xl hover:shadow-teal-500/40 disabled:opacity-50 disabled:shadow-none"
             >
               {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
               {selected.size > 1 ? `Publish to ${selected.size} accounts` : "Publish now"}

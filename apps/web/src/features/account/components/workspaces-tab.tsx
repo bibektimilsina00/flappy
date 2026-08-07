@@ -100,7 +100,7 @@ export function WorkspacesTab() {
           <button
             type="submit"
             disabled={!newName.trim() || isCreatingWorkspace}
-            className="rounded-lg bg-teal-400 px-3.5 py-2 text-sm font-semibold text-black disabled:opacity-40"
+            className="rounded-lg bg-teal-400 px-3.5 py-2 text-sm font-semibold text-white disabled:opacity-40"
           >
             {isCreatingWorkspace ? <Loader2 className="size-4 animate-spin" /> : "Create"}
           </button>
@@ -129,7 +129,7 @@ export function WorkspacesTab() {
             type="button"
             disabled={!nameDirty || isUpdatingWorkspace}
             onClick={handleRename}
-            className="rounded-lg bg-teal-400 px-3.5 text-sm font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-40"
+            className="rounded-lg bg-teal-400 px-3.5 text-sm font-semibold text-white transition-colors hover:bg-teal-300 disabled:opacity-40"
           >
             {isUpdatingWorkspace ? <Loader2 className="size-4 animate-spin" /> : saved ? <Check className="size-4" /> : "Save"}
           </button>

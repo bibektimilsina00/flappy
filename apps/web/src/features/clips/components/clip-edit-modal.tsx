@@ -209,7 +209,7 @@ export function ClipEditModal({
               type="button"
               disabled={busy}
               onClick={() => void apply()}
-              className="flex items-center gap-2 rounded-xl bg-teal-400 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-60"
+              className="flex items-center gap-2 rounded-xl bg-teal-400 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-teal-300 disabled:opacity-60"
             >
               {busy ? <Loader2 className="size-4 animate-spin" /> : null}
               Save & re-render

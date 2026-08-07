@@ -5,7 +5,7 @@ export { FeatureTabs } from "./components/feature-tabs";
 export { MarketingFooter, MarketingFooter as Footer } from "./components/footer";
 export { Icon } from "./components/icon";
 export { Legal } from "./components/legal";
-export { Poster, unsplash } from "./components/media";
+export { media, Poster, unsplash } from "./components/media";
 export { MenuVisual } from "./components/menu-visuals";
 export { MarketingNav, MarketingNav as Nav } from "./components/nav";
 export { PricingCards } from "./components/pricing-cards";
@@ -31,4 +31,6 @@ export {
 export { Button, Card, Container, Section, SectionHeading } from "./components/ui";
 export { Logo, Wordmark } from "./components/wordmark";
 export * from "./schemas/marketing-schemas";
+export * from "./lib/blog";
+export * from "./lib/features";
 export * from "./lib/content";
