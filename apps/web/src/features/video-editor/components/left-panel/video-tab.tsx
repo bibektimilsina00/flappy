@@ -4,6 +4,7 @@ import { ChevronDown, Plus, Upload, Wand2 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/cn";
 import type { VideoEditorAsset } from "../../types";
+import { AddCharacter } from "./add-character";
 import { MediaTileThumb } from "./media-grid";
 import { StockSearch } from "./stock-search";
 
@@ -24,9 +25,23 @@ const CHARACTERS = [
 ];
 const characterSrc = (id: string) => `https://cdn-user.veed.io/cdn-cgi/image/width=400,format=png/image/${id}.png`;
 
-export function VideoTab({ videos, onImport, importing, onGenerate, onAddStock, onTalkingCharacter }: { videos: VideoEditorAsset[]; onImport: () => void; importing: boolean; onGenerate: () => void; onAddStock: (url: string, kind: string) => void; onTalkingCharacter: (imageUrl: string) => void }) {
+export function VideoTab({ videos, onImport, importing, onGenerate, onAddStock, onTalkingCharacter }: { videos: VideoEditorAsset[]; onImport: () => void; importing: boolean; onGenerate: () => void; onAddStock: (url: string, kind: string) => void; onTalkingCharacter: (imageUrl: string, script: string) => Promise<void> }) {
   const [allVids, setAllVids] = useState(false);
   const [allChars, setAllChars] = useState(false);
+  const [character, setCharacter] = useState<{ name: string; id: string } | null>(null);
+
+  if (character) {
+    return (
+      <AddCharacter
+        name={character.name}
+        imageUrl={characterSrc(character.id)}
+        onGenerate={(script) => onTalkingCharacter(characterSrc(character.id), script)}
+        onBack={() => setCharacter(null)}
+        onPickAnother={() => setCharacter(null)}
+      />
+    );
+  }
+
   return (
     <div className="space-y-8 px-3">
       {/* generate + upload */}
@@ -72,7 +87,7 @@ export function VideoTab({ videos, onImport, importing, onGenerate, onAddStock, 
       <Section title="Talking Characters" expand={CHARACTERS.length > PREVIEW ? { on: allChars, toggle: () => setAllChars((v) => !v) } : undefined}>
         <div className="grid grid-cols-3 gap-2.5">
           {(allChars ? CHARACTERS : CHARACTERS.slice(0, PREVIEW)).map((c) => (
-            <button key={c.id} type="button" onClick={() => onTalkingCharacter(characterSrc(c.id))} className="overflow-hidden rounded-lg border border-border transition-opacity hover:opacity-90" title={`Make ${c.name} talk`}>
+            <button key={c.id} type="button" onClick={() => setCharacter(c)} className="overflow-hidden rounded-lg border border-border transition-opacity hover:opacity-90" title={`Make ${c.name} talk`}>
               {/* biome-ignore lint/performance/noImgElement: external placeholder thumbnail */}
               <img src={characterSrc(c.id)} alt={c.name} loading="lazy" className="aspect-square w-full object-cover object-top" />
             </button>

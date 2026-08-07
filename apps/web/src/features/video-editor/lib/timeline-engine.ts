@@ -211,9 +211,11 @@ export function removeClip(
   }
 
   let next = doc;
+  const emptied = new Set<string>(); // tracks that lost their last clip → remove them
   for (const track of doc.tracks) {
     const remaining = track.clips.filter((c) => !targets.has(c.id));
     if (remaining.length === track.clips.length) continue;
+    if (remaining.length === 0) emptied.add(track.id);
     if (isMagnetic(track) && scope !== "off") {
       next = putClips(next, track.id, reflow(sortByStart(remaining), fps));
     } else {
@@ -230,6 +232,9 @@ export function removeClip(
       })),
     };
   }
+
+  // Drop now-empty tracks (a track deleted down to its last clip goes away too).
+  if (emptied.size) next = { ...next, tracks: next.tracks.filter((t) => !emptied.has(t.id)) };
 
   return commitDoc(doc, next);
 }

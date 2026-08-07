@@ -313,18 +313,13 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
     }
   };
   // Talking character: portrait + script → talking-head video, dropped at the playhead.
-  const generateTalkingCharacter = async (imageUrl: string) => {
-    const script = window.prompt("What should the character say?")?.trim();
-    if (!script) return;
-    try {
-      const { execution_id } = await startTalkingCharacter(projectId, imageUrl, script);
-      const asset = await pollExecutionAsset(execution_id);
-      await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
-      addImportedClip(asset.id, "video", playhead);
-      toast.success("Talking character added");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Couldn't generate the character");
-    }
+  // Throws on failure so the composer can surface the error; toasts on success.
+  const generateTalkingCharacter = async (imageUrl: string, script: string) => {
+    const { execution_id } = await startTalkingCharacter(projectId, imageUrl, script);
+    const asset = await pollExecutionAsset(execution_id);
+    await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
+    addImportedClip(asset.id, "video", playhead);
+    toast.success("Talking character added");
   };
   // AI transition morph: generate between two clips, poll, then drop at the boundary.
   const generateMorph = async (fromId: string, toId: string, prompt: string) => {
