@@ -26,6 +26,7 @@
 }
 
 .dark {
+  color-scheme: dark; /* dark native controls + auto-dark Clerk's default theme */
   --background: #151821; /* main dark canvas background */
   --foreground: #f1f3f9;
   --card: #242832; /* sidebar & floating dark panel background #242832 */
@@ -193,6 +194,14 @@
 @keyframes clip-indeterminate {
   0% { transform: translateX(-120%); }
   100% { transform: translateX(320%); }
+}
+
+/* Auth (/login) — a teal glow runs along the graphic's edge line (the lit dash
+   travels the stroke). Paths use pathLength=1000. Frozen for reduced motion. */
+@keyframes login-trace { to { stroke-dashoffset: -1000; } }
+.login-trace { animation: login-trace 26s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .login-trace { animation: none; opacity: 0; }
 }
 
 /* Caption fonts (also bundled server-side for burning) */

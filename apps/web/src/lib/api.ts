@@ -53,11 +53,10 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
       continue;
     }
 
-    // A 401 means Clerk's token was rejected — sign out so the guard re-routes to /login.
-    if (res.status === 401 && typeof window !== "undefined") {
-      (window as unknown as { Clerk?: { signOut?: () => void } }).Clerk?.signOut?.();
-    }
-
+    // Don't force sign-out on a 401 — Clerk owns session state, and its token can
+    // momentarily be unavailable right after sign-in. Signing out here turned a
+    // transient 401 into a login bounce. Let the error surface; AuthGuard handles
+    // an actually-ended session.
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as { detail?: string } | null;
       throw new Error(body?.detail ?? `${res.status} ${res.statusText}`);
