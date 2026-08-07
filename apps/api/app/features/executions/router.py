@@ -10,15 +10,13 @@ from fastapi import (
 )
 from sqlmodel import Session
 
-from apps.api.app.api.deps import current_workspace_id, get_session
+from apps.api.app.api.deps import current_workspace_id, get_session, user_from_token
 from apps.api.app.core.redis import get_async_redis
-from apps.api.app.core.security import decode_token
 from apps.api.app.features.assets import repository as assets_repo
 from apps.api.app.features.assets.schemas import AssetRead
 from apps.api.app.features.billing import service as billing_service
 from apps.api.app.features.executions import repository, service
 from apps.api.app.features.executions.schemas import ExecutionCreate, ExecutionRead
-from apps.api.app.features.users import repository as users_repo
 from apps.api.app.features.workflows import repository as workflows_repo
 from apps.api.app.features.workspaces import repository as workspaces_repo
 
@@ -87,9 +85,8 @@ async def execution_stream(
     token: str = Query(...),
     session: Session = Depends(get_session),
 ):
-    # Browsers can't set WS auth headers — authenticate via ?token=.
-    subject = decode_token(token)
-    user = users_repo.get(session, uuid.UUID(subject)) if subject else None
+    # Browsers can't set WS auth headers — authenticate via ?token= (Clerk or legacy).
+    user = user_from_token(session, token)
     if user is None:
         await websocket.close(code=1008)
         return

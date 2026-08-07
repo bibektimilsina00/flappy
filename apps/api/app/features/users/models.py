@@ -10,5 +10,6 @@ class User(TimestampMixin, table=True):
     hashed_password: str | None = Field(default=None)  # None for OAuth users
     name: str = Field(nullable=False)
     avatar_url: str | None = Field(default=None, nullable=True)
-    auth_provider: str = Field(default="password", nullable=False)  # password|google|discord
+    auth_provider: str = Field(default="password", nullable=False)  # password|google|discord|clerk
+    clerk_id: str | None = Field(default=None, unique=True, index=True, nullable=True)  # Clerk user id
     is_active: bool = Field(default=True, nullable=False)

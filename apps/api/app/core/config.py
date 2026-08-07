@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     api_base_url: str = ""
     frontend_url: str = ""
 
+    # Clerk auth — the backend verifies Clerk session JWTs (issuer/JWKS are derived
+    # from the publishable key); the secret key is used to look up a user's email.
+    clerk_publishable_key: str = ""
+    clerk_secret_key: str = ""
+
     # OAuth
     google_client_id: str = ""
     google_client_secret: str = ""

@@ -2,14 +2,14 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useSession } from "@/stores/session";
+import { authToken } from "@/lib/auth-token";
 import { upgradeTierSchema } from "../schemas/billing-schemas";
 import { startUpgrade } from "../services/billing-api";
 
 export function useUpgrade() {
   const upgradeMutation = useMutation({
     mutationFn: async (rawTier: string) => {
-      if (!useSession.getState().token) {
+      if (!(await authToken())) {
         window.location.href = "/login";
         return;
       }

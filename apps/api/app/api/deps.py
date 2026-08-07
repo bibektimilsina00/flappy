@@ -23,15 +23,34 @@ _CREDENTIALS_ERROR = HTTPException(
 )
 
 
+def user_from_token(session: Session, token: str) -> User | None:
+    """Resolve a bearer/query token to an active user. Prefers a Clerk session JWT
+    (the app trusts Clerk); falls back to the legacy custom JWT during migration.
+    Returns None on any invalid/expired token. Shared by the HTTP dep + the WS."""
+    from apps.api.app.core import clerk as clerk_svc
+    from apps.api.app.features.auth import service as auth_service
+
+    claims = clerk_svc.verify_session_token(token)
+    if claims and claims.get("sub"):
+        user = auth_service.sync_clerk_user(session, claims["sub"])
+        return user if user.is_active else None
+
+    subject = decode_token(token)
+    if subject is None:
+        return None
+    try:
+        user = users_repo.get(session, uuid.UUID(subject))
+    except ValueError:
+        return None
+    return user if user and user.is_active else None
+
+
 def get_current_user(
     token: str = Depends(oauth2_scheme),
     session: Session = Depends(get_session),
 ) -> User:
-    subject = decode_token(token)
-    if subject is None:
-        raise _CREDENTIALS_ERROR
-    user = users_repo.get(session, uuid.UUID(subject))
-    if user is None or not user.is_active:
+    user = user_from_token(session, token)
+    if user is None:
         raise _CREDENTIALS_ERROR
     return user
 

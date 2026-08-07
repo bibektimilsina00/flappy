@@ -1,3 +1,4 @@
+import { authToken } from "@/lib/auth-token";
 import { useSession } from "@/stores/session";
 
 // Gateway errors that mean "backend momentarily unreachable" — normal during a
@@ -21,7 +22,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const idempotent = method === "GET" || method === "HEAD";
 
   for (let attempt = 0; ; attempt++) {
-    const token = useSession.getState().token;
+    const token = await authToken();
     // Active workspace (workspace switcher). Absent -> backend uses the first owned one.
     const wsId = typeof window !== "undefined" ? localStorage.getItem("active-workspace") : null;
 

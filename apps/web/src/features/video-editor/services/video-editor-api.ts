@@ -1,5 +1,5 @@
 import { api } from "@/lib/api";
-import { useSession } from "@/stores/session";
+import { authToken } from "@/lib/auth-token";
 import type { VideoEditorDoc, VideoEditorProject } from "../types";
 
 // Load (seeds on first open) the timeline editor project for a workflow.
@@ -319,7 +319,7 @@ export async function uploadToProject(
 	workflowId: string,
 	file: File,
 ): Promise<{ id: string; kind: string; url: string; name: string }> {
-	const token = useSession.getState().token;
+	const token = await authToken();
 	const form = new FormData();
 	form.append("file", file);
 	const res = await fetch(
