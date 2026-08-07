@@ -1,22 +1,19 @@
 "use client";
 
+import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { useSession } from "@/stores/session";
+import { useEffect } from "react";
 
-// Client-side guard: redirects to /login when there's no token. Waits for
-// mount so the persisted session has rehydrated before deciding.
+// Client-side guard: redirects to /login when Clerk reports no signed-in session.
+// Waits for Clerk to load before deciding so a fresh session isn't bounced.
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const token = useSession((s) => s.token);
+  const { isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => setReady(true), []);
 
   useEffect(() => {
-    if (ready && !token) router.replace("/login");
-  }, [ready, token, router]);
+    if (isLoaded && !isSignedIn) router.replace("/login");
+  }, [isLoaded, isSignedIn, router]);
 
-  if (!ready || !token) return null;
+  if (!isLoaded || !isSignedIn) return null;
   return <>{children}</>;
 }

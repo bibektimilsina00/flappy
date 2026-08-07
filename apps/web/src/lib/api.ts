@@ -1,5 +1,4 @@
 import { authToken } from "@/lib/auth-token";
-import { useSession } from "@/stores/session";
 
 // Gateway errors that mean "backend momentarily unreachable" — normal during a
 // deploy while the api container restarts. We retry these silently so an active
@@ -54,7 +53,10 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
       continue;
     }
 
-    if (res.status === 401) useSession.getState().clear();
+    // A 401 means Clerk's token was rejected — sign out so the guard re-routes to /login.
+    if (res.status === 401 && typeof window !== "undefined") {
+      (window as unknown as { Clerk?: { signOut?: () => void } }).Clerk?.signOut?.();
+    }
 
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as { detail?: string } | null;

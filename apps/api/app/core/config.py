@@ -28,11 +28,9 @@ class Settings(BaseSettings):
     clerk_publishable_key: str = ""
     clerk_secret_key: str = ""
 
-    # OAuth
+    # OAuth (social publishing — Google/YouTube)
     google_client_id: str = ""
     google_client_secret: str = ""
-    discord_client_id: str = ""
-    discord_client_secret: str = ""
 
     # Generation provider keys
     gemini_api_key: str = ""

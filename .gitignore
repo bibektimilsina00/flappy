@@ -26,3 +26,8 @@ env_backup
 
 # local yt-dlp cookies — never commit
 .ytdlp-cookies.txt
+
+# Installed agent skill packs (npx skills add) — local tooling, not source
+.agents/
+.claude/skills/
+skills-lock.json

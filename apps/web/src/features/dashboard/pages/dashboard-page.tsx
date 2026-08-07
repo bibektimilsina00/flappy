@@ -6,8 +6,8 @@ import { toast } from "sonner";
 import { useBalance } from "@/features/billing";
 import type { NodeKind } from "@/features/canvas";
 import { CommunityWorks } from "@/features/community";
+import { useUser } from "@clerk/nextjs";
 import { createWorkflow, RecentProjects } from "@/features/projects";
-import { useSession } from "@/stores/session";
 import { Composer } from "../components/composer";
 import { Greeting } from "../components/greeting";
 import { useComposer } from "../hooks/use-composer";
@@ -24,7 +24,8 @@ const PLACEHOLDER: Record<NodeKind, string> = {
 const PREMIUM_KINDS = new Set<NodeKind>(["video"]);
 
 export function DashboardPage() {
-  const userName = useSession((s) => s.user?.name)?.split(" ")[0] ?? "there";
+  const { user } = useUser();
+  const userName = user?.firstName ?? user?.fullName?.split(" ")[0] ?? "there";
   const { data: balance } = useBalance();
   const router = useRouter();
   const [kind, setKind] = useState<NodeKind>("video");

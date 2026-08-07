@@ -3,16 +3,12 @@
 import { Loader2, Pencil } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/cn";
-import { useSession } from "@/stores/session";
 import { useAccountSettings } from "../hooks/use-account-settings";
 import { Row, SectionLabel, inputCls } from "./settings-primitives";
 
 export function AccountTab() {
   const { me, updateName, isUpdatingName, changePassword, isChangingPassword } =
     useAccountSettings();
-
-  const setAuth = useSession((s) => s.setAuth);
-  const token = useSession((s) => s.token);
 
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
@@ -22,10 +18,8 @@ export function AccountTab() {
     e.preventDefault();
     if (!name.trim()) return;
     updateName(name.trim(), {
-      onSuccess: (u) => {
-        if (token) setAuth({ token, user: { id: u.id, email: u.email, name: u.name } });
-        setEditing(false);
-      },
+      // the mutation already writes the fresh user into the ["me"] query cache
+      onSuccess: () => setEditing(false),
     });
   };
 

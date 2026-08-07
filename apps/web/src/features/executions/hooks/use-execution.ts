@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { useSession } from "@/stores/session";
+import { authToken } from "@/lib/auth-token";
 import { createExecution } from "../services/executions-api";
 import type { ExecutionEvent, NodeStatus, RunStatus } from "../types";
 
@@ -13,7 +13,6 @@ const EVENT_TO_STATUS: Record<string, NodeStatus> = {
 };
 
 export function useExecution() {
-  const token = useSession((s) => s.token);
   const [logs, setLogs] = useState<ExecutionEvent[]>([]);
   const [nodeStatuses, setNodeStatuses] = useState<Record<string, NodeStatus>>({});
   const [nodeOutputs, setNodeOutputs] = useState<Record<string, string>>({});
@@ -57,6 +56,7 @@ export function useExecution() {
         return;
       }
 
+      const token = await authToken();
       const ws = new WebSocket(
         `${WS_BASE}/api/v1/executions/${execution.id}/ws?token=${token}`,
       );
@@ -95,7 +95,7 @@ export function useExecution() {
       };
       ws.onerror = () => finish("failed");
     },
-    [token, closeAll],
+    [closeAll],
   );
 
   // Rehydrate previously-generated outputs (on load / cross-device open).

@@ -2,7 +2,6 @@ from fastapi import APIRouter
 
 from apps.api.app.features.assets.router import router as assets_router
 from apps.api.app.features.assistant.router import router as assistant_router
-from apps.api.app.features.auth.router import router as auth_router
 from apps.api.app.features.billing.router import router as billing_router
 from apps.api.app.features.clips.router import router as clips_router
 from apps.api.app.features.collections.router import router as collections_router
@@ -21,7 +20,6 @@ from apps.api.app.features.workspaces.router import router as workspaces_router
 api_router = APIRouter()
 
 for r in (
-    auth_router,
     users_router,
     workspaces_router,
     workflows_router,

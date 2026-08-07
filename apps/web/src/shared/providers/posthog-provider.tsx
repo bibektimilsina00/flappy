@@ -1,10 +1,10 @@
 "use client";
 
+import { useUser } from "@clerk/nextjs";
 import { usePathname, useSearchParams } from "next/navigation";
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
 import { Suspense, useEffect } from "react";
-import { useSession } from "@/stores/session";
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -34,7 +34,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
 function PostHogPageView() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const user = useSession((s) => s.user);
+  const { user } = useUser();
 
   // Track pageviews on Next.js client route changes
   useEffect(() => {
@@ -51,8 +51,8 @@ function PostHogPageView() {
   useEffect(() => {
     if (user?.id) {
       posthog.identify(user.id, {
-        email: user.email,
-        name: user.name,
+        email: user.primaryEmailAddress?.emailAddress,
+        name: user.fullName,
       });
     }
   }, [user]);
