@@ -314,8 +314,8 @@ export function VideoEditorPage({ projectId }: { projectId: string }) {
   };
   // Talking character: portrait + script → talking-head video, dropped at the playhead.
   // Throws on failure so the composer can surface the error; toasts on success.
-  const generateTalkingCharacter = async (imageUrl: string, script: string) => {
-    const { execution_id } = await startTalkingCharacter(projectId, imageUrl, script);
+  const generateTalkingCharacter = async (imageUrl: string, script: string, voice: string) => {
+    const { execution_id } = await startTalkingCharacter(projectId, imageUrl, script, voice);
     const asset = await pollExecutionAsset(execution_id);
     await qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
     addImportedClip(asset.id, "video", playhead);

@@ -133,12 +133,15 @@ def talking_configured() -> bool:
     return bool(settings.replicate_api_key) and bool(settings.talking_character_model)
 
 
-def run_talking(storage, image_key: str, script: str, workspace_id, timeout_s: float = 8 * 60) -> tuple[str, str]:
+def run_talking(storage, image_key: str, script: str, workspace_id, timeout_s: float = 8 * 60, voice: str | None = None) -> tuple[str, str]:
     """Animate a portrait (image) to speak `script` (image + text -> talking-head
-    video). `image_key` is a stored portrait. Returns (key, kind)."""
+    video). `image_key` is a stored portrait. `voice` is passed through when set
+    (the model may use it for TTS). Returns (key, kind)."""
     from apps.api.app.core.config import settings
 
     payload = {"image": _data_uri(storage, image_key, "image/png"), "text": script}
+    if voice:
+        payload["voice"] = voice
     out_bytes = _run_prediction(settings.talking_character_model, payload, timeout_s)
     key = f"{workspace_id}/edits/{uuid.uuid4()}.mp4"
     storage.put(key, out_bytes, "video/mp4")

@@ -1269,6 +1269,7 @@ def transition_morph(
 class TalkingCharacterRequest(BaseModel):
     image_url: str  # a portrait on an allow-listed host (the character tiles)
     script: str
+    voice: str | None = None
 
 
 @router.post("/projects/{project_id}/talking-character")
@@ -1315,7 +1316,7 @@ def talking_character(
     node_id = f"talk-{uuid.uuid4()}"
     celery_app.send_task(
         "run_talking_character",
-        args=[str(execution.id), str(workspace_id), str(project.workflow_id), node_id, image_key, body.script.strip()],
+        args=[str(execution.id), str(workspace_id), str(project.workflow_id), node_id, image_key, body.script.strip(), body.voice or ""],
     )
     return {"execution_id": str(execution.id), "node_id": node_id}
 

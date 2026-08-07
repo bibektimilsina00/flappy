@@ -25,7 +25,7 @@ const CHARACTERS = [
 ];
 const characterSrc = (id: string) => `https://cdn-user.veed.io/cdn-cgi/image/width=400,format=png/image/${id}.png`;
 
-export function VideoTab({ videos, onImport, importing, onGenerate, onAddStock, onTalkingCharacter }: { videos: VideoEditorAsset[]; onImport: () => void; importing: boolean; onGenerate: () => void; onAddStock: (url: string, kind: string) => void; onTalkingCharacter: (imageUrl: string, script: string) => Promise<void> }) {
+export function VideoTab({ videos, onImport, importing, onGenerate, onAddStock, onTalkingCharacter }: { videos: VideoEditorAsset[]; onImport: () => void; importing: boolean; onGenerate: () => void; onAddStock: (url: string, kind: string) => void; onTalkingCharacter: (imageUrl: string, script: string, voice: string) => Promise<void> }) {
   const [allVids, setAllVids] = useState(false);
   const [allChars, setAllChars] = useState(false);
   const [character, setCharacter] = useState<{ name: string; id: string } | null>(null);
@@ -35,7 +35,7 @@ export function VideoTab({ videos, onImport, importing, onGenerate, onAddStock, 
       <AddCharacter
         name={character.name}
         imageUrl={characterSrc(character.id)}
-        onGenerate={(script) => onTalkingCharacter(characterSrc(character.id), script)}
+        onGenerate={(script, voice) => onTalkingCharacter(characterSrc(character.id), script, voice)}
         onBack={() => setCharacter(null)}
         onPickAnother={() => setCharacter(null)}
       />

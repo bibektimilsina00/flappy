@@ -67,7 +67,7 @@ export function LeftPanel({
   onAddShape: (type: "rect" | "rounded" | "ellipse" | "triangle" | "star", color: string) => void;
   onAddSubtitles: (segments: { start: number; end: number; text: string }[]) => void;
   onAddStock: (url: string, kind: string) => void;
-  onTalkingCharacter: (imageUrl: string, script: string) => Promise<void>;
+  onTalkingCharacter: (imageUrl: string, script: string, voice: string) => Promise<void>;
   onApplyFont: (family: string) => void;
   onSetBackground: (bg: string) => void;
   projectId: string;

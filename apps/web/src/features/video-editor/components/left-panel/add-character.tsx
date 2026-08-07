@@ -2,8 +2,23 @@
 
 import { ChevronDown, ChevronLeft, ChevronRight, Loader2, Sparkles } from "lucide-react";
 import { useState } from "react";
+import { type Voice, VoicePicker } from "./voice-picker";
 
 const ACCENT = "#14b8a6";
+
+// Voice ids map to the TTS model's supported voices; the label/tags are display.
+const VOICES: Voice[] = [
+  { id: "nova", name: "Hope", tags: ["female", "conversational", "confident"] },
+  { id: "shimmer", name: "Mia", tags: ["female", "calm", "gentle"] },
+  { id: "coral", name: "Aria", tags: ["female", "warm", "narrative"] },
+  { id: "sage", name: "June", tags: ["female", "soft", "friendly"] },
+  { id: "fable", name: "Ivy", tags: ["female", "expressive", "storytelling"] },
+  { id: "onyx", name: "Bob", tags: ["male", "deep", "classy"] },
+  { id: "echo", name: "Leo", tags: ["male", "bright", "casual"] },
+  { id: "ash", name: "Miles", tags: ["male", "smooth", "social media"] },
+  { id: "verse", name: "Andrew", tags: ["male", "energetic", "upbeat"] },
+  { id: "alloy", name: "Sam", tags: ["neutral", "balanced", "clear"] },
+];
 
 // "Add character" composer — write a script for the selected character and generate
 // a talking-head video. Replaces the old prompt() flow.
@@ -16,11 +31,12 @@ export function AddCharacter({
 }: {
   name: string;
   imageUrl: string;
-  onGenerate: (script: string) => Promise<void>;
+  onGenerate: (script: string, voice: string) => Promise<void>;
   onBack: () => void;
   onPickAnother: () => void;
 }) {
   const [script, setScript] = useState("");
+  const [voice, setVoice] = useState<string>(VOICES[0].id);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -29,7 +45,7 @@ export function AddCharacter({
     setBusy(true);
     setErr(null);
     try {
-      await onGenerate(script.trim());
+      await onGenerate(script.trim(), voice);
       onBack();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Couldn't generate the character");
@@ -78,6 +94,11 @@ export function AddCharacter({
             <span className="shrink-0 text-[11px] text-muted-foreground">English (US)</span>
             <ChevronDown className="size-4 shrink-0 opacity-40" />
           </div>
+        </div>
+
+        <div>
+          <p className="mb-2 text-sm font-semibold">Voice</p>
+          <VoicePicker voices={VOICES} value={voice} onChange={setVoice} />
         </div>
 
         <button
