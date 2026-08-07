@@ -54,15 +54,17 @@ export function useVideoEditorPage(projectId: string) {
 
   const addTextClip = (content: string, playhead: number, style?: Partial<NonNullable<Clip["text"]>>) => {
     if (!doc) return;
-    const kind = "text";
-    let track = doc.tracks.find((t) => t.kind === kind);
-    let nextDoc = doc;
-    if (!track) {
-      nextDoc = addTrack(doc, kind);
-      track = nextDoc.tracks.find((t) => t.kind === kind)!;
-    }
     const dur = 3;
-    const start = freeStart(nextDoc, track.id, playhead, dur);
+    // Place the text right at the playhead so it's visible. Text overlays stack:
+    // reuse a text track that's free here, else add one (never the subtitle track).
+    const isFree = (d: typeof doc, id: string) => freeStart(d, id, playhead, dur) === playhead;
+    let nextDoc = doc;
+    let track = doc.tracks.find((t) => t.kind === "text" && t.name !== "Subtitles" && isFree(doc, t.id));
+    if (!track) {
+      nextDoc = addTrack(doc, "text");
+      track = nextDoc.tracks.find((t) => t.kind === "text" && t.name !== "Subtitles" && isFree(nextDoc, t.id))!;
+    }
+    const start = playhead;
     const newId = `c-${crypto.randomUUID().slice(0, 8)}`;
     const clip: Clip = {
       id: newId,

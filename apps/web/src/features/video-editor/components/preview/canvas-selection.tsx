@@ -48,8 +48,16 @@ export function CanvasSelection({
   const [textBox, setTextBox] = useState<{ w: number; h: number } | null>(null);
   useLayoutEffect(() => {
     if (!isText) return setTextBox(null);
-    const el = boxRef.current?.querySelector(`[data-clip="${clip.id}"]`) as HTMLElement | null;
-    if (el) setTextBox({ w: el.offsetWidth, h: el.offsetHeight });
+    let raf = 0;
+    // Retry a few frames — a freshly-spawned text may not have laid out yet.
+    const measure = (tries = 0) => {
+      const el = boxRef.current?.querySelector(`[data-clip="${clip.id}"]`) as HTMLElement | null;
+      if (el) setTextBox({ w: el.offsetWidth, h: el.offsetHeight });
+      else if (tries < 5) raf = requestAnimationFrame(() => measure(tries + 1));
+      else setTextBox(null);
+    };
+    measure();
+    return () => cancelAnimationFrame(raf);
   }, [isText, clip.id, clip.text?.content, clip.text?.fontSize, clip.text?.letterSpacing, clip.text?.lineHeight, bw, boxRef]);
 
   const PAD_X = 48; // horizontal breathing room around the text
