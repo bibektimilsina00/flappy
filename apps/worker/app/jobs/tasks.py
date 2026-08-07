@@ -74,7 +74,13 @@ def run_clip_op_task(
 
 @celery_app.task(name="run_transition_morph")
 def run_transition_morph_task(
-    execution_id: str, workspace_id: str, workflow_id: str, node_id: str, from_key: str, to_key: str, prompt: str
+    execution_id: str,
+    workspace_id: str,
+    workflow_id: str,
+    node_id: str,
+    from_key: str,
+    to_key: str,
+    prompt: str,
 ) -> None:
     """Generate an AI transition morph between two boundary frames and record it as
     an asset against the execution (so it joins the pool). Editor polls the status."""
@@ -89,7 +95,15 @@ def run_transition_morph_task(
             key, kind = clip_ops.run_morph(storage, from_key, to_key, prompt, ws_uuid)
             assets_repo.add(
                 session,
-                Asset(workspace_id=ws_uuid, execution_id=exec_uuid, node_id=node_id, kind=kind, key=key, url=storage.url(key), cost=0.0),
+                Asset(
+                    workspace_id=ws_uuid,
+                    execution_id=exec_uuid,
+                    node_id=node_id,
+                    kind=kind,
+                    key=key,
+                    url=storage.url(key),
+                    cost=0.0,
+                ),
             )
             executions_repo.set_status(session, exec_uuid, "completed", finished=True)
         except Exception as exc:  # noqa: BLE001
@@ -98,7 +112,13 @@ def run_transition_morph_task(
 
 @celery_app.task(name="run_talking_character")
 def run_talking_character_task(
-    execution_id: str, workspace_id: str, workflow_id: str, node_id: str, image_key: str, script: str, voice: str = ""
+    execution_id: str,
+    workspace_id: str,
+    workflow_id: str,
+    node_id: str,
+    image_key: str,
+    script: str,
+    voice: str = "",
 ) -> None:
     """Animate a portrait to speak `script` and record the video against the
     execution (so it joins the pool). Editor polls the status."""
@@ -110,10 +130,20 @@ def run_talking_character_task(
     with Session(engine) as session:
         executions_repo.set_status(session, exec_uuid, "running")
         try:
-            key, kind = clip_ops.run_talking(storage, image_key, script, ws_uuid, voice=voice or None)
+            key, kind = clip_ops.run_talking(
+                storage, image_key, script, ws_uuid, voice=voice or None
+            )
             assets_repo.add(
                 session,
-                Asset(workspace_id=ws_uuid, execution_id=exec_uuid, node_id=node_id, kind=kind, key=key, url=storage.url(key), cost=0.0),
+                Asset(
+                    workspace_id=ws_uuid,
+                    execution_id=exec_uuid,
+                    node_id=node_id,
+                    kind=kind,
+                    key=key,
+                    url=storage.url(key),
+                    cost=0.0,
+                ),
             )
             executions_repo.set_status(session, exec_uuid, "completed", finished=True)
         except Exception as exc:  # noqa: BLE001

@@ -15,14 +15,44 @@ import uuid
 # op -> replicate model (literal, or `model_setting` naming a settings field for
 # ops with no obvious default), input field, output ext/mime, clip kind consumed.
 _OPS = {
-    "remove_bg_image": {"model": "851-labs/background-remover", "field": "image", "ext": "png", "mime": "image/png", "kind": "image"},
-    "remove_bg_video": {"model": "arielreplicate/robust_video_matting", "field": "input_video", "ext": "mp4", "mime": "video/mp4", "kind": "video"},
+    "remove_bg_image": {
+        "model": "851-labs/background-remover",
+        "field": "image",
+        "ext": "png",
+        "mime": "image/png",
+        "kind": "image",
+    },
+    "remove_bg_video": {
+        "model": "arielreplicate/robust_video_matting",
+        "field": "input_video",
+        "ext": "mp4",
+        "mime": "video/mp4",
+        "kind": "video",
+    },
     # No canonical Replicate gaze-correction model — operator supplies one via settings.
-    "eye_contact": {"model_setting": "eye_contact_model", "field": "input_video", "ext": "mp4", "mime": "video/mp4", "kind": "video"},
+    "eye_contact": {
+        "model_setting": "eye_contact_model",
+        "field": "input_video",
+        "ext": "mp4",
+        "mime": "video/mp4",
+        "kind": "video",
+    },
     # Face touch-up — likewise operator-supplied (model must accept an `input_video` field).
-    "face_filter": {"model_setting": "face_filter_model", "field": "input_video", "ext": "mp4", "mime": "video/mp4", "kind": "video"},
+    "face_filter": {
+        "model_setting": "face_filter_model",
+        "field": "input_video",
+        "ext": "mp4",
+        "mime": "video/mp4",
+        "kind": "video",
+    },
     # Outpaint / expand the video frame — operator-supplied (model accepts `input_video`).
-    "background_expand": {"model_setting": "background_expand_model", "field": "input_video", "ext": "mp4", "mime": "video/mp4", "kind": "video"},
+    "background_expand": {
+        "model_setting": "background_expand_model",
+        "field": "input_video",
+        "ext": "mp4",
+        "mime": "video/mp4",
+        "kind": "video",
+    },
 }
 SUPPORTED_OPS = frozenset(_OPS)
 _TERMINAL = {"succeeded", "failed", "canceled"}
@@ -91,7 +121,9 @@ def _run_prediction(model: str, input_payload: dict, timeout_s: float) -> bytes:
         return client.get(url).content
 
 
-def run_op(storage, op: str, src_key: str, workspace_id, timeout_s: float = 90.0) -> tuple[str, str]:
+def run_op(
+    storage, op: str, src_key: str, workspace_id, timeout_s: float = 90.0
+) -> tuple[str, str]:
     """Run a matting op on the stored source and return (new_key, kind). Raises on
     failure. `timeout_s` bounds the Replicate poll (video callers pass minutes)."""
     from apps.api.app.core.config import settings
@@ -99,7 +131,11 @@ def run_op(storage, op: str, src_key: str, workspace_id, timeout_s: float = 90.0
     spec = _OPS.get(op)
     if spec is None:
         raise ValueError(f"unsupported op: {op}")
-    out_bytes = _run_prediction(_model_for(op, settings), {spec["field"]: _data_uri(storage, src_key, spec["mime"])}, timeout_s)
+    out_bytes = _run_prediction(
+        _model_for(op, settings),
+        {spec["field"]: _data_uri(storage, src_key, spec["mime"])},
+        timeout_s,
+    )
     key = f"{workspace_id}/edits/{uuid.uuid4()}.{spec['ext']}"
     storage.put(key, out_bytes, spec["mime"])
     return key, spec["kind"]
@@ -112,12 +148,17 @@ def morph_configured() -> bool:
     return bool(settings.replicate_api_key) and bool(settings.transition_morph_model)
 
 
-def run_morph(storage, from_key: str, to_key: str, prompt: str, workspace_id, timeout_s: float = 8 * 60) -> tuple[str, str]:
+def run_morph(
+    storage, from_key: str, to_key: str, prompt: str, workspace_id, timeout_s: float = 8 * 60
+) -> tuple[str, str]:
     """Morph between two boundary frames (image_1 -> image_2, optional prompt) into a
     transition video. `from_key`/`to_key` are stored PNG frames. Returns (key, kind)."""
     from apps.api.app.core.config import settings
 
-    payload = {"image_1": _data_uri(storage, from_key, "image/png"), "image_2": _data_uri(storage, to_key, "image/png")}
+    payload = {
+        "image_1": _data_uri(storage, from_key, "image/png"),
+        "image_2": _data_uri(storage, to_key, "image/png"),
+    }
     if (prompt or "").strip():
         payload["prompt"] = prompt.strip()
     out_bytes = _run_prediction(settings.transition_morph_model, payload, timeout_s)
@@ -133,7 +174,14 @@ def talking_configured() -> bool:
     return bool(settings.replicate_api_key) and bool(settings.talking_character_model)
 
 
-def run_talking(storage, image_key: str, script: str, workspace_id, timeout_s: float = 8 * 60, voice: str | None = None) -> tuple[str, str]:
+def run_talking(
+    storage,
+    image_key: str,
+    script: str,
+    workspace_id,
+    timeout_s: float = 8 * 60,
+    voice: str | None = None,
+) -> tuple[str, str]:
     """Animate a portrait (image) to speak `script` (image + text -> talking-head
     video). `image_key` is a stored portrait. `voice` is passed through when set
     (the model may use it for TTS). Returns (key, kind)."""

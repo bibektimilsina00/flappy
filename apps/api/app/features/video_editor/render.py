@@ -76,7 +76,9 @@ def build_text_ass(doc: dict) -> str | None:
                 continue
             text = content.replace("{", "").replace("}", "").replace("\n", "\\N")
             if is_sub:
-                cap_events.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Cap,,0,0,0,,{{\\fad(120,60)}}{text}")
+                cap_events.append(
+                    f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Cap,,0,0,0,,{{\\fad(120,60)}}{text}"
+                )
                 continue
 
             tf = clip.get("transform") or {}
@@ -103,7 +105,9 @@ def build_text_ass(doc: dict) -> str | None:
             if alpha:
                 tags.append(f"\\alpha&H{alpha:02X}&")
             tags.append("\\fad(120,60)")
-            txt_events.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Txt,,0,0,0,,{{{''.join(tags)}}}{text}")
+            txt_events.append(
+                f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Txt,,0,0,0,,{{{''.join(tags)}}}{text}"
+            )
 
     if not cap_events and not txt_events:
         return None

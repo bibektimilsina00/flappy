@@ -17,7 +17,20 @@ def _doc(track_name, text):
     return {
         "width": 1080,
         "height": 1920,
-        "tracks": [{"name": track_name, "clips": [{"kind": "text", "start": 0, "duration": 2, "transform": {"x": 100, "y": -50}, "text": text}]}],
+        "tracks": [
+            {
+                "name": track_name,
+                "clips": [
+                    {
+                        "kind": "text",
+                        "start": 0,
+                        "duration": 2,
+                        "transform": {"x": 100, "y": -50},
+                        "text": text,
+                    }
+                ],
+            }
+        ],
     }
 
 
@@ -27,7 +40,12 @@ def test_subtitle_uses_cap_pill():
 
 
 def test_regular_text_is_positioned_and_styled():
-    ass = r.build_text_ass(_doc("Text 1", {"content": "hi", "fontSize": 72, "color": "#ff0000", "bold": True, "align": "left"}))
+    ass = r.build_text_ass(
+        _doc(
+            "Text 1",
+            {"content": "hi", "fontSize": 72, "color": "#ff0000", "bold": True, "align": "left"},
+        )
+    )
     assert ",Txt," in ass and ",Cap," not in ass
     assert "\\pos(640,910)" in ass  # 1080/2+100, 1920/2-50
     assert "\\fs72" in ass and "\\c&H0000FF&" in ass and "\\b1" in ass and "\\an4" in ass
@@ -45,18 +63,61 @@ def _video_doc(transition):
 
 
 def test_transition_adds_alpha_fade():
-    _, fc, _, _ = r.build_render_args(_video_doc("Dissolve"), {"a1": {"path": "/x.mp4", "kind": "video"}})
+    _, fc, _, _ = r.build_render_args(
+        _video_doc("Dissolve"), {"a1": {"path": "/x.mp4", "kind": "video"}}
+    )
     assert "fade=t=in" in fc and "alpha=1" in fc
 
 
 def test_audio_fade_adds_afade():
-    doc = {"width": 1080, "height": 1920, "fps": 30, "tracks": [{"kind": "audio", "clips": [{"id": "a", "kind": "audio", "assetId": "m", "start": 0, "duration": 4, "in": 0, "out": 4, "fadeAudio": True}]}]}
+    doc = {
+        "width": 1080,
+        "height": 1920,
+        "fps": 30,
+        "tracks": [
+            {
+                "kind": "audio",
+                "clips": [
+                    {
+                        "id": "a",
+                        "kind": "audio",
+                        "assetId": "m",
+                        "start": 0,
+                        "duration": 4,
+                        "in": 0,
+                        "out": 4,
+                        "fadeAudio": True,
+                    }
+                ],
+            }
+        ],
+    }
     _, fc, _, _ = r.build_render_args(doc, {"m": {"path": "/x.mp3", "kind": "audio"}})
     assert "afade=t=in:st=0" in fc and "afade=t=out" in fc
 
 
 def test_no_fade_audio_no_afade():
-    doc = {"width": 1080, "height": 1920, "fps": 30, "tracks": [{"kind": "audio", "clips": [{"id": "a", "kind": "audio", "assetId": "m", "start": 0, "duration": 4, "in": 0, "out": 4}]}]}
+    doc = {
+        "width": 1080,
+        "height": 1920,
+        "fps": 30,
+        "tracks": [
+            {
+                "kind": "audio",
+                "clips": [
+                    {
+                        "id": "a",
+                        "kind": "audio",
+                        "assetId": "m",
+                        "start": 0,
+                        "duration": 4,
+                        "in": 0,
+                        "out": 4,
+                    }
+                ],
+            }
+        ],
+    }
     _, fc, _, _ = r.build_render_args(doc, {"m": {"path": "/x.mp3", "kind": "audio"}})
     assert "afade" not in fc
 
@@ -65,7 +126,9 @@ def test_no_transition_no_fade():
     _, fc, _, _ = r.build_render_args(_video_doc(None), {"a1": {"path": "/x.mp4", "kind": "video"}})
     assert "fade=t=in" not in fc
     # "None" is treated as no transition
-    _, fc2, _, _ = r.build_render_args(_video_doc("None"), {"a1": {"path": "/x.mp4", "kind": "video"}})
+    _, fc2, _, _ = r.build_render_args(
+        _video_doc("None"), {"a1": {"path": "/x.mp4", "kind": "video"}}
+    )
     assert "fade=t=in" not in fc2
 
 

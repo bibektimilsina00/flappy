@@ -16,7 +16,13 @@ def test_op_to_clip_kind():
     assert c.clip_kind_for_op("face_filter") == "video"
     assert c.clip_kind_for_op("background_expand") == "video"
     assert c.clip_kind_for_op("nonsense") is None
-    assert {"remove_bg_image", "remove_bg_video", "eye_contact", "face_filter", "background_expand"} <= set(c.SUPPORTED_OPS)
+    assert {
+        "remove_bg_image",
+        "remove_bg_video",
+        "eye_contact",
+        "face_filter",
+        "background_expand",
+    } <= set(c.SUPPORTED_OPS)
 
 
 def test_is_configured_gates_on_model_and_key():

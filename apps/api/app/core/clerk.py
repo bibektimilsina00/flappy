@@ -54,7 +54,13 @@ def verify_session_token(token: str) -> dict | None:
             key = next((k for k in _jwks(force=True).get("keys", []) if k.get("kid") == kid), None)
         if key is None:
             return None
-        return jwt.decode(token, key, algorithms=["RS256"], issuer=f"https://{host}", options={"verify_aud": False})
+        return jwt.decode(
+            token,
+            key,
+            algorithms=["RS256"],
+            issuer=f"https://{host}",
+            options={"verify_aud": False},
+        )
     except Exception:  # noqa: BLE001 — any failure means "not a valid Clerk token"
         return None
 
