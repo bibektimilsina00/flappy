@@ -10,6 +10,7 @@
     "test": "node --test 'src/**/*.test.ts'"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.7.0",
     "@hookform/resolvers": "^5.4.0",
     "@lobehub/icons": "^5.14.0",
     "@tanstack/react-query": "^5.101.3",
