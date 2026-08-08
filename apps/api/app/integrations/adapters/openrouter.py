@@ -31,6 +31,16 @@ BASE = "https://openrouter.ai/api/v1"
 POLL_INTERVAL = 5
 POLL_TIMEOUT = 10 * 60
 
+# Default steering for text nodes. Without a system message some free models
+# (e.g. Qwen) reply in Chinese to short prompts like "hi"; this pins the output
+# language to the user's and strips preamble. A model may override via its
+# config's "system_prompt".
+DEFAULT_TEXT_SYSTEM = (
+    "You are a helpful writing assistant inside a video-creation tool. "
+    "Always reply in the same language the user writes in; if that is unclear, use English. "
+    "Return only the requested content — no preamble, explanations, or sign-offs."
+)
+
 
 def _pcm_to_wav(pcm: bytes, rate: int = 24000) -> bytes:
     """Wrap raw PCM in a WAV container so browsers can play it.
@@ -84,7 +94,13 @@ class OpenRouterAdapter:
                 headers=self._headers,
                 json={
                     "model": model.config["model"],
-                    "messages": [{"role": "user", "content": compose_prompt(request)}],
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": model.config.get("system_prompt") or DEFAULT_TEXT_SYSTEM,
+                        },
+                        {"role": "user", "content": compose_prompt(request)},
+                    ],
                 },
             )
             _check(res)
