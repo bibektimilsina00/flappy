@@ -394,7 +394,7 @@ function NodeBody({ node }: { node: MockNode }) {
       {/* biome-ignore lint/a11y/useMediaCaption: decorative */}
       <video src={VIDEO} className="size-full object-cover" autoPlay muted loop playsInline />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.4),transparent_50%)]" />
-      <span className="absolute bottom-1 right-1 rounded bg-black/50 px-1 py-px text-[8px] font-medium text-white backdrop-blur">1080p</span>
+      <span className="absolute bottom-1 right-1 rounded bg-black/50 px-1 py-px text-[8px] font-medium text-white backdrop-blur">4K</span>
     </div>
   );
 }
@@ -1003,7 +1003,7 @@ function VideoNode({
           <>
             {/* biome-ignore lint/a11y/useMediaCaption: decorative */}
             <video src={VIDEO} className="size-full object-cover" autoPlay muted loop playsInline />
-            <span className="absolute bottom-1 right-1 rounded bg-black/50 px-1 py-px text-[8px] font-medium text-white backdrop-blur">1080p</span>
+            <span className="absolute bottom-1 right-1 rounded bg-black/50 px-1 py-px text-[8px] font-medium text-white backdrop-blur">4K</span>
           </>
         ) : phase === "generating" ? (
           <div className="grid size-full place-content-center justify-items-center gap-1.5 bg-mk-surface2">
