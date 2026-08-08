@@ -8,7 +8,8 @@ const host = process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com";
 
 if (key) {
   posthog.init(key, {
-    api_host: host,
+    api_host: host, // prod: reverse proxy (t.riocut.com) to dodge ad-blockers
+    ui_host: "https://us.posthog.com", // keep toolbar/links pointing at PostHog itself
     person_profiles: "identified_only",
     capture_pageview: false, // handled manually on route change (see posthog-provider)
     capture_pageleave: true,
