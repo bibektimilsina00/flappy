@@ -42,7 +42,7 @@ def rerender_clip(job_id: str, clip_id: str) -> None:
     import tempfile
     import uuid as uuid_mod
 
-    from apps.api.app.features.clips.pipeline import is_free_plan, render_clip_file
+    from apps.api.app.features.clips.pipeline import apply_watermark, render_clip_file
     from apps.api.app.storage.factory import get_storage
 
     with Session(engine) as session:
@@ -67,7 +67,7 @@ def rerender_clip(job_id: str, clip_id: str) -> None:
                     workdir,
                     storage,
                     key,
-                    watermark=is_free_plan(session, job.workspace_id),
+                    watermark=apply_watermark(session, job),
                 )
             clip.update(
                 {

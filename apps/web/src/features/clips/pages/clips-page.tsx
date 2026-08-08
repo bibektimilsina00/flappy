@@ -989,6 +989,8 @@ function ConfigPanel({
 	const insufficient =
 		cost !== null && balance !== undefined && balance.balance < cost;
 	const isFree = (balance?.plan ?? "free") === "free";
+	// Free: watermark always on (removal is a paid upsell). Paid: user's choice, default removed.
+	const watermarkRemoved = !isFree && (params.remove_watermark ?? true);
 	const [goal, setGoal] = useState("Viral Short");
 	const [maxLen, setMaxLen] = useState<string>("auto");
 	const [customSec, setCustomSec] = useState<number>(120);
@@ -1223,20 +1225,21 @@ function ConfigPanel({
 							<button
 								type="button"
 								role="switch"
-								aria-checked={!isFree}
+								aria-checked={watermarkRemoved}
 								aria-label="Remove watermark"
 								onClick={() => {
-								if (isFree) openUpgrade("Remove the watermark");
-							}}
+									if (isFree) openUpgrade("Remove the watermark");
+									else setParams((p) => ({ ...p, remove_watermark: !(p.remove_watermark ?? true) }));
+								}}
 								className={cn(
 									"relative h-5 w-9 shrink-0 rounded-full transition-colors",
-									!isFree ? "bg-teal-500" : "bg-white/10",
+									watermarkRemoved ? "bg-teal-500" : "bg-white/10",
 								)}
 							>
 								<span
 									className={cn(
 										"absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow-sm transition-transform",
-										!isFree && "translate-x-4",
+										watermarkRemoved && "translate-x-4",
 									)}
 								/>
 							</button>
@@ -1422,8 +1425,8 @@ function ConfigPanel({
 					{/* Sample preview clip (not the user's upload) so the caption style is easy to judge. */}
 					<video src={PREVIEW_VIDEO} className="size-full object-cover" autoPlay muted loop playsInline />
 					<div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 to-transparent" />
-						{/* WYSIWYG of the server's free-plan watermark (bottom-right riocut.com) */}
-						{isFree ? (
+						{/* WYSIWYG of the burned watermark (bottom-right riocut.com) */}
+						{!watermarkRemoved ? (
 							<span className="pointer-events-none absolute right-3 bottom-3 text-sm font-semibold text-white/55 drop-shadow">
 								riocut.com
 							</span>

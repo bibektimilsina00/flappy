@@ -108,6 +108,14 @@ def is_free_plan(session: Session, workspace_id) -> bool:
     return workspace_plan(session, workspace_id) == "free"
 
 
+def apply_watermark(session: Session, job: ClipsJob) -> bool:
+    """Whether to burn the platform watermark. Free plans always get it; paid
+    plans default to clean but may opt back in via params.remove_watermark=False."""
+    if is_free_plan(session, job.workspace_id):
+        return True
+    return not (job.params or {}).get("remove_watermark", True)
+
+
 def _set(session: Session, job: ClipsJob, **fields) -> None:
     if "phase" in fields:  # entering a phase stamps its start (drives UI ETAs)
         from datetime import datetime
@@ -161,7 +169,7 @@ def run_pipeline(session: Session, job: ClipsJob, charge) -> None:
         _decorate(job, transcript, segments)
         _set(session, job, transcript=transcript, phase="render", progress=0.0)
 
-        watermark = is_free_plan(session, job.workspace_id)
+        watermark = apply_watermark(session, job)
         # Fit layout letterboxes the source — captions/title get positioned in
         # the bars, so remember the band on every clip.
         params = job.params or {}
