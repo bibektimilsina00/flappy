@@ -1,7 +1,7 @@
 "use client";
 
 import { useClerk, useUser } from "@clerk/nextjs";
-import { ChevronDown, CreditCard, Gem, LifeBuoy, LogOut, Settings, Sparkles } from "lucide-react";
+import { ChevronDown, CreditCard, Gem, LifeBuoy, LogOut, Settings } from "lucide-react";
 import Link from "next/link";
 import posthog from "posthog-js";
 import { useEffect, useRef, useState } from "react";
@@ -83,7 +83,7 @@ export function ProfileMenu() {
                     isPaid ? "bg-amber-400/15 text-amber-300" : "bg-white/10 text-muted-foreground",
                   )}
                 >
-                  {isPaid ? <Sparkles className="size-3" /> : null}
+                  {isPaid ? <Gem className="size-3" /> : null}
                   {formatPlan(plan)}
                 </span>
               </div>
@@ -125,16 +125,16 @@ export function ProfileMenu() {
   );
 }
 
-// Gold gradient CTA with a shimmer sweep — the paid-upgrade nudge.
+// Gold gradient CTA with a sheen sweep — matches the app's premium upgrade look.
 function UpgradeButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group relative mt-3 flex w-full items-center justify-center gap-1.5 overflow-hidden rounded-lg bg-gradient-to-r from-amber-500 via-yellow-300 to-amber-500 py-2 text-sm font-bold text-amber-950 shadow-lg shadow-amber-500/25 transition-transform hover:scale-[1.02] active:scale-100"
+      className="group relative mt-3 flex w-full items-center justify-center gap-1.5 overflow-hidden rounded-lg bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-200 py-2 text-sm font-bold text-black shadow-lg shadow-amber-500/25 transition-shadow hover:shadow-xl hover:shadow-amber-500/40"
     >
-      <span className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 skew-x-12 bg-white/50 blur-sm animate-[shine_2.8s_ease-in-out_infinite]" />
-      <Sparkles className="size-4" /> Upgrade plan
+      <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/50 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+      <Gem className="size-4" /> Upgrade plan
     </button>
   );
 }

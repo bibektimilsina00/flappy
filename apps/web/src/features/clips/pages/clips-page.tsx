@@ -1163,7 +1163,7 @@ function ConfigPanel({
 				) : null}
 
 					{/* Video title — one title burned on every clip; empty = AI writes one per clip */}
-					<div className="mt-6 rounded-xl border border-white/[0.06] bg-[#151821] p-4">
+					<div className="mt-6">
 						<div className="flex items-center justify-between gap-4">
 							<div className="min-w-0">
 								<p className="text-sm font-medium text-foreground">Video title</p>
@@ -1209,10 +1209,17 @@ function ConfigPanel({
 					</div>
 
 					{/* Remove watermark — free clips carry a riocut.com mark; removing it is a paid perk */}
-					<div className="mt-3 rounded-xl border border-white/[0.06] bg-[#151821] p-4">
+					<div className="mt-3">
 						<div className="flex items-center justify-between gap-4">
 							<div className="min-w-0">
-								<p className="text-sm font-medium text-foreground">Remove watermark</p>
+								<p className="flex items-center gap-2 text-sm font-medium text-foreground">
+								Remove watermark
+								{isFree ? (
+									<span className="flex items-center gap-0.5 rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
+										<Gem className="size-2.5" /> Pro
+									</span>
+								) : null}
+							</p>
 								<p className="mt-0.5 text-xs text-muted-foreground">{isFree ? "Free clips carry a riocut.com watermark." : "Your plan exports clean clips."}</p>
 							</div>
 							<button
@@ -1239,7 +1246,7 @@ function ConfigPanel({
 					</div>
 
 					{/* Auto-publish schedule — post finished clips to connected socials. */}
-					<div className="mt-3 rounded-xl border border-white/[0.06] bg-[#151821] p-4">
+					<div className="mt-3">
 						<div className="flex items-center justify-between gap-4">
 							<div className="min-w-0">
 								<p className="text-sm font-medium text-foreground">Auto-publish schedule</p>
