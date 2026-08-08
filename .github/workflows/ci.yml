@@ -103,7 +103,7 @@ jobs:
             API_INTERNAL_URL=http://api:8000
             NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
             NEXT_PUBLIC_POSTHOG_KEY=${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
-            NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
+            NEXT_PUBLIC_POSTHOG_HOST=https://t.riocut.com
           tags: |
             ghcr.io/${{ github.repository }}/web:latest
             ghcr.io/${{ github.repository }}/web:${{ github.sha }}
