@@ -245,11 +245,8 @@ function VideoBody({ clip, insp, onDelete, replace, onDetachAudio, onEnhance }: 
       <ToggleRow icon={AudioLines} title="Fade Audio In/Out" checked={!!clip.fadeAudio} onChange={insp.toggleFadeAudio} />
 
       <div>
-        <div className="mb-2 flex items-center justify-between">
+        <div className="mb-2 flex items-center">
           <span className="text-sm font-semibold">AI Tools</span>
-          <span className="flex items-center gap-1 rounded-lg bg-secondary px-2 py-1 text-xs text-muted-foreground">
-            <Sparkles className="size-3.5 text-[#bbf451]" /> 0 Credits
-          </span>
         </div>
         <div className="space-y-1">
           {AI_TOOLS.map((t) =>
