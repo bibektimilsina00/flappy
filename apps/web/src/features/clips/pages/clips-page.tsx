@@ -844,8 +844,8 @@ function ThemedSelect({
 				type="button"
 				onClick={() => setOpen((o) => !o)}
 				className={cn(
-					"flex h-11 w-full items-center justify-between rounded-lg border bg-[#151821] px-3.5 text-sm text-foreground transition-colors",
-					open ? "border-teal-400/60" : "border-white/12 hover:border-white/20",
+					"flex h-11 w-full items-center justify-between rounded-lg border bg-white/[0.03] px-3.5 text-sm text-foreground transition-colors",
+					open ? "border-teal-400/60" : "border-white/10 hover:border-white/20",
 				)}
 			>
 				<span>{current?.label ?? value}</span>
@@ -1102,7 +1102,7 @@ function ConfigPanel({
 							value={params.focus ?? ""}
 							onChange={(e) => setParams((p) => ({ ...p, focus: e.target.value.slice(0, 5000) }))}
 							placeholder="Let us know if there are any parts of the video you'd like us to extract"
-							className="min-h-28 w-full resize-none rounded-lg border border-white/12 bg-[#151821] p-3.5 pb-8 text-sm outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-teal-400/60"
+							className="min-h-28 w-full resize-none rounded-lg border border-white/10 bg-white/[0.03] p-3.5 pb-8 text-sm outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-teal-400/60 focus:bg-white/[0.05]"
 						/>
 						<span className="pointer-events-none absolute right-3 bottom-2.5 text-xs text-muted-foreground/60">
 							{(params.focus ?? "").length}/5000
@@ -1154,7 +1154,7 @@ function ConfigPanel({
 								setCustomSec(sec);
 								setParams((p) => ({ ...p, duration: bandsForMax(sec) }));
 							}}
-							className="h-11 w-28 rounded-lg border border-white/12 bg-[#151821] px-3.5 text-sm outline-none transition-colors focus:border-teal-400/60"
+							className="h-11 w-28 rounded-lg border border-white/10 bg-white/[0.03] px-3.5 text-sm outline-none transition-colors focus:border-teal-400/60 focus:bg-white/[0.05]"
 						/>
 						<span className="text-sm text-muted-foreground">
 							seconds max{customSec >= 60 ? ` · ${(customSec / 60).toFixed(customSec % 60 ? 1 : 0)} min` : ""}
