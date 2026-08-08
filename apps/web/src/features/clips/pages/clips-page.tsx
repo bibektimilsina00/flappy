@@ -1161,6 +1161,42 @@ function ConfigPanel({
 					</div>
 				) : null}
 
+				{/* Remove watermark — free clips carry a riocut.com mark; removing it is a paid perk */}
+				<div className="mt-6 rounded-lg border border-white/10 bg-[#151821] p-4">
+					<div className="flex items-center justify-between gap-3">
+						<div>
+							<p className="flex items-center gap-2 text-sm font-semibold">
+								<Sparkles className="size-4 text-teal-300" /> Remove watermark
+							</p>
+							<p className="mt-0.5 text-xs text-muted-foreground">
+								{isFree
+									? "Free clips include a riocut.com watermark — upgrade to export clean."
+									: "Your plan exports clean, watermark-free clips."}
+							</p>
+						</div>
+						<button
+							type="button"
+							role="switch"
+							aria-checked={!isFree}
+							aria-label="Remove watermark"
+							onClick={() => {
+								if (isFree) openUpgrade("Remove the watermark");
+							}}
+							className={cn(
+								"relative h-6 w-11 shrink-0 rounded-full transition-colors",
+								!isFree ? "bg-teal-500" : "bg-white/15",
+							)}
+						>
+							<span
+								className={cn(
+									"absolute top-0.5 left-0.5 size-5 rounded-full bg-white transition-transform",
+									!isFree && "translate-x-5",
+								)}
+							/>
+						</button>
+					</div>
+				</div>
+
 				{/* Auto-publish schedule — post finished clips to connected socials. */}
 				<div className="mt-6 rounded-lg border border-white/10 bg-[#151821] p-4">
 					<div className="flex items-center justify-between">
@@ -1345,6 +1381,12 @@ function ConfigPanel({
 					{/* Sample preview clip (not the user's upload) so the caption style is easy to judge. */}
 					<video src={PREVIEW_VIDEO} className="size-full object-cover" autoPlay muted loop playsInline />
 					<div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 to-transparent" />
+						{/* WYSIWYG of the server's free-plan watermark (bottom-right riocut.com) */}
+						{isFree ? (
+							<span className="pointer-events-none absolute right-3 bottom-3 text-sm font-semibold text-white/55 drop-shadow">
+								riocut.com
+							</span>
+						) : null}
 					<span className="absolute top-3 left-3 rounded-md bg-black/55 px-2 py-1 text-xs font-medium text-white/90 backdrop-blur-sm">
 						PREVIEW
 					</span>
