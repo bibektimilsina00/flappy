@@ -238,7 +238,10 @@ def create_job(
         raise HTTPException(status_code=402, detail=PRO_LINK_MSG)
 
     count = body.params.get("count", "auto")
-    cost = estimate_credits(body.source_duration, count)
+    split_interval = (
+        body.params.get("split_interval_sec") if body.params.get("goal") == "Split Evenly" else None
+    )
+    cost = estimate_credits(body.source_duration, count, split_interval_sec=split_interval)
 
     exec_id = uuid.uuid4()
 
@@ -301,13 +304,20 @@ def create_job(
 def estimate_cost(
     count: str = "auto",
     duration: float | None = None,
+    interval: float | None = None,
     _workspace_id: uuid.UUID = Depends(current_workspace_id),
     _user: User = Depends(get_current_user),
 ) -> dict:
-    """Credits a job will roughly charge (ingest + select + per-clip)."""
+    """Credits a job will roughly charge (ingest + select + per-clip).
+    `interval` (seconds) prices a Split Evenly job instead — its clip count
+    comes from duration / interval, uncapped."""
     from apps.api.app.features.clips.pipeline import estimate_credits
 
-    return {"credits": estimate_credits(duration, "auto" if count in ("auto", "") else count)}
+    return {
+        "credits": estimate_credits(
+            duration, "auto" if count in ("auto", "") else count, split_interval_sec=interval
+        )
+    }
 
 
 @router.get("/jobs")

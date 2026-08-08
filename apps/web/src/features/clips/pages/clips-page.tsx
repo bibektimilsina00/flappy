@@ -37,7 +37,7 @@ import {
 	socialProviders,
 	uploadClipsSource,
 } from "../services/clips-api";
-import type { ClipsParams, SocialAccount } from "../types";
+import type { ClipsGoal, ClipsParams, SocialAccount } from "../types";
 import {
 	CaptionSample,
 	captionCss,
@@ -49,6 +49,7 @@ import { defaultSchedule, ScheduleModal } from "../components/schedule-modal";
 
 const DEFAULTS: ClipsParams = {
 	layout: "fill",
+	goal: "Viral Short",
 	count: "auto",
 	duration: "auto",
 	ratio: "9:16",
@@ -981,21 +982,44 @@ function ConfigPanel({
 		});
 	};
 
+	const isSplitEvenly = params.goal === "Split Evenly";
 	useEffect(() => {
-		estimateClipsCost(params.count, meta?.duration)
+		estimateClipsCost(
+			params.count,
+			meta?.duration,
+			isSplitEvenly ? params.split_interval_sec : null,
+		)
 			.then(({ credits }) => setCost(credits))
 			.catch(() => setCost(null));
-	}, [params.count, meta?.duration]);
+	}, [params.count, meta?.duration, isSplitEvenly, params.split_interval_sec]);
 	const insufficient =
 		cost !== null && balance !== undefined && balance.balance < cost;
 	const isFree = (balance?.plan ?? "free") === "free";
 	// Free: watermark always on (removal is a paid upsell). Paid: opt-in to remove — off by default.
 	const watermarkRemoved = !isFree && (params.remove_watermark ?? false);
-	const [goal, setGoal] = useState("Viral Short");
+	const goal = params.goal ?? "Viral Short";
+	const setGoal = (g: ClipsGoal) =>
+		setParams((p) => ({
+			...p,
+			goal: g,
+			...(g === "Split Evenly" && !p.split_interval_sec ? { split_interval_sec: 60 } : {}),
+		}));
 	const [maxLen, setMaxLen] = useState<string>("auto");
 	const [customSec, setCustomSec] = useState<number>(120);
+	const [splitLen, setSplitLen] = useState<string>("60");
+	const [splitCustomSec, setSplitCustomSec] = useState<number>(120);
 	// Advanced/rarely-used field — collapsed unless a draft already filled it in.
 	const [showFocus, setShowFocus] = useState<boolean>(Boolean(params.focus));
+	// Client-side mirror of the backend's split_evenly_count — same ceil +
+	// drop-sub-1s-sliver rule — so the picker shows the real clip count.
+	const splitClipCount = (() => {
+		const d = meta?.duration;
+		const interval = params.split_interval_sec;
+		if (!d || !interval || interval <= 0) return null;
+		let n = Math.ceil(d / interval);
+		if (n > 1 && d - (n - 1) * interval < 1) n -= 1;
+		return Math.max(1, n);
+	})();
 
 	const scheduleOn = params.schedule?.enabled ?? false;
 	const pickedAccounts = params.schedule?.account_ids ?? [];
@@ -1017,7 +1041,14 @@ function ConfigPanel({
 		{ k: "90", label: "90s", dur: bandsForMax(90) },
 		{ k: "180", label: "3 min", dur: bandsForMax(180) },
 	];
-	const GOALS = ["Viral Short", "Highlights", "Insights"];
+	const GOALS: ClipsGoal[] = ["Viral Short", "Highlights", "Insights", "Split Evenly"];
+	// Interval presets for Split Evenly — same pill+Custom pattern as Max clip length.
+	const SPLIT_OPTS: { k: string; label: string; sec: number }[] = [
+		{ k: "30", label: "30s", sec: 30 },
+		{ k: "60", label: "1 min", sec: 60 },
+		{ k: "120", label: "2 min", sec: 120 },
+		{ k: "300", label: "5 min", sec: 300 },
+	];
 	const labelCls = "mt-6 mb-2 block text-sm font-semibold";
 	const pillCls = (active: boolean) =>
 		cn(
@@ -1082,34 +1113,43 @@ function ConfigPanel({
 						</button>
 					))}
 				</div>
+				{isSplitEvenly ? (
+					<p className="mt-1.5 text-xs text-muted-foreground">
+						No AI selection — the whole video is chopped into consecutive clips of the length below, back to back, in order.
+					</p>
+				) : null}
 
-				<button
-					type="button"
-					onClick={() => setShowFocus((s) => !s)}
-					className={cn(labelCls, "flex w-full items-center justify-between text-left")}
-				>
-					<span>
-						Describe what clips should capture{" "}
-						<span className="font-normal text-muted-foreground">(optional)</span>
-					</span>
-					{showFocus ? (
-						<ChevronDown className="size-4 shrink-0 text-muted-foreground" />
-					) : (
-						<Plus className="size-4 shrink-0 text-muted-foreground" />
-					)}
-				</button>
-				{showFocus ? (
-					<div className="relative">
-						<textarea
-							value={params.focus ?? ""}
-							onChange={(e) => setParams((p) => ({ ...p, focus: e.target.value.slice(0, 5000) }))}
-							placeholder="Let us know if there are any parts of the video you'd like us to extract"
-							className="min-h-28 w-full resize-none rounded-lg border border-white/10 bg-white/[0.03] p-3.5 pb-8 text-sm outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-teal-400/60 focus:bg-white/[0.05]"
-						/>
-						<span className="pointer-events-none absolute right-3 bottom-2.5 text-xs text-muted-foreground/60">
-							{(params.focus ?? "").length}/5000
-						</span>
-					</div>
+				{!isSplitEvenly ? (
+					<>
+						<button
+							type="button"
+							onClick={() => setShowFocus((s) => !s)}
+							className={cn(labelCls, "flex w-full items-center justify-between text-left")}
+						>
+							<span>
+								Describe what clips should capture{" "}
+								<span className="font-normal text-muted-foreground">(optional)</span>
+							</span>
+							{showFocus ? (
+								<ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+							) : (
+								<Plus className="size-4 shrink-0 text-muted-foreground" />
+							)}
+						</button>
+						{showFocus ? (
+							<div className="relative">
+								<textarea
+									value={params.focus ?? ""}
+									onChange={(e) => setParams((p) => ({ ...p, focus: e.target.value.slice(0, 5000) }))}
+									placeholder="Let us know if there are any parts of the video you'd like us to extract"
+									className="min-h-28 w-full resize-none rounded-lg border border-white/10 bg-white/[0.03] p-3.5 pb-8 text-sm outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-teal-400/60 focus:bg-white/[0.05]"
+								/>
+								<span className="pointer-events-none absolute right-3 bottom-2.5 text-xs text-muted-foreground/60">
+									{(params.focus ?? "").length}/5000
+								</span>
+							</div>
+						) : null}
+					</>
 				) : null}
 
 				<span className={labelCls}>Subtitle Style</span>
@@ -1118,51 +1158,108 @@ function ConfigPanel({
 					onSelect={(id) => setParams((p) => ({ ...p, caption_style: id, captions: true }))}
 				/>
 
-				<span className={labelCls}>Max clip length</span>
-				<div className="flex flex-wrap gap-2">
-					{LEN_OPTS.map((o) => (
-						<button
-							key={o.k}
-							type="button"
-							onClick={() => {
-								setMaxLen(o.k);
-								setParams((p) => ({ ...p, duration: o.dur }));
-							}}
-							className={pillCls(maxLen === o.k)}
-						>
-							{o.label}
-						</button>
-					))}
-					<button
-						type="button"
-						onClick={() => {
-							setMaxLen("custom");
-							setParams((p) => ({ ...p, duration: bandsForMax(customSec) }));
-						}}
-						className={pillCls(maxLen === "custom")}
-					>
-						Custom
-					</button>
-				</div>
-				{maxLen === "custom" ? (
-					<div className="mt-2.5 flex items-center gap-2">
-						<input
-							type="number"
-							min={5}
-							max={3600}
-							value={customSec}
-							onChange={(e) => {
-								const sec = Math.max(5, Math.min(3600, Number(e.target.value) || 0));
-								setCustomSec(sec);
-								setParams((p) => ({ ...p, duration: bandsForMax(sec) }));
-							}}
-							className="h-11 w-28 rounded-lg border border-white/10 bg-white/[0.03] px-3.5 text-sm outline-none transition-colors focus:border-teal-400/60 focus:bg-white/[0.05]"
-						/>
-						<span className="text-sm text-muted-foreground">
-							seconds max{customSec >= 60 ? ` · ${(customSec / 60).toFixed(customSec % 60 ? 1 : 0)} min` : ""}
-						</span>
-					</div>
-				) : null}
+				{isSplitEvenly ? (
+					<>
+						<span className={labelCls}>Clip length</span>
+						<div className="flex flex-wrap gap-2">
+							{SPLIT_OPTS.map((o) => (
+								<button
+									key={o.k}
+									type="button"
+									onClick={() => {
+										setSplitLen(o.k);
+										setParams((p) => ({ ...p, split_interval_sec: o.sec }));
+									}}
+									className={pillCls(splitLen === o.k)}
+								>
+									{o.label}
+								</button>
+							))}
+							<button
+								type="button"
+								onClick={() => {
+									setSplitLen("custom");
+									setParams((p) => ({ ...p, split_interval_sec: splitCustomSec }));
+								}}
+								className={pillCls(splitLen === "custom")}
+							>
+								Custom
+							</button>
+						</div>
+						{splitLen === "custom" ? (
+							<div className="mt-2.5 flex items-center gap-2">
+								<input
+									type="number"
+									min={5}
+									max={3600}
+									value={splitCustomSec}
+									onChange={(e) => {
+										const sec = Math.max(5, Math.min(3600, Number(e.target.value) || 0));
+										setSplitCustomSec(sec);
+										setParams((p) => ({ ...p, split_interval_sec: sec }));
+									}}
+									className="h-11 w-28 rounded-lg border border-white/10 bg-white/[0.03] px-3.5 text-sm outline-none transition-colors focus:border-teal-400/60 focus:bg-white/[0.05]"
+								/>
+								<span className="text-sm text-muted-foreground">
+									seconds per clip{splitCustomSec >= 60 ? ` · ${(splitCustomSec / 60).toFixed(splitCustomSec % 60 ? 1 : 0)} min` : ""}
+								</span>
+							</div>
+						) : null}
+						{splitClipCount !== null ? (
+							<p className="mt-2.5 text-xs text-muted-foreground">
+								≈ {splitClipCount} clip{splitClipCount === 1 ? "" : "s"}, back to back, none missed.
+							</p>
+						) : null}
+					</>
+				) : (
+					<>
+						<span className={labelCls}>Max clip length</span>
+						<div className="flex flex-wrap gap-2">
+							{LEN_OPTS.map((o) => (
+								<button
+									key={o.k}
+									type="button"
+									onClick={() => {
+										setMaxLen(o.k);
+										setParams((p) => ({ ...p, duration: o.dur }));
+									}}
+									className={pillCls(maxLen === o.k)}
+								>
+									{o.label}
+								</button>
+							))}
+							<button
+								type="button"
+								onClick={() => {
+									setMaxLen("custom");
+									setParams((p) => ({ ...p, duration: bandsForMax(customSec) }));
+								}}
+								className={pillCls(maxLen === "custom")}
+							>
+								Custom
+							</button>
+						</div>
+						{maxLen === "custom" ? (
+							<div className="mt-2.5 flex items-center gap-2">
+								<input
+									type="number"
+									min={5}
+									max={3600}
+									value={customSec}
+									onChange={(e) => {
+										const sec = Math.max(5, Math.min(3600, Number(e.target.value) || 0));
+										setCustomSec(sec);
+										setParams((p) => ({ ...p, duration: bandsForMax(sec) }));
+									}}
+									className="h-11 w-28 rounded-lg border border-white/10 bg-white/[0.03] px-3.5 text-sm outline-none transition-colors focus:border-teal-400/60 focus:bg-white/[0.05]"
+								/>
+								<span className="text-sm text-muted-foreground">
+									seconds max{customSec >= 60 ? ` · ${(customSec / 60).toFixed(customSec % 60 ? 1 : 0)} min` : ""}
+								</span>
+							</div>
+						) : null}
+					</>
+				)}
 
 					{/* Video title — one title burned on every clip; empty = AI writes one per clip */}
 					<div className="mt-6">

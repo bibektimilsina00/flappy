@@ -53,6 +53,20 @@ def auto_count_for(duration: float | None) -> int:
     return max(3, min(10, int(duration // 240))) if duration else DEFAULT_COUNT
 
 
+def split_evenly_count(duration: float | None, interval_sec: float) -> int:
+    """How many consecutive fixed-length clips Split Evenly produces for a
+    video of this length — mirrors the trailing-sliver rule in split_evenly_clips."""
+    import math
+
+    interval_sec = max(1.0, float(interval_sec or 60))
+    if not duration or duration <= 0:
+        return 0
+    n = math.ceil(duration / interval_sec)
+    if n > 1 and duration - (n - 1) * interval_sec < 1.0:
+        n -= 1
+    return max(1, n)
+
+
 def ingest_credits(duration: float | None) -> float:
     """Ingest + transcribe fee: per 2 min of source, minimum 5."""
     import math
@@ -61,9 +75,14 @@ def ingest_credits(duration: float | None) -> float:
     return max(5.0, math.ceil((duration or 0) / 120) * per_2min) if duration else 5.0
 
 
-def estimate_credits(duration: float | None, count) -> float:
-    """What a job will roughly charge: ingest + select + per-clip."""
-    n = auto_count_for(duration) if count in (None, "auto") else max(1, min(10, int(count)))
+def estimate_credits(duration: float | None, count, split_interval_sec: float | None = None) -> float:
+    """What a job will roughly charge: ingest + select + per-clip.
+    Split Evenly has no clip-count cap — its count is dictated by
+    duration / interval, not the usual auto/manual 10-clip ceiling."""
+    if split_interval_sec:
+        n = split_evenly_count(duration, split_interval_sec)
+    else:
+        n = auto_count_for(duration) if count in (None, "auto") else max(1, min(10, int(count)))
     return (
         ingest_credits(duration)
         + settings.clips_credits_select
@@ -498,6 +517,10 @@ def _group_words(words: list[dict]) -> list[dict]:
 # ── phase 3: select (one text-model call via the OpenRouter adapter) ────────
 def _select(job: ClipsJob, transcript: list[dict], duration: float) -> list[dict]:
     params = job.params or {}
+    if params.get("goal") == "Split Evenly":
+        # No content analysis — chop the whole video into consecutive,
+        # non-overlapping fixed-length windows, chronologically.
+        return split_evenly_clips(duration, params.get("split_interval_sec") or 60)
     count = params.get("count", "auto")
     auto = count in (None, "auto")
     if auto:
@@ -676,6 +699,35 @@ def parse_selection(raw: str, duration: float, band: tuple[int, int]) -> list[di
             }
         )
     out.sort(key=lambda c: -c["score"])
+    return out
+
+
+def split_evenly_clips(duration: float, interval_sec: float) -> list[dict]:
+    """Deterministic, content-blind split: consecutive, non-overlapping
+    windows of `interval_sec` covering [0, duration) in chronological order.
+    The last window is shorter than the rest when duration doesn't divide
+    evenly; a trailing sliver under 1s is dropped rather than kept as its
+    own clip."""
+    interval_sec = max(1.0, float(interval_sec or 60))
+    out: list[dict] = []
+    start = 0.0
+    i = 0
+    while start < duration:
+        end = min(start + interval_sec, duration)
+        if end - start < 1.0:
+            break
+        i += 1
+        out.append(
+            {
+                "start": round(start, 2),
+                "end": round(end, 2),
+                "duration": round(end - start, 2),
+                "title": f"Part {i}",
+                "score": 100,
+                "reason": "Fixed-length segment (Split Evenly)",
+            }
+        )
+        start = end
     return out
 
 

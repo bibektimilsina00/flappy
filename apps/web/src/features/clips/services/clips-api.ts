@@ -39,9 +39,12 @@ export function createClipsJob(body: {
 export function estimateClipsCost(
   count: number | "auto",
   duration?: number | null,
+  splitIntervalSec?: number | null,
 ): Promise<{ credits: number }> {
   return api(
-    `/clips/estimate?count=${count}${duration ? `&duration=${duration}` : ""}`,
+    `/clips/estimate?count=${count}${duration ? `&duration=${duration}` : ""}${
+      splitIntervalSec ? `&interval=${splitIntervalSec}` : ""
+    }`,
   );
 }
 

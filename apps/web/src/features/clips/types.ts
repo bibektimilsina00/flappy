@@ -111,8 +111,14 @@ export interface SocialAccount {
   avatar_url: string | null;
 }
 
+export type ClipsGoal = "Viral Short" | "Highlights" | "Insights" | "Split Evenly";
+
 export interface ClipsParams {
   layout?: "fit" | "fill" | "blur";
+  goal?: ClipsGoal;
+  // Split Evenly only: fixed clip length in seconds to chop the whole
+  // video into consecutive, non-overlapping clips (last clip may be shorter).
+  split_interval_sec?: number;
   count: number | "auto";
   duration: "auto" | string[];
   ratio: "9:16" | "1:1" | "16:9";
