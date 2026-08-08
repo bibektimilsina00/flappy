@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ChevronDown, Globe, Menu, X } from "lucide-react";
+import { ArrowRight, ChevronDown, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { cn } from "@/lib/cn";
@@ -94,9 +94,6 @@ export function MarketingNav() {
         </div>
 
         <div className="flex items-center gap-1.5">
-          <button type="button" className="hidden items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-mk-muted transition-colors hover:text-mk-fg lg:flex">
-            <Globe className="size-4" /> English <ChevronDown className="size-3.5 opacity-70" />
-          </button>
           <Button href={BRAND.appUrl} className="hidden md:inline-flex">
             Try online
           </Button>
@@ -139,10 +136,7 @@ export function MarketingNav() {
                 )}
               </div>
             ))}
-            <div className="mt-3 flex items-center justify-between">
-              <button type="button" className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-mk-muted">
-                <Globe className="size-4" /> English
-              </button>
+            <div className="mt-3 flex items-center justify-end">
               <Button href={BRAND.appUrl}>Try online</Button>
             </div>
           </div>

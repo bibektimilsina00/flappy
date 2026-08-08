@@ -1,7 +1,6 @@
 import {
   CircleHelp,
   Clapperboard,
-  Compass,
   Component,
   Film,
   Home,
@@ -9,7 +8,6 @@ import {
   LayoutTemplate,
   type LucideIcon,
   Scissors,
-  Search,
   Settings,
 } from "lucide-react";
 
@@ -24,8 +22,7 @@ export const PRIMARY_NAV: NavItemDef[] = [
   { label: "Canvas", icon: Component, href: "/canvas" },
   { label: "Editor", icon: Film, href: "/video-editor" },
   { label: "Clips", icon: Scissors, href: "/clips" },
-  { label: "Explore", icon: Compass, href: "/explore" },
-  { label: "Search", icon: Search, href: "/search" },
+  // Explore + Search hidden for now (features not shipped yet).
 ];
 
 export const LIBRARY_NAV: NavItemDef[] = [

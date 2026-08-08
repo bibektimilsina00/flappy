@@ -1,4 +1,4 @@
-import { AtSign, ChevronDown, Globe, MessageCircle, Play } from "lucide-react";
+import { AtSign, MessageCircle, Play } from "lucide-react";
 import Link from "next/link";
 import { BRAND, FOOTER } from "../lib/content";
 import { Container } from "./ui";
@@ -28,9 +28,6 @@ export function MarketingFooter() {
             <div className="w-full pt-1">
               <NewsletterForm />
             </div>
-            <button type="button" className="flex items-center gap-1.5 rounded-full border border-mk-border px-3 py-1.5 text-sm text-mk-muted hover:text-mk-fg">
-              <Globe className="size-4" /> English <ChevronDown className="size-3.5 opacity-70" />
-            </button>
             <div className="flex items-center gap-2 pt-1">
               {[
                 { Icon: AtSign, href: BRAND.social.x, label: "X" },
