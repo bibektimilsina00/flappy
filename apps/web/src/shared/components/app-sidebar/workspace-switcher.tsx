@@ -77,9 +77,12 @@ export function WorkspaceSwitcher({ name, initial, collapsed, onToggle }: Worksp
           type="button"
           onClick={onToggle}
           aria-label="Expand sidebar"
-          className="flex size-8 items-center justify-center rounded-md bg-[#14b8a6] text-xs font-bold text-white shadow-sm"
+          title="Expand sidebar"
+          className="group flex size-7 items-center justify-center rounded-md bg-[#14b8a6] text-xs font-bold text-white shadow-sm transition-colors hover:bg-accent hover:text-foreground"
         >
-          {initial}
+          {/* the workspace initial, swapped wholesale for the expand icon on hover */}
+          <span className="group-hover:hidden">{initial}</span>
+          <PanelLeft className="hidden size-4 group-hover:block" />
         </button>
       </div>
     );

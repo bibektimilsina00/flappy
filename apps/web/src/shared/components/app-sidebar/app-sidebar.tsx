@@ -84,13 +84,13 @@ export function AppSidebar({
       <nav className="flex-1 overflow-y-auto px-2 [scrollbar-width:thin]">
         <div className="space-y-0.5">
           {PRIMARY_NAV.map((item) => (
-            <NavItem key={item.label} {...item} active={pathname === item.href} collapsed={collapsed} />
+            <NavItem key={item.label} {...item} active={pathname === item.href} collapsed={collapsed} onActivate={onToggleCollapse} />
           ))}
         </div>
 
         <NavSection title="Library" collapsed={collapsed}>
           {LIBRARY_NAV.map((item) => (
-            <NavItem key={item.label} {...item} active={pathname === item.href} collapsed={collapsed} />
+            <NavItem key={item.label} {...item} active={pathname === item.href} collapsed={collapsed} onActivate={onToggleCollapse} />
           ))}
         </NavSection>
 
@@ -101,7 +101,7 @@ export function AppSidebar({
 
       <div className="space-y-0.5 px-2 py-3">
         {FOOTER_NAV.map((item) => (
-          <NavItem key={item.label} {...item} active={pathname === item.href} collapsed={collapsed} />
+          <NavItem key={item.label} {...item} active={pathname === item.href} collapsed={collapsed} onActivate={onToggleCollapse} />
         ))}
       </div>
     </aside>
