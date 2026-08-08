@@ -8,13 +8,22 @@ interface NavItemProps {
   icon?: LucideIcon;
   active?: boolean;
   collapsed?: boolean;
+  // When collapsed, clicking the already-active item expands the sidebar
+  // instead of a no-op re-navigation to the current page.
+  onActivate?: () => void;
 }
 
-export function NavItem({ label, href, icon: Icon, active, collapsed }: NavItemProps) {
+export function NavItem({ label, href, icon: Icon, active, collapsed, onActivate }: NavItemProps) {
   return (
     <Link
       href={href}
       title={collapsed ? label : undefined}
+      onClick={(e) => {
+        if (collapsed && active && onActivate) {
+          e.preventDefault();
+          onActivate();
+        }
+      }}
       className={cn(
         "flex items-center gap-3 rounded-md py-2 text-sm text-muted-foreground transition-all duration-150",
         "hover:bg-white/5 hover:text-white",
