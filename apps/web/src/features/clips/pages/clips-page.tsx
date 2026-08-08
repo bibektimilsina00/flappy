@@ -1431,7 +1431,20 @@ function ConfigPanel({
 					<span className="absolute top-3 left-3 rounded-md bg-black/55 px-2 py-1 text-xs font-medium text-white/90 backdrop-blur-sm">
 						PREVIEW
 					</span>
-					<div className="absolute inset-x-0 bottom-10 flex justify-center px-4">
+					{/* Live title — typed wins; empty shows the AI-generated placeholder */}
+						{params.headline?.enabled ? (
+							<div className="absolute inset-x-0 top-12 flex justify-center px-4">
+								<span
+									className={cn(
+										"max-w-full text-center text-lg font-extrabold uppercase leading-tight [text-shadow:0_2px_4px_rgba(0,0,0,0.9)]",
+										params.headline.text?.trim() ? "text-white" : "text-white/60 italic",
+									)}
+								>
+									{params.headline.text?.trim() || "AI-generated title"}
+								</span>
+							</div>
+						) : null}
+						<div className="absolute inset-x-0 bottom-10 flex justify-center px-4">
 						<span className="text-2xl leading-tight font-bold">
 							<CaptionSample css={captionCss(params.caption_style, params.caption_custom ?? null, 1.6)} text="Hey there," />
 						</span>
