@@ -269,7 +269,7 @@ export function UseCases() {
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {USE_CASES.map((u, i) => (
             <div key={u.title} className="group overflow-hidden rounded-2xl border border-mk-border bg-mk-surface transition-colors hover:border-mk-borders">
-              <Poster src={media(u.img, 800)} ratio="16 / 9" play className="rounded-none border-0 border-b border-mk-border" />
+              <Poster src={media(u.img, 800)} alt={`${u.title} made with Riocut`} ratio="16 / 9" play className="rounded-none border-0 border-b border-mk-border" />
               <div className="flex items-start gap-3 p-5">
                 <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-mk-accent/10 text-mk-accent">
                   <Icon name={u.icon} className="size-4" />

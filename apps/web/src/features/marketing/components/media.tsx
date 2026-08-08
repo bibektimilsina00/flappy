@@ -35,6 +35,7 @@ export function Poster({
   tone = "teal",
   ratio = "16 / 9",
   label,
+  alt,
   badge,
   play,
   src,
@@ -45,6 +46,7 @@ export function Poster({
   tone?: string;
   ratio?: string;
   label?: string;
+  alt?: string;
   badge?: ReactNode;
   play?: boolean;
   src?: string;
@@ -55,9 +57,8 @@ export function Poster({
   return (
     <div style={{ aspectRatio: ratio, ...style }} className={cn("group relative overflow-hidden rounded-2xl border border-mk-border", className)}>
       {src ? (
-        // biome-ignore lint/a11y/useAltText: decorative placeholder media
         // biome-ignore lint/nursery/noImgElement: marketing static image, next/image not needed
-        <img src={src} alt={label ?? ""} className="size-full object-cover" />
+        <img src={src} alt={alt ?? label ?? "Riocut video example"} className="size-full object-cover" />
       ) : video ? (
         // biome-ignore lint/a11y/useMediaCaption: decorative placeholder media
         <video className="size-full object-cover" src={video} autoPlay muted loop playsInline />

@@ -384,8 +384,7 @@ function NodeBody({ node }: { node: MockNode }) {
     return (
       <div className="relative size-full">
         {/* biome-ignore lint/nursery/noImgElement: marketing static image */}
-        {/* biome-ignore lint/a11y/useAltText: decorative */}
-        <img src={node.media} alt="" draggable={false} className="size-full object-cover" />
+        <img src={node.media} alt="AI-generated video still in the Riocut node canvas" draggable={false} className="size-full object-cover" />
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.35),transparent_55%)]" />
       </div>
     );
@@ -641,8 +640,7 @@ function EdClip({ left, w, kind, media, label }: { left: string; w: string; kind
       {media ? (
         <>
           {/* biome-ignore lint/nursery/noImgElement: marketing static thumbnail */}
-          {/* biome-ignore lint/a11y/useAltText: decorative */}
-          <img src={media} className="absolute inset-0 size-full object-cover opacity-55" />
+          <img src={media} alt="Timeline clip thumbnail in the Riocut editor" className="absolute inset-0 size-full object-cover opacity-55" />
         </>
       ) : kind === "audio" ? (
         <div className="flex size-full items-center gap-[2px] overflow-hidden px-1 opacity-70">

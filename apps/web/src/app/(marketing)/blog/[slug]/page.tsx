@@ -128,7 +128,7 @@ export default async function BlogPostPage({ params }: Params) {
             <Poster
               tone={post.tone}
               src={post.img ? media(post.img, 1200) : undefined}
-              label=""
+              alt={post.title}
               ratio="16 / 9"
               className="mb-10"
             />
@@ -170,7 +170,7 @@ export default async function BlogPostPage({ params }: Params) {
                   <Poster
                     tone={p.tone}
                     src={p.img ? media(p.img, 600) : undefined}
-                    label=""
+                    alt={p.title}
                     ratio="16 / 9"
                     className="rounded-none border-0 border-b border-mk-border"
                   />

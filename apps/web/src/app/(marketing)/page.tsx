@@ -22,7 +22,7 @@ import {
 export const metadata: Metadata = {
   title: "Riocut — AI video studio: clips, generation & editing in one place",
   description:
-    "Turn long videos into captioned vertical clips, generate footage from text and images on a node canvas, and edit on a magnetic timeline. From prompt to finished video in one AI video workspace.",
+    "Turn long videos into captioned vertical clips, generate footage from text and images, and edit on a magnetic timeline — all in one AI video studio.",
   keywords: [
     "ai video studio",
     "ai clips",
