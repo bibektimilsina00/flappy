@@ -1,0 +1,40 @@
+# Riocut
+
+> Riocut is an all-in-one AI video studio. Turn one long video into a week of captioned, vertical short-form clips, generate footage from text and images on a node canvas, edit it on a magnetic timeline, and publish to TikTok, YouTube Shorts, and Instagram Reels — from prompt to finished video in a single browser-based workspace.
+
+Riocut combines four tools most creators juggle separately — an AI generator, a real video editor, an automatic clipper, and a social publisher — into one workspace. There is a free tier; paid plans start at $12/month (or yearly with 2 months free).
+
+## What Riocut does
+
+- **AI Clips**: Paste a YouTube link or upload a video (up to 2 hours). Riocut transcribes every word, scores the most engaging self-contained moments, and returns vertical (9:16) clips with word-by-word captions and a virality score explaining each pick — ready to bulk-schedule and post.
+- **Node canvas**: Chain model calls visually — a prompt becomes an image, an image becomes a video, then extend the shot. Every leading text-to-image, text-to-video, image-to-video, and video-extend model is selectable from one menu.
+- **Magnetic timeline**: A Final-Cut-style editor that stays gap-free — insert makes room, delete closes the gap, trims ripple. Captions, voiceover, and overlays stay locked to their shot.
+- **AI assistant**: Describe what you want in plain language; it picks the mode and model and generates.
+- **One-click publishing**: Auto-schedule and post finished clips directly to TikTok, YouTube Shorts, and Instagram Reels.
+
+## Who it is for
+
+Podcasters, short-form and social creators, marketers, agencies, and video teams who want to produce and repurpose video without switching between separate generation, editing, clipping, and scheduling tools.
+
+## Key pages
+
+- [Home](https://riocut.com): Overview and live product demo.
+- [Features](https://riocut.com/features): AI Clips, node canvas, magnetic timeline, models, connected clips, AI assistant.
+- [Pricing](https://riocut.com/pricing): Free, Plus, Pro, Ultra, and Studio plans (monthly or yearly).
+- [Blog](https://riocut.com/blog): Guides and tutorials on AI clipping, image-to-video, and model selection.
+
+## Pricing (USD)
+
+- **Free**: 100 credits/month, uploads and non-YouTube links, 30-minute sources, 1080p with watermark.
+- **Plus — $12/mo**: 1,200 credits, YouTube import, standard AI models, 1-hour sources, watermark-free 1080p.
+- **Pro — $28/mo**: 3,200 credits, premium video models (Veo, Kling and more), 2-hour sources, auto-schedule and direct publishing.
+- **Ultra — $76/mo**: 10,000 credits, highest generation priority, early access to new models.
+- **Studio — from $140/mo**: 20,000+ credits, volume pricing, invoice and dedicated support.
+- Yearly billing is available on every plan with 2 months free.
+
+## Frequently asked questions
+
+- **What is Riocut?** A single AI video workspace: generate footage on a node canvas, edit it on a magnetic timeline, and auto-clip long videos into captioned vertical shorts — all sharing one media pool.
+- **How does AI clipping work?** Upload or paste a video, Riocut transcribes it word by word, an AI selects the strongest self-contained moments, and each renders as a captioned 9:16 clip with a virality score you can review, restyle, and schedule.
+- **Which AI models can I use?** Text-to-image, text-to-video, image-to-video, and video-extend models from leading providers, all from one menu. Free-tier models are included; premium models unlock on Pro.
+- **Do I need editing experience?** No — the assistant can pick the model and generate for you, and the magnetic timeline keeps edits gap-free automatically.

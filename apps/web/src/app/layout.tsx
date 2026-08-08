@@ -6,8 +6,12 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://riocut.com"),
+  applicationName: "Riocut",
   title: "Riocut",
-  description: "The all-in-one AI video studio",
+  description: "The all-in-one AI video studio — generate, edit, and clip video with AI, then publish to social.",
+  keywords: ["AI video studio", "AI video editor", "AI clips", "text to video", "image to video", "video repurposing"],
+  category: "technology",
+  creator: "Riocut",
 };
 
 // Clerk's default theme auto-darkens via CSS `color-scheme: dark` (set on .dark in
