@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ProfileMenu } from "./profile-menu";
 
 export function AppHeader() {
   return (
@@ -17,6 +18,9 @@ export function AppHeader() {
 
       {/* Page-specific actions (e.g. the editor portals its title / undo / export here). */}
       <div id="app-header-slot" className="flex min-w-0 flex-1 items-center pl-5" />
+
+      {/* Account: identity, credits, upgrade, and settings links. */}
+      <ProfileMenu />
     </header>
   );
 }
