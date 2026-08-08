@@ -979,6 +979,7 @@ function ClipRow({
             onCcChange={onCcChange}
             customStyle={(job.params as { caption_custom?: CustomCaptionStyle | null }).caption_custom ?? null}
             headline={(job.params as { headline?: { enabled: boolean; bg: string; color: string; text?: string } }).headline ?? null}
+            onRemoveWatermark={job.is_free_plan ? () => openUpgrade("Remove the watermark") : undefined}
           />
           {clip.status === "rendering" ? (
             <div className="absolute inset-0 grid place-items-center bg-black/70 text-xs text-white">

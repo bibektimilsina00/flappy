@@ -1,6 +1,6 @@
 "use client";
 
-import { Captions, Check, Maximize, Pause, Play, Volume2, VolumeX } from "lucide-react";
+import { Captions, Check, Maximize, Pause, Play, Sparkles, Volume2, VolumeX } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import type { ClipItem, CustomCaptionStyle, TranscriptSegment } from "../types";
@@ -61,6 +61,7 @@ export function ClipPlayer({
   onCcChange,
   customStyle,
   headline,
+  onRemoveWatermark,
 }: {
   clip: ClipItem;
   transcript: TranscriptSegment[];
@@ -68,6 +69,9 @@ export function ClipPlayer({
   onCcChange: (cc: CcState) => void;
   customStyle?: CustomCaptionStyle | null;
   headline?: { enabled: boolean; bg: string; color: string; text?: string } | null;
+  // Present only for free-plan clips (which carry a burned "riocut.com" mark) —
+  // clicking prompts an upgrade. Omitted for paid clips, which render clean.
+  onRemoveWatermark?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -159,6 +163,20 @@ export function ClipPlayer({
           </div>
         ) : null;
       })()}
+
+      {/* free-plan watermark upsell — the clip already carries a burned mark;
+          this offers to remove it (paid) and otherwise opens the pricing modal */}
+      {onRemoveWatermark ? (
+        <button
+          type="button"
+          onClick={onRemoveWatermark}
+          title="Remove watermark — upgrade to a paid plan"
+          className="absolute right-2 top-2 z-20 flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[10px] font-semibold text-white/90 backdrop-blur transition-colors hover:bg-black/75"
+        >
+          <Sparkles className="size-3 text-teal-300" />
+          Remove watermark
+        </button>
+      ) : null}
 
       {/* center play affordance when paused */}
       {!playing ? (
