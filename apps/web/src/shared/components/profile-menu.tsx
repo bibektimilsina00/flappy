@@ -1,7 +1,7 @@
 "use client";
 
 import { useClerk, useUser } from "@clerk/nextjs";
-import { ChevronDown, CreditCard, LifeBuoy, LogOut, Settings, Sparkles } from "lucide-react";
+import { ChevronDown, CreditCard, Gem, LifeBuoy, LogOut, Settings, Sparkles } from "lucide-react";
 import Link from "next/link";
 import posthog from "posthog-js";
 import { useEffect, useRef, useState } from "react";
@@ -65,35 +65,33 @@ export function ProfileMenu() {
 
           {/* credits + plan */}
           <div className="p-2">
-            <div className="rounded-lg bg-white/[0.03] p-3">
+            <div
+              className={cn(
+                "rounded-xl border p-3",
+                isPaid
+                  ? "border-amber-400/25 bg-gradient-to-br from-amber-400/[0.08] to-transparent"
+                  : "border-white/[0.06] bg-white/[0.03]",
+              )}
+            >
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                  <Sparkles className="size-3.5 text-teal-300" /> Credits
+                  <Gem className="size-3.5 text-teal-300" /> Credits
                 </span>
                 <span
                   className={cn(
-                    "rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                    isPaid ? "bg-teal-400/15 text-teal-300" : "bg-white/10 text-muted-foreground",
+                    "flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                    isPaid ? "bg-amber-400/15 text-amber-300" : "bg-white/10 text-muted-foreground",
                   )}
                 >
+                  {isPaid ? <Sparkles className="size-3" /> : null}
                   {formatPlan(plan)}
                 </span>
               </div>
-              <p className="mt-1.5 text-2xl font-bold tabular-nums text-foreground">
+              <p className="mt-1.5 flex items-baseline gap-1.5 text-2xl font-bold tabular-nums text-foreground">
                 {balance ? balance.balance.toLocaleString() : "—"}
+                <span className="text-xs font-medium text-muted-foreground">credits</span>
               </p>
-              {!isPaid ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOpen(false);
-                    openUpgrade("Upgrade your plan");
-                  }}
-                  className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#14b8a6] py-2 text-sm font-semibold text-white transition-colors hover:bg-[#0f9c8c]"
-                >
-                  <Sparkles className="size-4" /> Upgrade plan
-                </button>
-              ) : null}
+              {!isPaid ? <UpgradeButton onClick={() => { setOpen(false); openUpgrade("Upgrade your plan"); }} /> : null}
             </div>
           </div>
 
@@ -127,11 +125,26 @@ export function ProfileMenu() {
   );
 }
 
+// Gold gradient CTA with a shimmer sweep — the paid-upgrade nudge.
+function UpgradeButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group relative mt-3 flex w-full items-center justify-center gap-1.5 overflow-hidden rounded-lg bg-gradient-to-r from-amber-500 via-yellow-300 to-amber-500 py-2 text-sm font-bold text-amber-950 shadow-lg shadow-amber-500/25 transition-transform hover:scale-[1.02] active:scale-100"
+    >
+      <span className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 skew-x-12 bg-white/50 blur-sm animate-[shine_2.8s_ease-in-out_infinite]" />
+      <Sparkles className="size-4" /> Upgrade plan
+    </button>
+  );
+}
+
 function Avatar({ initial, image, size = "sm" }: { initial: string; image?: string; size?: "sm" | "lg" }) {
   const cls = size === "lg" ? "size-10 text-base" : "size-8 text-sm";
   if (image) {
-    // biome-ignore lint/nursery/noImgElement: Clerk-hosted avatar, next/image not needed
-    return <img src={image} alt="" className={cn("shrink-0 rounded-full object-cover", cls)} />;
+    // biome-ignore lint/nursery/noImgElement: Clerk/Google-hosted avatar, next/image not needed.
+    // referrerPolicy is required or googleusercontent.com avatars 403 and never load.
+    return <img src={image} alt="" referrerPolicy="no-referrer" className={cn("shrink-0 rounded-full object-cover", cls)} />;
   }
   return (
     <span className={cn("grid shrink-0 place-items-center rounded-full bg-[#14b8a6] font-bold text-white", cls)}>

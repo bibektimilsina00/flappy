@@ -208,3 +208,9 @@
 @font-face { font-family: "Anton"; src: url("/fonts/Anton.ttf"); font-display: swap; }
 @font-face { font-family: "Bangers"; src: url("/fonts/Bangers.ttf"); font-display: swap; }
 @font-face { font-family: "PoppinsCap"; src: url("/fonts/Poppins.ttf"); font-display: swap; }
+
+/* Golden shimmer sweep for the upgrade CTA */
+@keyframes shine {
+  0% { transform: translateX(-130%); }
+  60%, 100% { transform: translateX(230%); }
+}
