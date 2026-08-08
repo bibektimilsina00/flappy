@@ -989,8 +989,8 @@ function ConfigPanel({
 	const insufficient =
 		cost !== null && balance !== undefined && balance.balance < cost;
 	const isFree = (balance?.plan ?? "free") === "free";
-	// Free: watermark always on (removal is a paid upsell). Paid: user's choice, default removed.
-	const watermarkRemoved = !isFree && (params.remove_watermark ?? true);
+	// Free: watermark always on (removal is a paid upsell). Paid: opt-in to remove — off by default.
+	const watermarkRemoved = !isFree && (params.remove_watermark ?? false);
 	const [goal, setGoal] = useState("Viral Short");
 	const [maxLen, setMaxLen] = useState<string>("auto");
 	const [customSec, setCustomSec] = useState<number>(120);
@@ -1229,7 +1229,7 @@ function ConfigPanel({
 								aria-label="Remove watermark"
 								onClick={() => {
 									if (isFree) openUpgrade("Remove the watermark");
-									else setParams((p) => ({ ...p, remove_watermark: !(p.remove_watermark ?? true) }));
+									else setParams((p) => ({ ...p, remove_watermark: !(p.remove_watermark ?? false) }));
 								}}
 								className={cn(
 									"relative h-5 w-9 shrink-0 rounded-full transition-colors",

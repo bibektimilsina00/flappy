@@ -124,8 +124,8 @@ export interface ClipsParams {
   highlight_keywords: boolean;
   censor: boolean;
   headline?: { enabled: boolean; bg: string; color: string; text?: string };
-  // Paid only. true (default) = clean export; false = keep the watermark. Free
-  // plans always get the watermark regardless.
+  // Paid only. Off by default (watermark kept); true = clean export. Free plans
+  // always get the watermark regardless.
   remove_watermark?: boolean;
   schedule?: ScheduleConfig;
 }

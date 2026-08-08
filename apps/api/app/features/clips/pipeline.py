@@ -110,10 +110,10 @@ def is_free_plan(session: Session, workspace_id) -> bool:
 
 def apply_watermark(session: Session, job: ClipsJob) -> bool:
     """Whether to burn the platform watermark. Free plans always get it; paid
-    plans default to clean but may opt back in via params.remove_watermark=False."""
+    plans keep it by default and opt out via params.remove_watermark=True."""
     if is_free_plan(session, job.workspace_id):
         return True
-    return not (job.params or {}).get("remove_watermark", True)
+    return not (job.params or {}).get("remove_watermark", False)
 
 
 def _set(session: Session, job: ClipsJob, **fields) -> None:
