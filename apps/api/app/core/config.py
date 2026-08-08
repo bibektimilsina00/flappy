@@ -27,6 +27,14 @@ class Settings(BaseSettings):
     # from the publishable key); the secret key is used to look up a user's email.
     clerk_publishable_key: str = ""
     clerk_secret_key: str = ""
+    # svix "whsec_..." signing secret from the Clerk webhook endpoint (user.created).
+    clerk_webhook_key: str = ""
+
+    # PostHog server-side capture (e.g. the user.created signup event). Same project
+    # token as the web app; empty disables server events. Host stays direct — the
+    # ad-blocker reverse proxy is only for browser clients.
+    posthog_key: str = ""
+    posthog_host: str = "https://us.i.posthog.com"
 
     # OAuth (social publishing — Google/YouTube)
     google_client_id: str = ""

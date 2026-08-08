@@ -139,6 +139,8 @@ jobs:
           CF_ORIGIN_KEY: ${{ secrets.CF_ORIGIN_KEY }}
           CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          CLERK_WEBHOOK_KEY: ${{ secrets.CLERK_WEBHOOK_KEY }}
+          POSTHOG_KEY: ${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
           SHA: ${{ github.sha }}
         run: |
           # the SHA currently running on the box — rollback target if this deploy is unhealthy
@@ -148,7 +150,8 @@ jobs:
           scp deploy/rollout.sh "$VPS_USER@$VPS_HOST:$VPS_DIR/rollout.sh"
           printf '%s\n' "$ENV_FILE" | ssh "$VPS_USER@$VPS_HOST" "install -m 600 /dev/stdin $VPS_DIR/.env"
           # Clerk keys live in their own secrets; append so compose (last-wins) picks them up.
-          printf 'CLERK_PUBLISHABLE_KEY=%s\nCLERK_SECRET_KEY=%s\n' "$CLERK_PUBLISHABLE_KEY" "$CLERK_SECRET_KEY" \
+          printf 'CLERK_PUBLISHABLE_KEY=%s\nCLERK_SECRET_KEY=%s\nCLERK_WEBHOOK_KEY=%s\nPOSTHOG_KEY=%s\n' \
+            "$CLERK_PUBLISHABLE_KEY" "$CLERK_SECRET_KEY" "$CLERK_WEBHOOK_KEY" "$POSTHOG_KEY" \
             | ssh "$VPS_USER@$VPS_HOST" "cat >> $VPS_DIR/.env"
           ssh "$VPS_USER@$VPS_HOST" "mkdir -p $VPS_DIR/certs"
           printf '%s\n' "$CF_ORIGIN_CERT" | ssh "$VPS_USER@$VPS_HOST" "install -m 644 /dev/stdin $VPS_DIR/certs/origin.pem"

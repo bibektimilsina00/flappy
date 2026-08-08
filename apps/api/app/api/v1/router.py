@@ -14,6 +14,7 @@ from apps.api.app.features.social.router import router as social_router
 from apps.api.app.features.templates.router import router as templates_router
 from apps.api.app.features.users.router import router as users_router
 from apps.api.app.features.video_editor.router import router as video_editor_router
+from apps.api.app.features.webhooks.router import router as webhooks_router
 from apps.api.app.features.workflows.router import router as workflows_router
 from apps.api.app.features.workspaces.router import router as workspaces_router
 
@@ -36,5 +37,6 @@ for r in (
     social_router,
     dashboard_router,
     settings_router,
+    webhooks_router,
 ):
     api_router.include_router(r)
