@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import posthog from "posthog-js";
 import { useCallback, useEffect, useState } from "react";
 import {
 	listSchedule,
@@ -105,6 +106,7 @@ export function useExportPanel({
 		try {
 			await saveFirst();
 			const res = await renderEditorProject(projectId, { format: "mp4" });
+			posthog.capture("editor_render_started", { format: "mp4" });
 			setRenderRes(res);
 			return res;
 		} finally {
@@ -159,6 +161,10 @@ export function useExportPanel({
 				tiktok_privacy: validatedPayload.tiktok_privacy,
 			});
 			setPublishResults(res);
+			posthog.capture("editor_publish_started", {
+				account_count: validatedPayload.account_ids.length,
+				tiktok_privacy: validatedPayload.tiktok_privacy,
+			});
 			qc.invalidateQueries({ queryKey: ["schedule"] });
 		} catch (e) {
 			setPublishError(
@@ -177,6 +183,10 @@ export function useExportPanel({
 			await saveFirst();
 			const res = await shareEditorProject(projectId, mode, active);
 			setShareTokens((prev) => ({ ...prev, [mode]: res.token }));
+			posthog.capture("editor_share_link_updated", {
+				mode,
+				action: active ? "revoked" : "created",
+			});
 			qc.invalidateQueries({ queryKey: ["editor-project", projectId] });
 		} finally {
 			setSharingMode(null);

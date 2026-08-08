@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import posthog from "posthog-js";
 import { createWorkflow, deleteWorkflow, updateWorkflow } from "../services/workflows-api";
 
 export function useProjectActions() {
@@ -11,6 +12,7 @@ export function useProjectActions() {
     mutationFn: () => createWorkflow("Untitled project"),
     onSuccess: (workflow) => {
       invalidate();
+      posthog.capture("project_created");
       router.push(`/canvas?project=${workflow.id}`);
     },
   });

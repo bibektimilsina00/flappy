@@ -1,3 +1,4 @@
+import posthog from "posthog-js";
 import { useCallback, useRef, useState } from "react";
 import { authToken } from "@/lib/auth-token";
 import { createExecution } from "../services/executions-api";
@@ -45,9 +46,11 @@ export function useExecution() {
       setStatus("running");
       setError(null);
 
+      const scope = nodeId ? "node" : "workflow";
       let execution: Awaited<ReturnType<typeof createExecution>>;
       try {
         execution = await createExecution(workflowId, nodeId);
+        posthog.capture("workflow_execution_started", { execution_scope: scope });
       } catch (err) {
         // Guardrail refusals (402 insufficient credits) land here.
         setError(err instanceof Error ? err.message : "Run failed");
@@ -88,8 +91,10 @@ export function useExecution() {
           }
         }
         if (event.event === "execution.completed") {
+          posthog.capture("workflow_execution_completed", { execution_scope: scope });
           finish("completed");
         } else if (event.event === "execution.failed") {
+          posthog.capture("workflow_execution_failed", { execution_scope: scope });
           finish("failed");
         }
       };
