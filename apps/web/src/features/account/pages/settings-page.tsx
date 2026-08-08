@@ -1,6 +1,7 @@
 "use client";
 
 import { useClerk } from "@clerk/nextjs";
+import posthog from "posthog-js";
 import { AccountTab } from "../components/account-tab";
 import { BillingTab } from "../components/billing-tab";
 import { ConnectionsTab } from "../components/connections-tab";
@@ -28,7 +29,10 @@ export function SettingsContent({ tab }: { tab: string }) {
         </a>
         <button
           type="button"
-          onClick={() => signOut({ redirectUrl: "/login" })}
+          onClick={() => {
+            posthog.reset(); // unlink the analytics identity before the next user signs in
+            signOut({ redirectUrl: "/login" });
+          }}
           className="transition-colors hover:text-foreground"
         >
           Sign out

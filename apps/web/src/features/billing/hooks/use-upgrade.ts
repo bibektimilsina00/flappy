@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
+import posthog from "posthog-js";
 import { toast } from "sonner";
 import { authToken } from "@/lib/auth-token";
 import { upgradeTierSchema } from "../schemas/billing-schemas";
@@ -15,6 +16,7 @@ export function useUpgrade() {
       }
       const tier = upgradeTierSchema.parse(rawTier);
       const res = await startUpgrade(tier);
+      posthog.capture("checkout_started", { tier });
       window.location.href = res.checkout_url;
     },
     onError: (err) => {
