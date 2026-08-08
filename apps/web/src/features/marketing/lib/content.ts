@@ -48,7 +48,7 @@ export const LOGOS = ["Northwind", "Lumen", "Acme Studios", "Vertex", "Monarch",
 
 export const STATS = [
   { value: "40+", label: "AI models, one interface" },
-  { value: "1080p", label: "HD export resolution" },
+  { value: "4K", label: "Max export resolution" },
   { value: "<60s", label: "First frame to first cut" },
   { value: "1→10", label: "Long video to viral clips" },
 ];
@@ -114,8 +114,8 @@ export const TOOL_TABS = [
     n: "05",
     label: "Export",
     title: "Ship it anywhere",
-    desc: "Render a clean MP4 in the exact ratio you need — vertical for social, wide for the screen, in crisp 1080p HD.",
-    bullets: ["9:16 · 1:1 · 16:9", "1080p HD", "No watermark on paid plans", "Fast cloud render"],
+    desc: "Render a clean MP4 in the exact ratio you need — vertical for social, wide for the screen, up to crisp 4K.",
+    bullets: ["9:16 · 1:1 · 16:9", "Up to 4K", "No watermark on paid plans", "Fast cloud render"],
     media: "Export & share", img: "https://images.pexels.com/photos/8488289/pexels-photo-8488289.jpeg",
   },
 ];
@@ -216,7 +216,7 @@ export const PRICING = [
     blurb: "For creators shipping video every week.",
     cta: "Go Pro",
     highlight: true,
-    features: ["Everything in Plus", "3,200 credits every month", "Premium models (Veo, Kling & more)", "Sources up to 2 hours", "Auto-schedule & direct publishing", "Email support"],
+    features: ["Everything in Plus", "3,200 credits every month", "Premium models (Veo, Kling & more)", "4K exports", "Sources up to 2 hours", "Auto-schedule & direct publishing", "Email support"],
   },
   {
     name: "Ultra",
@@ -244,7 +244,7 @@ export const FAQ = [
   { q: "Which AI models can I use?", a: "Text-to-image, text-to-video, image-to-video, and video-extend models from leading providers — all selectable from one menu. Free-tier models are included; premium models unlock on Pro." },
   { q: "Do I need any editing experience?", a: "No. The assistant can pick the model and generate for you, and the timeline is magnetic — it keeps everything gap-free automatically. Power users still get frame-level control." },
   { q: "How do credits work?", a: "Each generation costs credits based on the model. Free plans get a monthly allowance; Pro adds premium models and a bigger balance. You only spend credits when you generate." },
-  { q: "Can I export for social platforms?", a: "Yes — export vertical (9:16), square (1:1), or widescreen (16:9) MP4s. Paid plans remove the watermark and unlock 1080p HD." },
+  { q: "Can I export for social platforms?", a: "Yes — export vertical (9:16), square (1:1), or widescreen (16:9) MP4s. Paid plans remove the watermark and unlock HD, with 4K on Pro." },
   { q: "Is my work private?", a: "Your projects and generated media are private to your workspace. Studio plans add SSO and admin controls for teams." },
 ];
 
@@ -276,7 +276,7 @@ export const FOOTER = [
       { label: "Magnetic timeline", href: "/features" },
       { label: "Trim & split", href: "/features" },
       { label: "Connected clips", href: "/features" },
-      { label: "1080p export", href: "/features" },
+      { label: "4K export", href: "/features" },
     ],
   },
   {
