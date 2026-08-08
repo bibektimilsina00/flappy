@@ -1164,15 +1164,10 @@ function ConfigPanel({
 
 					{/* Video title — one title burned on every clip; empty = AI writes one per clip */}
 					<div className="mt-6 rounded-xl border border-white/[0.06] bg-[#151821] p-4">
-						<div className="flex items-center gap-3">
-							<span className="grid size-9 shrink-0 place-items-center rounded-lg bg-teal-400/10 text-teal-300">
-								<Type className="size-4" />
-							</span>
-							<div className="min-w-0 flex-1">
-								<p className="text-sm font-medium">Video title</p>
-								<p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-									Shown on every clip. Leave empty and AI writes one per clip.
-								</p>
+						<div className="flex items-center justify-between gap-4">
+							<div className="min-w-0">
+								<p className="text-sm font-medium text-foreground">Video title</p>
+								<p className="mt-0.5 text-xs text-muted-foreground">AI writes one per clip if left empty.</p>
 							</div>
 							<button
 								type="button"
@@ -1180,20 +1175,20 @@ function ConfigPanel({
 								aria-checked={params.headline?.enabled ?? false}
 								aria-label="Show a title on clips"
 								onClick={() =>
-									setParams((pr) => ({
-										...pr,
-										headline: { bg: "none", color: "#ffffff", ...(pr.headline ?? {}), enabled: !(pr.headline?.enabled ?? false) },
-									}))
-								}
+								setParams((pr) => ({
+									...pr,
+									headline: { bg: "none", color: "#ffffff", ...(pr.headline ?? {}), enabled: !(pr.headline?.enabled ?? false) },
+								}))
+							}
 								className={cn(
 									"relative h-5 w-9 shrink-0 rounded-full transition-colors",
-									params.headline?.enabled ? "bg-teal-500" : "bg-white/10",
+									(params.headline?.enabled ?? false) ? "bg-teal-500" : "bg-white/10",
 								)}
 							>
 								<span
 									className={cn(
 										"absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow-sm transition-transform",
-										params.headline?.enabled && "translate-x-4",
+										(params.headline?.enabled ?? false) && "translate-x-4",
 									)}
 								/>
 							</button>
@@ -1214,51 +1209,41 @@ function ConfigPanel({
 					</div>
 
 					{/* Remove watermark — free clips carry a riocut.com mark; removing it is a paid perk */}
-					<div className="mt-3 flex items-center gap-3 rounded-xl border border-white/[0.06] bg-[#151821] p-4">
-						<span className="grid size-9 shrink-0 place-items-center rounded-lg bg-teal-400/10 text-teal-300">
-							<Sparkles className="size-4" />
-						</span>
-						<div className="min-w-0 flex-1">
-							<p className="text-sm font-medium">Remove watermark</p>
-							<p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-								{isFree
-									? "Free clips include a riocut.com watermark — upgrade to export clean."
-									: "Your plan exports clean, watermark-free clips."}
-							</p>
-						</div>
-						<button
-							type="button"
-							role="switch"
-							aria-checked={!isFree}
-							aria-label="Remove watermark"
-							onClick={() => {
+					<div className="mt-3 rounded-xl border border-white/[0.06] bg-[#151821] p-4">
+						<div className="flex items-center justify-between gap-4">
+							<div className="min-w-0">
+								<p className="text-sm font-medium text-foreground">Remove watermark</p>
+								<p className="mt-0.5 text-xs text-muted-foreground">{isFree ? "Free clips carry a riocut.com watermark." : "Your plan exports clean clips."}</p>
+							</div>
+							<button
+								type="button"
+								role="switch"
+								aria-checked={!isFree}
+								aria-label="Remove watermark"
+								onClick={() => {
 								if (isFree) openUpgrade("Remove the watermark");
 							}}
-							className={cn(
-								"relative h-5 w-9 shrink-0 rounded-full transition-colors",
-								!isFree ? "bg-teal-500" : "bg-white/10",
-							)}
-						>
-							<span
 								className={cn(
-									"absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow-sm transition-transform",
-									!isFree && "translate-x-4",
+									"relative h-5 w-9 shrink-0 rounded-full transition-colors",
+									!isFree ? "bg-teal-500" : "bg-white/10",
 								)}
-							/>
-						</button>
+							>
+								<span
+									className={cn(
+										"absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow-sm transition-transform",
+										!isFree && "translate-x-4",
+									)}
+								/>
+							</button>
+						</div>
 					</div>
 
 					{/* Auto-publish schedule — post finished clips to connected socials. */}
 					<div className="mt-3 rounded-xl border border-white/[0.06] bg-[#151821] p-4">
-						<div className="flex items-center gap-3">
-							<span className="grid size-9 shrink-0 place-items-center rounded-lg bg-teal-400/10 text-teal-300">
-								<CalendarClock className="size-4" />
-							</span>
-							<div className="min-w-0 flex-1">
-								<p className="text-sm font-medium">Auto-publish schedule</p>
-								<p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-									Post finished clips to your socials automatically.
-								</p>
+						<div className="flex items-center justify-between gap-4">
+							<div className="min-w-0">
+								<p className="text-sm font-medium text-foreground">Auto-publish schedule</p>
+								<p className="mt-0.5 text-xs text-muted-foreground">Post finished clips to your socials.</p>
 							</div>
 							<button
 								type="button"
